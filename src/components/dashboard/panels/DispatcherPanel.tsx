@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import CriticalAlertPopup from "@/components/dashboard/CriticalAlertPopup";
+import { generateMapVehicles } from "@/hooks/useDashboardData";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -9,6 +11,8 @@ import type {
   DashboardStats,
   AlertLevel,
 } from "@/types/dashboard";
+
+const MAP_VEHICLES = generateMapVehicles();
 
 interface DispatcherPanelProps {
   tab: DispatcherTab;
@@ -71,27 +75,28 @@ const LEVEL_ICONS: Record<AlertLevel, { name: string; color: string }> = {
   critical: { name: "AlertOctagon", color: "text-red-500" },
 };
 
-const MAP_VEHICLES = [
-  { id: "V001", number: "412", route: "5", x: 22, y: 35, status: "ok", label: "Иванов А." },
-  { id: "V002", number: "318", route: "3", x: 45, y: 55, status: "ok", label: "Сидоров К." },
-  { id: "V003", number: "205", route: "7", x: 68, y: 28, status: "warning", label: "Петрова Н." },
-  { id: "V004", number: "511", route: "11", x: 30, y: 72, status: "critical", label: "Козлов Р." },
-  { id: "V005", number: "720", route: "9", x: 58, y: 68, status: "critical", label: "Белов Д." },
-  { id: "V006", number: "415", route: "5", x: 78, y: 45, status: "ok", label: "Новиков С." },
-  { id: "V007", number: "603", route: "9", x: 15, y: 60, status: "warning", label: "Фёдорова О." },
-];
+
 
 function OverviewView({
   stats,
   messages,
   drivers,
+  alerts,
   onOpenMessages,
+  onSendMessage,
+  onMarkMessageRead,
+  onResolveAlert,
+  userName,
 }: {
   stats: DashboardStats;
   alerts: Alert[];
   messages: DispatchMessage[];
   drivers: DriverInfo[];
   onOpenMessages?: () => void;
+  onSendMessage: (driverId: string, text: string) => void;
+  onMarkMessageRead: (id: string) => void;
+  onResolveAlert: (id: string, resolverName: string) => void;
+  userName: string;
 }) {
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [miniInput, setMiniInput] = useState("");
@@ -172,6 +177,15 @@ function OverviewView({
   const criticalCount = MAP_VEHICLES.filter((v) => v.status === "critical").length;
 
   return (
+    <>
+    <CriticalAlertPopup
+      messages={messages}
+      alerts={alerts}
+      onResolveAlert={onResolveAlert}
+      onMarkMessageRead={onMarkMessageRead}
+      onSendReply={onSendMessage}
+      userName={userName}
+    />
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-4">
         {statCards.map((card) => (
@@ -323,6 +337,7 @@ function OverviewView({
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1040,35 +1055,32 @@ export default function DispatcherPanel({
         messages={messages}
         drivers={drivers}
         onOpenMessages={onOpenMessages}
-      />
-    );
-  }
-  if (tab === "messages") {
-    return (
-      <MessagesView
-        messages={messages}
-        drivers={drivers}
         onSendMessage={onSendMessage}
         onMarkMessageRead={onMarkMessageRead}
-      />
-    );
-  }
-  if (tab === "notifications") {
-    return (
-      <NotificationsView
-        notifications={notifications}
-        onMarkNotificationRead={onMarkNotificationRead}
-      />
-    );
-  }
-  if (tab === "alerts") {
-    return (
-      <AlertsView
-        alerts={alerts}
         onResolveAlert={onResolveAlert}
         userName={userName}
       />
     );
+  }
+  const criticalPopup = (
+    <CriticalAlertPopup
+      messages={messages}
+      alerts={alerts}
+      onResolveAlert={onResolveAlert}
+      onMarkMessageRead={onMarkMessageRead}
+      onSendReply={onSendMessage}
+      userName={userName}
+    />
+  );
+
+  if (tab === "messages") {
+    return (<>{criticalPopup}<MessagesView messages={messages} drivers={drivers} onSendMessage={onSendMessage} onMarkMessageRead={onMarkMessageRead} /></>);
+  }
+  if (tab === "notifications") {
+    return (<>{criticalPopup}<NotificationsView notifications={notifications} onMarkNotificationRead={onMarkNotificationRead} /></>);
+  }
+  if (tab === "alerts") {
+    return (<>{criticalPopup}<AlertsView alerts={alerts} onResolveAlert={onResolveAlert} userName={userName} /></>);
   }
   return null;
 }
