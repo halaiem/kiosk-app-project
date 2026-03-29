@@ -54,7 +54,8 @@ export default function MainPage({
     <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden">
 
       {/* ═══ TOP BAR ═══ */}
-      <div className="flex items-center gap-2 kiosk-header flex-shrink-0 px-2 py-1.5">
+      <div className="flex items-center gap-2 flex-shrink-0 no-theme-transition px-[15px] py-[15px]"
+        style={{ backgroundColor: 'hsl(215 60% 16%)', color: 'white' }}>
 
         {/* LEFT: Menu + speed + connection + moving */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
