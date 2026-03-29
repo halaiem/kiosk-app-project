@@ -23,7 +23,7 @@ interface Props {
   onToggleTheme: () => void;
 }
 
-function HeaderWidget({ driver, speed, connection, isMoving, unreadCount, isDark, onOpenMenu, onToggleTheme }: {
+function HeaderWidget({ driver, speed, connection, isMoving, isDark, onToggleTheme }: {
   driver: Driver; speed: number; connection: ConnectionStatus;
   isMoving: boolean; unreadCount: number; isDark: boolean;
   onOpenMenu: () => void; onToggleTheme: () => void;
@@ -33,17 +33,6 @@ function HeaderWidget({ driver, speed, connection, isMoving, unreadCount, isDark
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 kiosk-header flex-shrink-0">
-      {/* Menu */}
-      <button onClick={onOpenMenu}
-        className="relative w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center ripple hover:bg-white/20 flex-shrink-0">
-        <Icon name="Menu" size={22} className="text-white" />
-        {unreadCount > 0 && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
-            {unreadCount}
-          </div>
-        )}
-      </button>
-
       {/* Logo / Route */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
@@ -190,16 +179,29 @@ export default function MainPage({
 
       {/* Bottom action bar */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 pb-3">
+
+        {/* MENU button — left bottom, large and prominent */}
+        <button onClick={onOpenMenu}
+          className="relative flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm ripple transition-all active:scale-95 elevation-3">
+          <Icon name="Menu" size={22} />
+          <span>Меню</span>
+          {unreadCount > 0 && (
+            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-white text-[11px] font-bold flex items-center justify-center elevation-2">
+              {unreadCount}
+            </div>
+          )}
+        </button>
+
         {/* Break */}
         <button onClick={onBreak}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-warning/15 text-warning-foreground border border-warning/30 font-medium text-sm ripple transition-all active:scale-95 elevation-1">
+          className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-warning/15 text-warning-foreground border border-warning/30 font-medium text-sm ripple transition-all active:scale-95 elevation-1">
           <Icon name="Coffee" size={18} />
           <span className="hidden sm:inline">Перерыв</span>
         </button>
 
         {/* End shift */}
         <button onClick={onEndShift}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 font-medium text-sm ripple transition-all active:scale-95 elevation-1">
+          className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-destructive/10 text-destructive border border-destructive/20 font-medium text-sm ripple transition-all active:scale-95 elevation-1">
           <Icon name="LogOut" size={18} />
           <span className="hidden sm:inline">Завершить смену</span>
         </button>
@@ -208,7 +210,7 @@ export default function MainPage({
 
         {/* Carrier logo — tap 5x to unlock kiosk */}
         <button onClick={onLogoTap}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border text-muted-foreground text-xs ripple transition-all active:scale-95">
+          className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card border border-border text-muted-foreground text-xs ripple transition-all active:scale-95 elevation-1">
           <Icon name="Building2" size={16} />
           <span className="hidden sm:inline">ТрансПарк</span>
         </button>
