@@ -1,6 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import CriticalAlertPopup from "@/components/dashboard/CriticalAlertPopup";
+import MapControls from "@/components/dashboard/MapControls";
+import MapVehicleCard from "@/components/dashboard/MapVehicleCard";
+import ReportButton from "@/components/dashboard/ReportButton";
+import type { MapVehicleInfo } from "@/components/dashboard/MapVehicleCard";
 import { generateMapVehicles } from "@/hooks/useDashboardData";
 import type {
   DispatcherTab,
@@ -12,7 +16,7 @@ import type {
   AlertLevel,
 } from "@/types/dashboard";
 
-const MAP_VEHICLES = generateMapVehicles();
+const ALL_MAP_VEHICLES: MapVehicleInfo[] = generateMapVehicles();
 
 interface DispatcherPanelProps {
   tab: DispatcherTab;
@@ -99,8 +103,9 @@ function OverviewView({
   userName: string;
 }) {
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<MapVehicleInfo | null>(null);
+  const [filteredVehicles, setFilteredVehicles] = useState<MapVehicleInfo[]>(ALL_MAP_VEHICLES);
   const [miniInput, setMiniInput] = useState("");
-  const [miniDriver, setMiniDriver] = useState("");
   const [miniSelectedThread, setMiniSelectedThread] = useState<string | null>(null);
 
   const statCards = [
@@ -172,9 +177,9 @@ function OverviewView({
 
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0);
 
-  const okCount = MAP_VEHICLES.filter((v) => v.status === "ok").length;
-  const warningCount = MAP_VEHICLES.filter((v) => v.status === "warning").length;
-  const criticalCount = MAP_VEHICLES.filter((v) => v.status === "critical").length;
+  const okCount = ALL_MAP_VEHICLES.filter((v) => v.status === "ok").length;
+  const warningCount = ALL_MAP_VEHICLES.filter((v) => v.status === "warning").length;
+  const criticalCount = ALL_MAP_VEHICLES.filter((v) => v.status === "critical").length;
 
   return (
     <>
@@ -205,12 +210,19 @@ function OverviewView({
       </div>
 
       {/* MAP — full width */}
+      {selectedVehicle && (
+        <MapVehicleCard
+          vehicle={selectedVehicle}
+          onClose={() => setSelectedVehicle(null)}
+          onContact={(_num, _id) => { setMiniSelectedThread(_id); }}
+        />
+      )}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon name="MapPin" className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Карта транспорта</h3>
-            <span className="ml-1 text-xs text-muted-foreground">{MAP_VEHICLES.length} ТС</span>
+            <span className="ml-1 text-xs text-muted-foreground">{filteredVehicles.length} / {ALL_MAP_VEHICLES.length} ТС</span>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Норма ({okCount})</span>
@@ -218,7 +230,7 @@ function OverviewView({
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Критично ({criticalCount})</span>
           </div>
         </div>
-        <div className="map-container h-64 relative">
+        <div className="map-container h-72 relative">
           <div className="map-grid" />
           <div className="absolute h-px bg-white/10" style={{ top: "20%", left: 0, right: 0 }} />
           <div className="absolute h-px bg-white/10" style={{ top: "45%", left: 0, right: 0 }} />
@@ -228,17 +240,20 @@ function OverviewView({
           <div className="absolute w-px bg-white/10" style={{ left: "50%", top: 0, bottom: 0 }} />
           <div className="absolute w-px bg-white/10" style={{ left: "72%", top: 0, bottom: 0 }} />
           <div className="absolute w-px bg-white/10" style={{ left: "88%", top: 0, bottom: 0 }} />
-          {MAP_VEHICLES.map((v) => (
+          <MapControls vehicles={ALL_MAP_VEHICLES} onFilterChange={setFilteredVehicles} />
+          {filteredVehicles.map((v) => (
             <div key={v.id} className="absolute" style={{ left: `${v.x}%`, top: `${v.y}%`, transform: "translate(-50%, -50%)" }}
-              onMouseEnter={() => setHoveredVehicle(v.id)} onMouseLeave={() => setHoveredVehicle(null)}>
+              onMouseEnter={() => setHoveredVehicle(v.id)} onMouseLeave={() => setHoveredVehicle(null)}
+              onClick={() => setSelectedVehicle(v)}>
               <div className="relative">
-                {(v.status === "ok" || v.status === "critical") && (
-                  <span className={`absolute inset-0 rounded-full ${v.status === "ok" ? "bg-green-500/40" : "bg-red-500/40"} animate-pulse scale-[2.2]`} />
+                {v.status === "critical" && (
+                  <span className="absolute inset-0 rounded-full bg-red-500/40 animate-pulse scale-[2.2]" />
                 )}
-                <div className={`w-4 h-4 rounded-full relative z-10 cursor-pointer ${v.status === "ok" ? "bg-green-500" : v.status === "warning" ? "bg-yellow-400" : "bg-red-500"}`} />
+                <div className={`w-3.5 h-3.5 rounded-full relative z-10 cursor-pointer hover:scale-125 transition-transform ${v.status === "ok" ? "bg-green-500" : v.status === "warning" ? "bg-yellow-400" : "bg-red-500"}`} />
                 {hoveredVehicle === v.id && (
-                  <div className={`absolute z-10 bg-white text-gray-900 text-[11px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap pointer-events-none ${v.x > 60 ? "right-5 top-0" : "left-5 top-0"}`}>
+                  <div className={`absolute z-20 bg-popover text-popover-foreground text-[11px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap pointer-events-none border border-border ${v.x > 60 ? "right-5 top-0" : "left-5 top-0"}`}>
                     <span className="font-bold">Борт {v.number}</span> · М{v.route} · {v.label}
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Нажмите для подробностей</p>
                   </div>
                 )}
               </div>
@@ -795,6 +810,7 @@ function NotificationsView({
   onMarkNotificationRead: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<NotifFilter>("all");
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     let list = [...notifications].sort(
@@ -803,8 +819,12 @@ function NotificationsView({
     if (filter === "unread") list = list.filter((n) => !n.read);
     else if (filter === "info" || filter === "warning" || filter === "critical")
       list = list.filter((n) => n.level === filter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+    }
     return list;
-  }, [notifications, filter]);
+  }, [notifications, filter, search]);
 
   const filters: { key: NotifFilter; label: string }[] = [
     { key: "all", label: "Все" },
@@ -830,6 +850,13 @@ function NotificationsView({
             {f.label}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="relative">
+            <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск..." className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-36" />
+          </div>
+          <ReportButton filename="notifications" data={notifications} />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -904,6 +931,7 @@ function AlertsView({
   userName: string;
 }) {
   const [filter, setFilter] = useState<AlertFilter>("all");
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     let list = [...alerts].sort(
@@ -911,8 +939,12 @@ function AlertsView({
     );
     if (filter === "unresolved") list = list.filter((a) => !a.resolved);
     else if (filter === "resolved") list = list.filter((a) => a.resolved);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((a) => a.driverName.toLowerCase().includes(q) || a.vehicleNumber.includes(q) || a.routeNumber.includes(q) || a.message.toLowerCase().includes(q));
+    }
     return list;
-  }, [alerts, filter]);
+  }, [alerts, filter, search]);
 
   const filterButtons: { key: AlertFilter; label: string }[] = [
     { key: "all", label: "Все" },
@@ -936,9 +968,14 @@ function AlertsView({
             {f.label}
           </button>
         ))}
-        <span className="ml-auto text-xs text-muted-foreground">
-          {filtered.length} записей
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{filtered.length} записей</span>
+          <div className="relative">
+            <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Борт, водитель..." className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-36" />
+          </div>
+          <ReportButton filename="alerts" data={alerts} />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

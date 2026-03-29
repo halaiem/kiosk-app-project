@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
+import ReportButton from "@/components/dashboard/ReportButton";
 import type {
   TechnicianTab,
   RouteInfo,
@@ -121,9 +122,15 @@ const SCHEDULE_STATUS_LABELS: Record<ScheduleEntry["status"], string> = {
 
 function RoutesView({ routes }: { routes: RouteInfo[] }) {
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
   const totalDistance = useMemo(() => routes.reduce((s, r) => s + r.distance, 0), [routes]);
   const totalStops = useMemo(() => routes.reduce((s, r) => s + r.stopsCount, 0), [routes]);
   const activeCount = useMemo(() => routes.filter((r) => r.isActive).length, [routes]);
+  const filtered = useMemo(() => {
+    if (!search.trim()) return routes;
+    const q = search.toLowerCase();
+    return routes.filter((r) => r.number.includes(q) || r.name.toLowerCase().includes(q));
+  }, [routes, search]);
 
   const summaryCards = [
     { icon: "Route", value: routes.length, label: "Всего маршрутов", color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -147,14 +154,21 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
             </div>
           ))}
         </div>
-        <button onClick={() => setShowForm(true)} className="ml-4 shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-          <Icon name="Plus" className="w-4 h-4" />
-          Добавить маршрут
-        </button>
+        <div className="ml-4 flex items-center gap-2 shrink-0">
+          <div className="relative">
+            <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Маршрут..." className="h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-36" />
+          </div>
+          <ReportButton filename="routes" data={routes} />
+          <button onClick={() => setShowForm(true)} className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Icon name="Plus" className="w-4 h-4" />
+            Добавить
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {routes.map((route) => (
+        {filtered.map((route) => (
           <div key={route.id} className="bg-card border border-border rounded-2xl p-5 flex gap-4">
             <div
               className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-lg font-bold text-white ${
@@ -260,14 +274,19 @@ function DocumentsView({
 }) {
   const [filter, setFilter] = useState<DocFilter>("all");
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    const list = [...documents].sort(
+    let list = [...documents].sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-    if (filter === "all") return list;
-    return list.filter((d) => d.status === filter);
-  }, [documents, filter]);
+    if (filter !== "all") list = list.filter((d) => d.status === filter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((d) => d.title.toLowerCase().includes(q) || d.author.toLowerCase().includes(q));
+    }
+    return list;
+  }, [documents, filter, search]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: documents.length };
@@ -300,10 +319,17 @@ function DocumentsView({
             <span className="ml-1 opacity-60">({counts[f.key] ?? 0})</span>
           </button>
         ))}
-        <button onClick={() => setShowForm(true)} className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-          <Icon name="Plus" className="w-3.5 h-3.5" />
-          Новый документ
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="relative">
+            <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Документ..." className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-36" />
+          </div>
+          <ReportButton filename="documents" data={documents} />
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+            <Icon name="Plus" className="w-3.5 h-3.5" />
+            Новый
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -426,19 +452,41 @@ function DocumentsView({
 
 function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | VehicleInfo["type"]>("all");
   const isOverdue = (date: Date) => new Date(date).getTime() < Date.now();
+
+  const filteredVehicles = useMemo(() => {
+    let list = vehicles;
+    if (typeFilter !== "all") list = list.filter((v) => v.type === typeFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((v) => v.number.includes(q) || v.routeNumber.includes(q) || v.driverName.toLowerCase().includes(q));
+    }
+    return list;
+  }, [vehicles, search, typeFilter]);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-foreground">Транспортные средства</h2>
+      <div className="flex items-center gap-3">
+        <h2 className="text-base font-semibold text-foreground flex-1">Транспортные средства</h2>
+        {(["all", "tram", "trolleybus", "bus"] as const).map((t) => (
+          <button key={t} onClick={() => setTypeFilter(t)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+            {t === "all" ? "Все" : t === "tram" ? "Трамваи" : t === "trolleybus" ? "Тролл." : "Автобусы"}
+          </button>
+        ))}
+        <div className="relative">
+          <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Борт, маршрут..." className="h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-40" />
+        </div>
+        <ReportButton filename="vehicles" data={vehicles} />
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
           <Icon name="Plus" className="w-4 h-4" />
           Добавить ТС
         </button>
       </div>
       <div className="grid grid-cols-2 desktop:grid-cols-3 gap-4">
-      {vehicles.length === 0 ? (
+      {filteredVehicles.length === 0 ? (
         <div className="col-span-full flex items-center justify-center py-16 bg-card border border-border rounded-2xl">
           <div className="text-center">
             <Icon name="Bus" className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
@@ -446,7 +494,7 @@ function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
           </div>
         </div>
       ) : (
-        vehicles.map((v) => (
+        filteredVehicles.map((v) => (
           <div key={v.id} className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -636,9 +684,10 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
             </button>
           ))}
         </div>
+        <ReportButton filename="drivers" data={drivers} />
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0">
           <Icon name="UserPlus" className="w-4 h-4" />
-          Добавить водителя
+          Добавить
         </button>
       </div>
 
@@ -761,13 +810,18 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
 
 function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
 
-  const sorted = useMemo(
-    () => [...schedule].sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [schedule]
-  );
+  const sorted = useMemo(() => {
+    let list = [...schedule].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((e) => e.driverName.toLowerCase().includes(q) || e.routeNumber.includes(q) || e.vehicleNumber.includes(q));
+    }
+    return list;
+  }, [schedule, search]);
 
   const summary = useMemo(() => {
     const s = { total: schedule.length, active: 0, planned: 0, completed: 0, cancelled: 0 };
@@ -789,10 +843,17 @@ function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
           <Icon name="Calendar" className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">{todayStr}</span>
         </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-          <Icon name="Plus" className="w-4 h-4" />
-          Добавить смену
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Водитель, маршрут..." className="h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-40" />
+          </div>
+          <ReportButton filename="schedule" data={schedule} />
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Icon name="Plus" className="w-4 h-4" />
+            Добавить смену
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">

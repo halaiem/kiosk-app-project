@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
+import ReportButton from "@/components/dashboard/ReportButton";
 import type {
   AdminTab,
   ServerInfo,
@@ -69,6 +70,7 @@ function UsersView() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState("");
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
 
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
@@ -76,9 +78,13 @@ function UsersView() {
   const [newPassword, setNewPassword] = useState("");
 
   const filtered = useMemo(() => {
-    if (roleFilter === "all") return DEMO_USERS;
-    return DEMO_USERS.filter((u) => u.user.role === roleFilter);
-  }, [roleFilter]);
+    let list = roleFilter === "all" ? DEMO_USERS : DEMO_USERS.filter((u) => u.user.role === roleFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((u) => u.user.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q));
+    }
+    return list;
+  }, [roleFilter, search]);
 
   const filters: { key: RoleFilter; label: string }[] = [
     { key: "all", label: "Все" },
@@ -121,13 +127,20 @@ function UsersView() {
               {f.label}
             </button>
           ))}
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Icon name="UserPlus" className="w-3.5 h-3.5" />
-            Добавить
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Имя, ID..." className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" />
+            </div>
+            <ReportButton filename="users" data={DEMO_USERS.map(u => ({ id: u.id, name: u.user.name, role: u.user.role }))} />
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Icon name="UserPlus" className="w-3.5 h-3.5" />
+              Добавить
+            </button>
+          </div>
         </div>
 
         {showAddForm && (
@@ -488,18 +501,21 @@ function ServersView({ servers }: { servers: ServerInfo[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
-        {summaryCards.map((card) => (
-          <div key={card.label} className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
-            <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}>
-              <Icon name={card.icon} className={`w-5 h-5 ${card.color}`} />
+      <div className="flex items-start gap-4">
+        <div className="grid grid-cols-3 gap-4 flex-1">
+          {summaryCards.map((card) => (
+            <div key={card.label} className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}>
+                <Icon name={card.icon} className={`w-5 h-5 ${card.color}`} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{card.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xl font-bold text-foreground">{card.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <ReportButton filename="servers" data={servers} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -646,9 +662,10 @@ function LogsView({ logs }: { logs: AuditLog[] }) {
             className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {filtered.length} записей
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{filtered.length} записей</span>
+          <ReportButton filename="audit_logs" data={logs} />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
