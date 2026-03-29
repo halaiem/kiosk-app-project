@@ -1,0 +1,93 @@
+import { useState, useMemo } from 'react';
+import { useDashboardAuth } from '@/hooks/useDashboardAuth';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import DashboardLogin from '@/components/dashboard/DashboardLogin';
+import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
+import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
+import AdminPanel from '@/components/dashboard/panels/AdminPanel';
+import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab } from '@/types/dashboard';
+
+const DEFAULT_TABS: Record<string, DashboardTab> = {
+  dispatcher: 'overview',
+  technician: 'routes',
+  admin: 'users',
+};
+
+export default function Dashboard() {
+  const { user, error, login, logout, getRoleName } = useDashboardAuth();
+  const data = useDashboardData();
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+
+  const handleLogin = (id: string, password: string) => {
+    const success = login(id, password);
+    if (success) {
+      const found = ['dispatcher', 'technician', 'admin'].find((r) => id.startsWith(r[0].toUpperCase()));
+      if (found) setActiveTab(DEFAULT_TABS[found]);
+    }
+    return success;
+  };
+
+  const handleLogout = () => {
+    logout();
+    setActiveTab('overview');
+  };
+
+  const counts = useMemo(() => ({
+    messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
+    notifications: data.notifications.filter((n) => !n.read).length,
+    alerts: data.alerts.filter((a) => !a.resolved).length,
+  }), [data.messages, data.notifications, data.alerts]);
+
+  if (!user) {
+    return <DashboardLogin onLogin={handleLogin} error={error} />;
+  }
+
+  return (
+    <div className="flex h-full bg-background text-foreground overflow-hidden">
+      <DashboardSidebar
+        user={user}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onLogout={handleLogout}
+        getRoleName={getRoleName}
+        counts={counts}
+      />
+      <main className="flex-1 overflow-auto p-6">
+        {user.role === 'dispatcher' && (
+          <DispatcherPanel
+            tab={activeTab as DispatcherTab}
+            messages={data.messages}
+            notifications={data.notifications}
+            alerts={data.alerts}
+            drivers={data.drivers}
+            stats={data.stats}
+            onSendMessage={data.sendMessage}
+            onMarkMessageRead={data.markMessageRead}
+            onResolveAlert={data.resolveAlert}
+            onMarkNotificationRead={data.markNotificationRead}
+            userName={user.name}
+          />
+        )}
+        {user.role === 'technician' && (
+          <TechnicianPanel
+            tab={activeTab as TechnicianTab}
+            routes={data.routes}
+            documents={data.documents}
+            vehicles={data.vehicles}
+            drivers={data.drivers}
+            schedule={data.schedule}
+            onUpdateDocumentStatus={data.updateDocumentStatus}
+          />
+        )}
+        {user.role === 'admin' && (
+          <AdminPanel
+            tab={activeTab as AdminTab}
+            servers={data.servers}
+            logs={data.logs}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
