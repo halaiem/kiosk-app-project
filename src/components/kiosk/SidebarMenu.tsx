@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
-import { Driver, MenuSection } from '@/types/kiosk';
+import { Driver, MenuSection, ThemeMode } from '@/types/kiosk';
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +12,13 @@ interface Props {
   onLogout: () => void;
   logoTapCount: number;
   onLogoTap: () => void;
+  theme: ThemeMode;
+  isDark: boolean;
+  darkFrom: number;
+  darkTo: number;
+  onSetTheme: (t: ThemeMode) => void;
+  onSetDarkFrom: (h: number) => void;
+  onSetDarkTo: (h: number) => void;
 }
 
 const MENU_ITEMS: { id: MenuSection; label: string; icon: string; desc: string }[] = [
@@ -108,24 +115,120 @@ function NotificationsSection({ unreadCount }: { unreadCount: number }) {
   );
 }
 
-function SettingsSection() {
+function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo }: {
+  theme: ThemeMode; isDark: boolean; darkFrom: number; darkTo: number;
+  onSetTheme: (t: ThemeMode) => void;
+  onSetDarkFrom: (h: number) => void;
+  onSetDarkTo: (h: number) => void;
+}) {
+  const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string; desc: string }[] = [
+    { value: 'light', label: 'Светлая', icon: 'Sun', desc: 'Всегда светлый режим' },
+    { value: 'dark', label: 'Тёмная', icon: 'Moon', desc: 'Всегда тёмный режим' },
+    { value: 'auto', label: 'Авто', icon: 'Clock', desc: 'По расписанию' },
+  ];
+
+  const fmtH = (h: number) => `${String(h).padStart(2, '0')}:00`;
+
   return (
-    <div className="space-y-2">
-      {[
-        { label: 'Яркость экрана', icon: 'Sun', value: '80%' },
-        { label: 'Громкость уведомлений', icon: 'Volume2', value: '70%' },
-        { label: 'Язык интерфейса', icon: 'Globe', value: 'Русский' },
-        { label: 'Тема оформления', icon: 'Palette', value: 'Авто' },
-        { label: 'Wi-Fi', icon: 'Wifi', value: 'Подключён' },
-        { label: 'Bluetooth', icon: 'Bluetooth', value: 'Активен' },
-      ].map(s => (
-        <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-muted">
-          <Icon name={s.icon} size={18} className="text-primary" />
-          <span className="text-sm text-foreground flex-1">{s.label}</span>
-          <span className="text-sm text-muted-foreground">{s.value}</span>
-          <Icon name="ChevronRight" size={14} className="text-muted-foreground" />
+    <div className="space-y-4">
+      {/* Theme mode selector */}
+      <div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <Icon name="Palette" size={13} />
+          Режим темы
         </div>
-      ))}
+        <div className="grid grid-cols-3 gap-2">
+          {THEME_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onSetTheme(opt.value)}
+              className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border transition-all ripple text-center
+                ${theme === opt.value
+                  ? 'bg-primary/20 border-primary text-sidebar-primary'
+                  : 'bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80'}`}
+            >
+              <Icon name={opt.icon} size={20} className={theme === opt.value ? 'text-sidebar-primary' : 'text-sidebar-foreground/60'} />
+              <span className="text-xs font-semibold leading-tight">{opt.label}</span>
+              <span className="text-[9px] opacity-60 leading-tight">{opt.desc}</span>
+              {theme === opt.value && (
+                <div className="w-1.5 h-1.5 rounded-full bg-sidebar-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+        {/* Current state badge */}
+        <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar-accent text-xs text-sidebar-foreground/70">
+          <Icon name={isDark ? 'Moon' : 'Sun'} size={13} className={isDark ? 'text-blue-400' : 'text-yellow-400'} />
+          <span>Сейчас активен: <strong className="text-sidebar-foreground">{isDark ? 'тёмный' : 'светлый'}</strong> режим</span>
+        </div>
+      </div>
+
+      {/* Auto schedule — only when auto mode */}
+      {theme === 'auto' && (
+        <div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Icon name="Clock" size={13} />
+            Расписание тёмного режима
+          </div>
+          <div className="p-3 rounded-xl bg-sidebar-accent space-y-3">
+            <div className="flex items-center gap-3">
+              <Icon name="Moon" size={16} className="text-blue-400 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-xs text-sidebar-foreground/70 mb-1">Тёмная с (час)</div>
+                <input
+                  type="range"
+                  min={0} max={23}
+                  value={darkFrom}
+                  onChange={e => onSetDarkFrom(Number(e.target.value))}
+                  className="w-full accent-blue-500 h-2 rounded-full"
+                />
+                <div className="text-sm font-bold text-sidebar-foreground mt-1 tabular-nums">{fmtH(darkFrom)}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Icon name="Sun" size={16} className="text-yellow-400 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-xs text-sidebar-foreground/70 mb-1">Светлая с (час)</div>
+                <input
+                  type="range"
+                  min={0} max={23}
+                  value={darkTo}
+                  onChange={e => onSetDarkTo(Number(e.target.value))}
+                  className="w-full accent-yellow-500 h-2 rounded-full"
+                />
+                <div className="text-sm font-bold text-sidebar-foreground mt-1 tabular-nums">{fmtH(darkTo)}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-sidebar-foreground/50 text-center pt-1 border-t border-sidebar-border">
+              Тёмный: {fmtH(darkFrom)} — {fmtH(darkTo)} · Светлый: {fmtH(darkTo)} — {fmtH(darkFrom)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Other settings */}
+      <div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <Icon name="Settings" size={13} />
+          Планшет
+        </div>
+        <div className="space-y-1.5">
+          {[
+            { label: 'Яркость экрана', icon: 'Sun', value: '80%' },
+            { label: 'Громкость уведомлений', icon: 'Volume2', value: '70%' },
+            { label: 'Язык интерфейса', icon: 'Globe', value: 'Русский' },
+            { label: 'Wi-Fi', icon: 'Wifi', value: 'Подключён' },
+            { label: 'Bluetooth', icon: 'Bluetooth', value: 'Активен' },
+          ].map(s => (
+            <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent">
+              <Icon name={s.icon} size={16} className="text-sidebar-primary" />
+              <span className="text-sm text-sidebar-foreground flex-1">{s.label}</span>
+              <span className="text-xs text-sidebar-foreground/60">{s.value}</span>
+              <Icon name="ChevronRight" size={12} className="text-sidebar-foreground/30" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -238,7 +341,7 @@ function AdminSection() {
   );
 }
 
-export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap }: Props) {
+export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo }: Props) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
 
@@ -329,7 +432,7 @@ export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, acti
               </h3>
               {activeSection === 'profile' && <ProfileSection driver={driver} />}
               {activeSection === 'notifications' && <NotificationsSection unreadCount={unreadCount} />}
-              {activeSection === 'settings' && <SettingsSection />}
+              {activeSection === 'settings' && <SettingsSection theme={theme} isDark={isDark} darkFrom={darkFrom} darkTo={darkTo} onSetTheme={onSetTheme} onSetDarkFrom={onSetDarkFrom} onSetDarkTo={onSetDarkTo} />}
               {activeSection === 'archive' && <ArchiveSection />}
               {activeSection === 'support' && <SupportSection />}
               {activeSection === 'admin' && <AdminSection />}

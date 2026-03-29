@@ -42,6 +42,9 @@ export function useKioskState() {
   const [connection, setConnection] = useState<ConnectionStatus>('online');
   const [theme, setTheme] = useState<ThemeMode>('auto');
   const [isDark, setIsDark] = useState(false);
+  // Schedule: auto dark from hour X to Y
+  const [darkFrom, setDarkFrom] = useState(20);
+  const [darkTo, setDarkTo] = useState(6);
   const [isMoving, setIsMoving] = useState(true);
   const [speed, setSpeed] = useState(32);
   const [currentStopIndex, setCurrentStopIndex] = useState(3);
@@ -50,12 +53,16 @@ export function useKioskState() {
   const [kioskUnlocked, setKioskUnlocked] = useState(false);
   const [pendingImportant, setPendingImportant] = useState<Message | null>(null);
 
-  // Auto theme by time
+  // Auto theme by time schedule
   useEffect(() => {
     const updateTheme = () => {
       if (theme === 'auto') {
         const hour = new Date().getHours();
-        setIsDark(hour >= 20 || hour < 6);
+        // darkFrom > darkTo means overnight (e.g. 20:00–06:00)
+        const isNight = darkFrom > darkTo
+          ? (hour >= darkFrom || hour < darkTo)
+          : (hour >= darkFrom && hour < darkTo);
+        setIsDark(isNight);
       } else {
         setIsDark(theme === 'dark');
       }
@@ -63,7 +70,7 @@ export function useKioskState() {
     updateTheme();
     const interval = setInterval(updateTheme, 60000);
     return () => clearInterval(interval);
-  }, [theme]);
+  }, [theme, darkFrom, darkTo]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -162,6 +169,15 @@ export function useKioskState() {
 
   const unreadCount = messages.filter(m => !m.read).length;
 
+  // Cycle toggle: light → dark → auto
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'auto';
+      return 'light';
+    });
+  }, []);
+
   return {
     screen, setScreen,
     driver,
@@ -169,6 +185,9 @@ export function useKioskState() {
     connection,
     theme, setTheme,
     isDark,
+    darkFrom, setDarkFrom,
+    darkTo, setDarkTo,
+    toggleTheme,
     isMoving, setIsMoving,
     speed,
     currentStopIndex, setCurrentStopIndex,

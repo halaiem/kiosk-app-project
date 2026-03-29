@@ -3,7 +3,7 @@ import Icon from '@/components/ui/icon';
 import MapWidget from './MapWidget';
 import RouteStops from './RouteStops';
 import Messenger from './Messenger';
-import { Driver, Message, ConnectionStatus } from '@/types/kiosk';
+import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
 
 const FIRST_STOP = 'Депо Северное';
 const LAST_STOP = 'Депо Южное';
@@ -17,6 +17,7 @@ interface Props {
   connection: ConnectionStatus;
   unreadCount: number;
   isDark: boolean;
+  theme: ThemeMode;
   onOpenMenu: () => void;
   onSendMessage: (text: string) => void;
   onLogoTap: () => void;
@@ -37,7 +38,7 @@ function useClock() {
 
 export default function MainPage({
   driver, messages, speed, isMoving, currentStopIndex,
-  connection, unreadCount, isDark,
+  connection, unreadCount, isDark, theme,
   onOpenMenu, onSendMessage, onLogoTap, onBreak, onEndShift, onToggleTheme,
 }: Props) {
   const [interval] = useState(4);
@@ -148,11 +149,18 @@ export default function MainPage({
 
           <div className="w-px h-8 bg-white/20" />
 
-          {/* Theme toggle — icon only */}
+          {/* Theme toggle — cycles light → dark → auto */}
           <button onClick={onToggleTheme}
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center ripple active:scale-95 transition-all flex-shrink-0"
-            title={isDark ? 'Светлая тема' : 'Тёмная тема'}>
-            <Icon name={isDark ? 'Sun' : 'Moon'} size={18} className="text-white" />
+            className="flex flex-col items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 ripple active:scale-95 transition-all flex-shrink-0"
+            title={theme === 'light' ? 'Светлая → Тёмная' : theme === 'dark' ? 'Тёмная → Авто' : 'Авто → Светлая'}>
+            <Icon
+              name={theme === 'light' ? 'Sun' : theme === 'dark' ? 'Moon' : 'Clock'}
+              size={16}
+              className={theme === 'light' ? 'text-yellow-300' : theme === 'dark' ? 'text-blue-300' : 'text-white/70'}
+            />
+            <span className="text-[8px] text-white/50 leading-none mt-0.5">
+              {theme === 'light' ? 'день' : theme === 'dark' ? 'ночь' : 'авто'}
+            </span>
           </button>
 
           {/* Date + Time */}

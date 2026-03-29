@@ -30,12 +30,13 @@
     --ring: 213 94% 38%;
     --radius: 0.75rem;
 
-    /* Kiosk colors */
-    --kiosk-bg: 215 25% 93%;
+    /* Kiosk colors — light mode */
+    --kiosk-bg: 215 20% 91%;
     --kiosk-surface: 0 0% 100%;
     --kiosk-surface-variant: 210 20% 94%;
     --kiosk-on-surface: 215 28% 10%;
-    --kiosk-header: 213 94% 18%;
+    /* Header always dark-navy regardless of theme */
+    --kiosk-header-bg: 215 60% 16%;
     --kiosk-header-text: 0 0% 100%;
     --kiosk-accent: 38 92% 50%;
     --kiosk-online: 142 71% 45%;
@@ -76,7 +77,8 @@
     --kiosk-surface: 215 28% 10%;
     --kiosk-surface-variant: 215 25% 14%;
     --kiosk-on-surface: 210 20% 95%;
-    --kiosk-header: 215 28% 5%;
+    /* Header stays dark-navy in dark mode too */
+    --kiosk-header-bg: 215 60% 10%;
     --kiosk-header-text: 210 20% 95%;
     --kiosk-accent: 38 92% 55%;
     --kiosk-online: 142 71% 50%;
@@ -147,7 +149,7 @@
     background-color: hsl(var(--kiosk-bg));
   }
   .kiosk-header {
-    background-color: hsl(var(--kiosk-header));
+    background-color: hsl(var(--kiosk-header-bg));
     color: hsl(var(--kiosk-header-text));
   }
 }

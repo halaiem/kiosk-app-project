@@ -44,7 +44,7 @@ export default function Index() {
   };
 
   const handleToggleTheme = () => {
-    state.setTheme(state.isDark ? 'light' : 'dark');
+    state.toggleTheme();
   };
 
   const activeToasts = toasts
@@ -72,6 +72,7 @@ export default function Index() {
             connection={state.connection}
             unreadCount={state.unreadCount}
             isDark={state.isDark}
+            theme={state.theme}
             onOpenMenu={() => setMenuOpen(true)}
             onSendMessage={state.sendMessage}
             onLogoTap={handleLogoTap}
@@ -94,6 +95,13 @@ export default function Index() {
             onLogout={handleEndShift}
             logoTapCount={state.logoTapCount}
             onLogoTap={handleLogoTap}
+            theme={state.theme}
+            isDark={state.isDark}
+            darkFrom={state.darkFrom}
+            darkTo={state.darkTo}
+            onSetTheme={state.setTheme}
+            onSetDarkFrom={state.setDarkFrom}
+            onSetDarkTo={state.setDarkTo}
           />
 
           {/* Toast notifications — top right */}
