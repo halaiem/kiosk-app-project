@@ -1,48 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppScreen, Driver, Message, TelemetryPoint, ConnectionStatus, ThemeMode } from '@/types/kiosk';
-
-const MOCK_DRIVER: Driver = {
-  id: 'DRV-001',
-  name: 'Иванов Александр Петрович',
-  routeNumber: '5',
-  vehicleType: 'tram',
-  vehicleNumber: 'ТМ-3407',
-  shiftStart: '06:00',
-};
-
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: 'm1',
-    type: 'dispatcher',
-    text: 'Маршрут №5: на перегоне ул. Ленина — пл. Советская ремонтные работы. Скорость снизить до 15 км/ч.',
-    timestamp: new Date(Date.now() - 15 * 60000),
-    read: true,
-  },
-  {
-    id: 'm2',
-    type: 'normal',
-    text: 'Перерыв разрешён на конечной «Депо Северное» с 09:45 до 10:00.',
-    timestamp: new Date(Date.now() - 8 * 60000),
-    read: false,
-  },
-  {
-    id: 'm3',
-    type: 'can_error',
-    text: 'CAN: Предупреждение тормозной системы (код 0x2F14). Severity: warning',
-    timestamp: new Date(Date.now() - 3 * 60000),
-    read: false,
-    severity: 'warning',
-  },
-];
+import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
+import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, getStoredToken, getStoredDriver } from '@/api/driverApi';
 
 export function useKioskState() {
   const [screen, setScreen] = useState<AppScreen>('login');
-  const [driver, setDriver] = useState<Driver | null>(null);
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [driver, setDriver] = useState<Driver | null>(() => getStoredDriver());
+  const [messages, setMessages] = useState<Message[]>([]);
   const [connection, setConnection] = useState<ConnectionStatus>('online');
   const [theme, setTheme] = useState<ThemeMode>('auto');
   const [isDark, setIsDark] = useState(false);
-  // Schedule: auto dark from hour X to Y
   const [darkFrom, setDarkFrom] = useState(20);
   const [darkTo, setDarkTo] = useState(6);
   const [isMoving, setIsMoving] = useState(true);
@@ -52,13 +18,25 @@ export function useKioskState() {
   const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [kioskUnlocked, setKioskUnlocked] = useState(false);
   const [pendingImportant, setPendingImportant] = useState<Message | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const lastMessageIdRef = useRef(0);
+
+  // Restore session on mount
+  useEffect(() => {
+    const token = getStoredToken();
+    const storedDriver = getStoredDriver();
+    if (token && storedDriver) {
+      setDriver(storedDriver);
+      setScreen('main');
+    }
+  }, []);
 
   // Auto theme by time schedule
   useEffect(() => {
     const updateTheme = () => {
       if (theme === 'auto') {
         const hour = new Date().getHours();
-        // darkFrom > darkTo means overnight (e.g. 20:00–06:00)
         const isNight = darkFrom > darkTo
           ? (hour >= darkFrom || hour < darkTo)
           : (hour >= darkFrom && hour < darkTo);
@@ -76,7 +54,7 @@ export function useKioskState() {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
-  // Simulate telemetry
+  // Simulate telemetry speed
   useEffect(() => {
     if (screen !== 'main') return;
     const interval = setInterval(() => {
@@ -85,28 +63,68 @@ export function useKioskState() {
     return () => clearInterval(interval);
   }, [screen]);
 
-  // Simulate incoming messages
+  // Heartbeat every 30s
   useEffect(() => {
     if (screen !== 'main') return;
-    const timer = setTimeout(() => {
-      const importantMsg: Message = {
-        id: 'm_important_' + Date.now(),
-        type: 'important',
-        text: '⚠️ ВНИМАНИЕ! На пересечении ул. Садовая / пр. Мира — ДТП. Движение ограничено. Следуйте по объездному маршруту через ул. Комсомольскую.',
-        timestamp: new Date(),
-        read: false,
-        confirmed: false,
-      };
-      setPendingImportant(importantMsg);
-      setMessages(prev => [importantMsg, ...prev]);
-    }, 18000);
-    return () => clearTimeout(timer);
+    sendHeartbeat(undefined, undefined, speed);
+    const interval = setInterval(() => sendHeartbeat(undefined, undefined, speed), 30000);
+    return () => clearInterval(interval);
+  }, [screen, speed]);
+
+  // Poll messages every 5s
+  useEffect(() => {
+    if (screen !== 'main') return;
+    const poll = async () => {
+      try {
+        setConnection('online');
+        const newMsgs = await fetchMessages(lastMessageIdRef.current);
+        if (newMsgs.length > 0) {
+          const mapped: Message[] = newMsgs.map((m: {id: number; sender: string; text: string; type: string; isRead: boolean; createdAt: string}) => ({
+            id: String(m.id),
+            type: m.sender === 'dispatcher' ? 'dispatcher' : 'normal',
+            text: m.sender === 'driver' ? `[Водитель]: ${m.text}` : m.text,
+            timestamp: new Date(m.createdAt),
+            read: m.isRead,
+          }));
+          lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const fresh = mapped.filter(m => !existingIds.has(m.id));
+            const important = fresh.find(m => m.type === 'important');
+            if (important) setPendingImportant(important);
+            return [...prev, ...fresh];
+          });
+        }
+      } catch {
+        setConnection('offline');
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
   }, [screen]);
 
-  const login = useCallback((id: string, _password: string) => {
-    if (id.trim()) {
-      setDriver(MOCK_DRIVER);
+  const login = useCallback(async (pin: string, _password: string) => {
+    setLoginError(null);
+    setLoginLoading(true);
+    try {
+      const data = await loginByPin(pin);
+      const d: Driver = {
+        id: String(data.driver.id),
+        name: data.driver.name,
+        vehicleType: data.driver.vehicleType,
+        vehicleNumber: data.driver.vehicleNumber,
+        routeNumber: data.driver.routeNumber,
+        shiftStart: data.driver.shiftStart,
+      };
+      setDriver(d);
+      setMessages([]);
+      lastMessageIdRef.current = 0;
       setScreen('welcome');
+    } catch (e: unknown) {
+      setLoginError(e instanceof Error ? e.message : 'Ошибка входа');
+    } finally {
+      setLoginLoading(false);
     }
   }, []);
 
@@ -115,8 +133,11 @@ export function useKioskState() {
     setIsMoving(true);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await apiLogout();
     setDriver(null);
+    setMessages([]);
+    lastMessageIdRef.current = 0;
     setScreen('login');
     setIsMoving(false);
   }, []);
@@ -132,26 +153,20 @@ export function useKioskState() {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, read: true } : m));
   }, []);
 
-  const sendMessage = useCallback((text: string) => {
-    const msg: Message = {
-      id: 'm_out_' + Date.now(),
+  const sendMessage = useCallback(async (text: string) => {
+    const tempMsg: Message = {
+      id: 'tmp_' + Date.now(),
       type: 'dispatcher',
       text: `[Водитель]: ${text}`,
       timestamp: new Date(),
       read: true,
     };
-    setMessages(prev => [msg, ...prev]);
-    // Simulate reply
-    setTimeout(() => {
-      const reply: Message = {
-        id: 'm_reply_' + Date.now(),
-        type: 'dispatcher',
-        text: 'Принято. Продолжайте движение по графику.',
-        timestamp: new Date(),
-        read: false,
-      };
-      setMessages(prev => [reply, ...prev]);
-    }, 2500);
+    setMessages(prev => [...prev, tempMsg]);
+    try {
+      await apiSendMessage(text);
+    } catch {
+      // keep optimistic message
+    }
   }, []);
 
   const handleLogoTap = useCallback(() => {
@@ -169,7 +184,6 @@ export function useKioskState() {
 
   const unreadCount = messages.filter(m => !m.read).length;
 
-  // Cycle toggle: light → dark → auto
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
       if (prev === 'light') return 'dark';
@@ -194,6 +208,8 @@ export function useKioskState() {
     kioskUnlocked, setKioskUnlocked,
     pendingImportant,
     unreadCount,
+    loginError,
+    loginLoading,
     login,
     startShift,
     logout,

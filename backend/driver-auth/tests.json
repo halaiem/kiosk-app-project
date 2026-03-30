@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Login with valid PIN",
+      "method": "POST",
+      "path": "/?action=login",
+      "body": {"pin": "1234"},
+      "expectedStatus": 200,
+      "expectedBody": {"token": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login with invalid PIN",
+      "method": "POST",
+      "path": "/?action=login",
+      "body": {"pin": "0000"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get online drivers",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"drivers": [{"id": 1}]},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
