@@ -112,6 +112,7 @@ export default function Index() {
             onSetTheme={state.setTheme}
             onSetDarkFrom={state.setDarkFrom}
             onSetDarkTo={state.setDarkTo}
+            onSendMessage={state.sendMessage}
           />
 
           {/* Toast notifications — top right */}

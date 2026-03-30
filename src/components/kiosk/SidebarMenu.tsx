@@ -21,9 +21,10 @@ interface Props {
   onSetTheme: (t: ThemeMode) => void;
   onSetDarkFrom: (h: number) => void;
   onSetDarkTo: (h: number) => void;
+  onSendMessage?: (text: string) => void;
 }
 
-export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo }: Props) {
+export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo, onSendMessage }: Props) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -82,6 +83,7 @@ export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, acti
           onSetTheme={onSetTheme}
           onSetDarkFrom={onSetDarkFrom}
           onSetDarkTo={onSetDarkTo}
+          onSendMessage={onSendMessage}
         />
 
         <div className="p-4 border-t border-sidebar-border space-y-2">

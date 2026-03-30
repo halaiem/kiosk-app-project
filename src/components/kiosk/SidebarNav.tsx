@@ -30,11 +30,13 @@ interface SidebarNavProps {
   onSetTheme: (t: ThemeMode) => void;
   onSetDarkFrom: (h: number) => void;
   onSetDarkTo: (h: number) => void;
+  onSendMessage?: (text: string) => void;
 }
 
 export default function SidebarNav({
   driver, unreadCount, activeSection, sectionVisible, onSection,
   theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo,
+  onSendMessage,
 }: SidebarNavProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
@@ -88,7 +90,7 @@ export default function SidebarNav({
           {activeSection === 'notifications' && <NotificationsSection unreadCount={unreadCount} />}
           {activeSection === 'settings' && <SettingsSection theme={theme} isDark={isDark} darkFrom={darkFrom} darkTo={darkTo} onSetTheme={onSetTheme} onSetDarkFrom={onSetDarkFrom} onSetDarkTo={onSetDarkTo} />}
           {activeSection === 'archive' && <ArchiveSection />}
-          {activeSection === 'support' && <SupportSection />}
+          {activeSection === 'support' && <SupportSection onSendMessage={onSendMessage} />}
           {activeSection === 'admin' && <AdminSection />}
         </div>
       )}
