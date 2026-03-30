@@ -2,20 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
 import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, getStoredToken, getStoredDriver } from '@/api/driverApi';
 
-function getHexLightness(hex: string): number {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return (Math.max(r, g, b) + Math.min(r, g, b)) / 2 * 100;
-}
-
-function getStoredBrandColors() {
-  try {
-    const raw = localStorage.getItem('app_settings');
-    if (raw) return JSON.parse(raw)?.brandColors ?? null;
-  } catch { return null; }
-  return null;
-}
 
 export function useKioskState() {
   const [screen, setScreen] = useState<AppScreen>('login');
@@ -66,19 +52,7 @@ export function useKioskState() {
   }, [theme, darkFrom, darkTo]);
 
   useEffect(() => {
-    const apply = () => {
-      const brandColors = getStoredBrandColors();
-      const headerBg = brandColors?.headerBg;
-      if (headerBg?.startsWith('#') && headerBg.length === 7) {
-        const l = getHexLightness(headerBg);
-        document.documentElement.classList.toggle('dark', l <= 55);
-      } else {
-        document.documentElement.classList.toggle('dark', isDark);
-      }
-    };
-    apply();
-    window.addEventListener('storage', apply);
-    return () => window.removeEventListener('storage', apply);
+    document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
   // Simulate telemetry speed

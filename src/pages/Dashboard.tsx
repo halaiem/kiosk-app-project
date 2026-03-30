@@ -22,15 +22,16 @@ export default function Dashboard() {
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
-  // Theme is driven by brandColors brightness in AppSettingsContext.
-  // Manual toggle overrides via dashboardTheme only when brandColors haven't set class yet.
+  // Apply dashboard theme to <html> element
   useEffect(() => {
-    const colors = settings.brandColors;
-    if (colors?.sidebarBg?.startsWith('#')) return; // brightness-driven, skip
     const root = document.documentElement;
-    root.classList.toggle('dark', settings.dashboardTheme === 'dark');
+    if (settings.dashboardTheme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      root.classList.add('dark');
+    }
     return () => { root.classList.add('dark'); };
-  }, [settings.dashboardTheme, settings.brandColors]);
+  }, [settings.dashboardTheme]);
 
   const handleLogin = (id: string, password: string) => {
     const success = login(id, password);
