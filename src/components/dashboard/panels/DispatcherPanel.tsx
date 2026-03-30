@@ -272,6 +272,13 @@ function OverviewView({
   const [miniInput, setMiniInput] = useState("");
   const [miniSelectedThread, setMiniSelectedThread] = useState<string | null>(null);
   const [activePopup, setActivePopup] = useState<StatPopupData | null>(null);
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const clockTime = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const clockDate = now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
 
   const onlineDrivers = drivers.filter((d) => d.status === "on_shift" || d.status === "break");
   const unresolvedAlerts = alerts.filter((a) => !a.resolved);
@@ -398,7 +405,7 @@ function OverviewView({
       userName={userName}
     />
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         {statCards.map((card) => (
           <button
             key={card.label}
@@ -415,6 +422,16 @@ function OverviewView({
             <Icon name="ChevronRight" className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground mt-1 shrink-0 transition-colors" />
           </button>
         ))}
+        {/* Clock widget — same height, no bg/border */}
+        <div className="rounded-2xl p-5 flex items-start gap-4">
+          <div className="w-11 h-11 rounded-xl bg-muted/40 flex items-center justify-center shrink-0">
+            <Icon name="Clock" className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-2xl font-bold text-foreground tabular-nums leading-none">{clockTime}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 capitalize">{clockDate}</p>
+          </div>
+        </div>
       </div>
 
       {/* MAP — full width, Leaflet + SPb tiles */}
