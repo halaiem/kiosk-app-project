@@ -20,6 +20,8 @@ const DISPATCHER_ALERTS = [
   { id: 'da5', icon: 'Zap', color: 'bg-yellow-600', text: 'Внимание! Обрыв контактной сети у ост. «Площадь Мира». Остановитесь.', sub: 'Диспетчер Козлов В.Н.' },
 ];
 
+const isTablet = () => window.innerWidth >= 768 && window.innerWidth < 1024;
+
 export default function Index() {
   const state = useKioskState();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,14 +44,20 @@ export default function Index() {
 
   useEffect(() => {
     if (state.screen !== 'main') return;
-    const delay = 8000 + Math.random() * 7000;
+    const tablet = isTablet();
+    const delay = tablet
+      ? 20000 + Math.random() * 15000
+      : 8000 + Math.random() * 7000;
     const t = setTimeout(() => triggerRandomAlert(), delay);
     return () => clearTimeout(t);
   }, [state.screen, triggerRandomAlert]);
 
   useEffect(() => {
     if (!dispatcherAlert) return;
-    const interval = 40000 + Math.random() * 30000;
+    const tablet = isTablet();
+    const interval = tablet
+      ? 100000 + Math.random() * 80000
+      : 40000 + Math.random() * 30000;
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
   }, [dispatcherAlert?.id]);
