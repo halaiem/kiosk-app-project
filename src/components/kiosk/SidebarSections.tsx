@@ -483,30 +483,140 @@ function ContactMessengerPopup({ contact, onClose, onSend }: { contact: { name: 
 
 // ── Support Section ──────────────────────────────────────────────────────────
 const SUPPORT_CONTACTS = [
-  { name: 'Диспетчер линии', role: 'Оперативная связь', phone: '📞 +7-800-555-01', icon: 'Headset', color: 'bg-blue-500/15 text-blue-500' },
-  { name: 'Техподдержка', role: 'Ошибки оборудования', phone: '📞 +7-800-555-02', icon: 'Wrench', color: 'bg-orange-500/15 text-orange-500', hasTechList: true },
-  { name: 'Скорая помощь', role: 'Медицинская помощь', phone: '📞 103', icon: 'HeartPulse', color: 'bg-red-500/15 text-red-500' },
-  { name: 'МЧС', role: 'Пожар / ЧС', phone: '📞 101', icon: 'Flame', color: 'bg-red-600/15 text-red-600' },
-  { name: 'Полиция', role: 'Правопорядок / охрана', phone: '📞 102', icon: 'Shield', color: 'bg-blue-600/15 text-blue-600' },
+  { name: 'Диспетчер линии', role: 'Оперативная связь', phone: '+7-800-555-01', icon: 'Headset', color: 'bg-blue-500/15 text-blue-500', hasContact: true },
+  { name: 'Техподдержка', role: 'Ошибки оборудования', phone: '+7-800-555-02', icon: 'Wrench', color: 'bg-orange-500/15 text-orange-500', hasContact: true, hasTechList: true },
+  { name: 'Скорая помощь', role: 'Медицинская помощь', phone: '103', icon: 'HeartPulse', color: 'bg-red-500/15 text-red-500', hasContact: true },
+  { name: 'МЧС', role: 'Пожар / ЧС', phone: '101', icon: 'Flame', color: 'bg-red-600/15 text-red-600', hasContact: true },
+  { name: 'Полиция', role: 'Правопорядок / охрана', phone: '102', icon: 'Shield', color: 'bg-blue-600/15 text-blue-600', hasContact: true },
 ];
 
+type SupportModal = { type: 'contact'; contact: { name: string; role: string; phone: string } } | { type: 'equipment' } | null;
+
+function SupportContactModal({ contact, onClose, onSend }: { contact: { name: string; role: string; phone: string }; onClose: () => void; onSend: (text: string) => void }) {
+  const [message, setMessage] = useState('');
+  const send = () => { if (message.trim()) { onSend(message.trim()); setMessage(''); onClose(); } };
+  return (
+    <div className="fixed inset-0 z-[400] flex items-stretch justify-end" onClick={onClose}>
+      <div className="w-full max-w-lg h-full bg-card border-l border-border shadow-2xl flex flex-col animate-slide-from-right" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-border bg-muted/30">
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+            <Icon name="MessageSquare" size={24} className="text-blue-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-foreground">Связь с: {contact.name}</h2>
+            <p className="text-sm text-muted-foreground">{contact.role}</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 flex items-center justify-center ripple">
+            <Icon name="X" size={20} className="text-muted-foreground" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-4">
+            <Icon name="Phone" size={22} className="text-blue-500 flex-shrink-0" />
+            <div>
+              <div className="text-xs text-muted-foreground mb-0.5">Прямой номер</div>
+              <div className="text-2xl font-black text-foreground tabular-nums tracking-wide">📞 {contact.phone}</div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-2">Отправить сообщение</label>
+            <div className="space-y-2">
+              {['Прошу помощи', 'Неисправность ТС', 'Задержка на маршруте', 'Инцидент с пассажиром'].map(t => (
+                <button key={t} onClick={() => setMessage(t)} className={`w-full text-left px-4 py-3 rounded-xl border text-sm transition-all ripple ${message === t ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border bg-muted/50 text-foreground hover:border-primary/40'}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Или введите своё сообщение..."
+              rows={3}
+              className="mt-3 w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            />
+          </div>
+        </div>
+        <div className="p-6 border-t border-border flex gap-3">
+          <button onClick={onClose} className="flex-1 h-12 rounded-xl bg-muted text-muted-foreground font-medium ripple">Закрыть</button>
+          <button onClick={send} disabled={!message.trim()} className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-semibold ripple disabled:opacity-40 flex items-center justify-center gap-2">
+            <Icon name="Send" size={18} />
+            Отправить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupportEquipmentModal({ onClose, onSend }: { onClose: () => void; onSend: (text: string) => void }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [note, setNote] = useState('');
+  const items = ['Сенсорный дисплей не реагирует', 'GPS-сигнал отсутствует', 'Камера не работает', 'Принтер билетов', 'Валидаторы оплаты', 'Кондиционер', 'Двери (передние)', 'Двери (задние)', 'Освещение салона', 'Аудиосистема'];
+  const toggle = (v: string) => setSelected(s => s.includes(v) ? s.filter(x => x !== v) : [...s, v]);
+  const send = () => {
+    const text = `Заявка на тех. обслуживание:\n${selected.map(s => `• ${s}`).join('\n')}${note ? `\nПримечание: ${note}` : ''}`;
+    onSend(text); onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-[400] flex items-stretch justify-end" onClick={onClose}>
+      <div className="w-full max-w-lg h-full bg-card border-l border-border shadow-2xl flex flex-col animate-slide-from-right" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-5 border-b border-border bg-muted/30">
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+            <Icon name="Wrench" size={24} className="text-orange-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-foreground">Заявка в техподдержку</h2>
+            <p className="text-sm text-muted-foreground">Отметьте неисправности</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 flex items-center justify-center ripple">
+            <Icon name="X" size={20} className="text-muted-foreground" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {items.map(item => (
+            <button key={item} onClick={() => toggle(item)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border text-left transition-all ripple ${selected.includes(item) ? 'border-orange-500 bg-orange-500/10' : 'border-border bg-muted/40 hover:border-orange-500/40'}`}>
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${selected.includes(item) ? 'bg-orange-500 border-orange-500' : 'border-border'}`}>
+                {selected.includes(item) && <Icon name="Check" size={12} className="text-white" />}
+              </div>
+              <span className={`text-sm ${selected.includes(item) ? 'font-semibold text-orange-600' : 'text-foreground'}`}>{item}</span>
+            </button>
+          ))}
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Дополнительные подробности..."
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+        </div>
+        <div className="p-6 border-t border-border flex gap-3">
+          <button onClick={onClose} className="flex-1 h-12 rounded-xl bg-muted text-muted-foreground font-medium ripple">Закрыть</button>
+          <button onClick={send} disabled={selected.length === 0} className="flex-1 h-12 rounded-xl bg-orange-500 text-white font-semibold ripple disabled:opacity-40 flex items-center justify-center gap-2">
+            <Icon name="Send" size={18} />
+            Отправить заявку {selected.length > 0 && `(${selected.length})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SupportSection({ onSendMessage }: { onSendMessage?: (text: string) => void }) {
-  const [messengerContact, setMessengerContact] = useState<{ name: string; role: string } | null>(null);
-  const [showEquipment, setShowEquipment] = useState(false);
+  const [modal, setModal] = useState<SupportModal>(null);
 
   return (
     <div className="space-y-3">
-      {messengerContact && (
-        <ContactMessengerPopup
-          contact={messengerContact}
-          onClose={() => setMessengerContact(null)}
+      {modal?.type === 'contact' && (
+        <SupportContactModal
+          contact={modal.contact}
+          onClose={() => setModal(null)}
           onSend={(text) => { onSendMessage?.(text); }}
         />
       )}
-      {showEquipment && (
-        <EquipmentFaultPopup
-          onClose={() => setShowEquipment(false)}
-          onSend={(text) => { onSendMessage?.(text); setShowEquipment(false); }}
+      {modal?.type === 'equipment' && (
+        <SupportEquipmentModal
+          onClose={() => setModal(null)}
+          onSend={(text) => { onSendMessage?.(text); }}
         />
       )}
 
@@ -518,11 +628,11 @@ export function SupportSection({ onSendMessage }: { onSendMessage?: (text: strin
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-foreground">{c.name}</div>
             <div className="text-xs text-muted-foreground">{c.role}</div>
-            <div className="text-xs text-primary mt-0.5">{c.phone}</div>
+            <div className="text-xs text-primary mt-0.5">📞 {c.phone}</div>
           </div>
           <div className="flex flex-col gap-1 shrink-0">
             <button
-              onClick={() => setMessengerContact({ name: c.name, role: c.role })}
+              onClick={() => setModal({ type: 'contact', contact: { name: c.name, role: c.role, phone: c.phone } })}
               className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs ripple flex items-center gap-1"
             >
               <Icon name="MessageSquare" size={11} />
@@ -530,7 +640,7 @@ export function SupportSection({ onSendMessage }: { onSendMessage?: (text: strin
             </button>
             {c.hasTechList && (
               <button
-                onClick={() => setShowEquipment(true)}
+                onClick={() => setModal({ type: 'equipment' })}
                 className="px-2.5 py-1.5 rounded-lg bg-orange-500/20 text-orange-600 text-xs ripple flex items-center gap-1"
               >
                 <Icon name="List" size={11} />

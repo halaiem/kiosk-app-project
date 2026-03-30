@@ -89,10 +89,10 @@ export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, acti
         <div className="p-4 border-t border-sidebar-border space-y-2">
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-destructive hover:bg-destructive/10 transition-all ripple"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white text-[#152d52] border border-white/60 shadow font-semibold transition-all ripple hover:bg-white/90"
           >
             <Icon name="LogOut" size={18} />
-            <span className="text-sm font-medium">Завершить смену</span>
+            <span className="text-sm font-semibold">Завершить смену</span>
           </button>
 
           <div className="text-center">

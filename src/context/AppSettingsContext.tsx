@@ -50,7 +50,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
-  carrierName: 'ТрамДиспетч',
+  carrierName: 'ИРИДА',
   carrierLogo: null,
   city: 'spb',
   customCityName: '',

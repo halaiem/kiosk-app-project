@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useKioskState } from '@/hooks/useKioskState';
 import LoginPage from '@/components/kiosk/LoginPage';
 import WelcomeScreen from '@/components/kiosk/WelcomeScreen';
@@ -7,7 +7,16 @@ import SidebarMenu from '@/components/kiosk/SidebarMenu';
 import { ImportantMessageOverlay, MessageToast } from '@/components/kiosk/NotificationOverlay';
 import BreakModal from '@/components/kiosk/BreakModal';
 import KioskUnlockModal from '@/components/kiosk/KioskUnlockModal';
+import DispatcherAlert from '@/components/kiosk/DispatcherAlert';
 import { MenuSection } from '@/types/kiosk';
+
+const DISPATCHER_ALERTS = [
+  { id: 'da1', icon: 'AlertTriangle', color: 'bg-red-600', text: 'Срочно вернитесь в парк! Техническая проверка ТС.', sub: 'Диспетчер Иванова А.П.' },
+  { id: 'da2', icon: 'Construction', color: 'bg-orange-500', text: 'Объезд! Перекрыта ул. Садовая — ДТП. Следуйте по ул. Невской.', sub: 'Диспетчер Петров М.С.' },
+  { id: 'da3', icon: 'Clock', color: 'bg-blue-600', text: 'Задержитесь на конечной 10 мин — регулировка интервала.', sub: 'Диспетчер Смирнова Е.В.' },
+  { id: 'da4', icon: 'UserCheck', color: 'bg-purple-600', text: 'Ревизор на маршруте. Приготовьте путевой лист.', sub: 'Диспетчер Иванова А.П.' },
+  { id: 'da5', icon: 'Zap', color: 'bg-yellow-600', text: 'Внимание! Обрыв контактной сети у ост. «Площадь Мира». Остановитесь.', sub: 'Диспетчер Козлов В.Н.' },
+];
 
 export default function Index() {
   const state = useKioskState();
@@ -17,6 +26,30 @@ export default function Index() {
   const [breakOpen, setBreakOpen] = useState(false);
   const [kioskUnlockOpen, setKioskUnlockOpen] = useState(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
+  const [dispatcherAlert, setDispatcherAlert] = useState<typeof DISPATCHER_ALERTS[0] | null>(null);
+  const [shownAlerts, setShownAlerts] = useState<Set<string>>(new Set());
+
+  const triggerRandomAlert = useCallback(() => {
+    const unseen = DISPATCHER_ALERTS.filter(a => !shownAlerts.has(a.id));
+    const pool = unseen.length > 0 ? unseen : DISPATCHER_ALERTS;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    setDispatcherAlert(pick);
+    setShownAlerts(prev => new Set([...prev, pick.id]));
+  }, [shownAlerts]);
+
+  useEffect(() => {
+    if (state.screen !== 'main') return;
+    const delay = 8000 + Math.random() * 7000;
+    const t = setTimeout(() => triggerRandomAlert(), delay);
+    return () => clearTimeout(t);
+  }, [state.screen, triggerRandomAlert]);
+
+  useEffect(() => {
+    if (!dispatcherAlert) return;
+    const interval = 40000 + Math.random() * 30000;
+    const t = setTimeout(() => triggerRandomAlert(), interval);
+    return () => clearTimeout(t);
+  }, [dispatcherAlert?.id]);
 
   useEffect(() => {
     const latest = state.messages[0];
@@ -144,6 +177,13 @@ export default function Index() {
             onClose={() => setKioskUnlockOpen(false)}
             onUnlock={() => console.log('Kiosk unlocked')}
           />
+
+          {dispatcherAlert && (
+            <DispatcherAlert
+              alert={dispatcherAlert}
+              onConfirm={() => setDispatcherAlert(null)}
+            />
+          )}
         </>
       )}
     </div>

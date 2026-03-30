@@ -41,8 +41,8 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary elevation-3 mb-4">
             <Icon name="Tram" size={42} className="text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">ТрамДиспетч</h1>
-          <p className="text-muted-foreground text-sm mt-1">Система управления транспортом</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">ИРИДА</h1>
+          <p className="text-muted-foreground text-sm mt-1">Мобильное рабочее место</p>
         </div>
 
         <div className="kiosk-surface rounded-2xl elevation-3 p-8">

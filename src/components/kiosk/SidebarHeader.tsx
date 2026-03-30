@@ -35,7 +35,7 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
           <Icon name="Tram" size={26} className="text-sidebar-primary" />
         </div>
         <div>
-          <div className={`font-bold ${roleTextClass}`}>ТрамДиспетч</div>
+          <div className={`font-bold ${roleTextClass}`}>ИРИДА</div>
           <div className={`text-xs px-1.5 py-0.5 rounded font-medium inline-block ${roleBadgeClass}`}>
             Система водителя
           </div>

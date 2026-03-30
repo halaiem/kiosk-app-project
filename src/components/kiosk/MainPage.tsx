@@ -144,9 +144,10 @@ export default function MainPage({
 
           {/* End shift */}
           <button onClick={onEndShift}
-            className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/25 text-red-300 flex items-center justify-center ripple active:scale-95 transition-all"
+            className="flex items-center gap-2 px-3 h-10 rounded-xl bg-white text-[#152d52] font-semibold text-sm ripple active:scale-95 transition-all border border-white/80 shadow"
             title="Завершить смену">
-            <Icon name="LogOut" size={17} />
+            <Icon name="LogOut" size={16} />
+            <span className="hidden sm:inline">Завершить смену</span>
           </button>
         </div>
       </div>

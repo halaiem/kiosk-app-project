@@ -106,7 +106,7 @@ export default function DashboardSidebar({
               <Icon name="TramFront" className="w-4 h-4" style={{ color: "hsl(var(--sidebar-primary))" }} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight truncate">ТрамДиспетч</p>
+              <p className="text-sm font-bold leading-tight truncate">ИРИДА</p>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ROLE_BADGE_BG[user.role]} ${sidebarIsLight ? 'text-[#141414]' : 'text-white'}`}>
                 {getRoleName(user.role)}
               </span>

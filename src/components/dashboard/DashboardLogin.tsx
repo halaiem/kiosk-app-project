@@ -24,7 +24,7 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
               <Icon name="TramFront" className="w-8 h-8 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">
-              ТрамДиспетч
+              ИРИДА
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Панель управления</p>
           </div>
