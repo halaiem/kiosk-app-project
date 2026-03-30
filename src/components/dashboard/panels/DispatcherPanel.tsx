@@ -19,6 +19,187 @@ import type {
 
 const ALL_MAP_VEHICLES: MapVehicleInfo[] = generateMapVehicles();
 
+// ── Driver event types ───────────────────────────────────────────────────────
+type DriverEventType = "shift_start" | "shift_end" | "break" | "online" | "offline" | "gibdd";
+
+interface DriverEvent {
+  id: string;
+  type: DriverEventType;
+  driverName: string;
+  vehicleNumber: string;
+  routeNumber: string;
+  timestamp: Date;
+}
+
+const EVENT_CONFIG: Record<DriverEventType, { label: string; icon: string; color: string; bg: string; border: string }> = {
+  shift_start: { label: "Начало смены",   icon: "PlayCircle",    color: "text-green-600",  bg: "bg-green-500/10",  border: "border-green-500/30" },
+  shift_end:   { label: "Смена завершена",icon: "StopCircle",    color: "text-gray-500",   bg: "bg-gray-500/10",   border: "border-gray-400/30"  },
+  break:       { label: "Перерыв",        icon: "Coffee",        color: "text-yellow-600", bg: "bg-yellow-500/10", border: "border-yellow-500/30"},
+  online:      { label: "В сети",         icon: "Wifi",          color: "text-blue-500",   bg: "bg-blue-500/10",   border: "border-blue-500/30"  },
+  offline:     { label: "Офлайн",         icon: "WifiOff",       color: "text-red-500",    bg: "bg-red-500/10",    border: "border-red-500/30"   },
+  gibdd:       { label: "ГИБДД",          icon: "Shield",        color: "text-purple-600", bg: "bg-purple-500/10", border: "border-purple-500/30"},
+};
+
+function fmtEventTime(d: Date) {
+  return new Date(d).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Auto-popup for offline/online events
+function ConnectionEventPopup({ event, onClose }: { event: DriverEvent; onClose: () => void }) {
+  const [secs, setSecs] = useState(30);
+  const cfg = EVENT_CONFIG[event.type];
+
+  useEffect(() => {
+    if (secs <= 0) { onClose(); return; }
+    const t = setTimeout(() => setSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secs, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center pointer-events-none">
+      <div className={`pointer-events-auto bg-card border-2 ${cfg.border} rounded-2xl shadow-2xl px-6 py-5 w-80 animate-in fade-in zoom-in-95 duration-200`}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center shrink-0`}>
+            <Icon name={cfg.icon} className={`w-5 h-5 ${cfg.color}`} />
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${cfg.color}`}>{cfg.label}</p>
+            <p className="text-xs text-muted-foreground">{event.driverName}</p>
+          </div>
+          <button onClick={onClose} className="ml-auto w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center">
+            <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>Борт: <span className="text-foreground font-medium">#{event.vehicleNumber}</span></p>
+          <p>Маршрут: <span className="text-foreground font-medium">М{event.routeNumber}</span></p>
+          <p>Время: <span className="text-foreground font-medium">{fmtEventTime(event.timestamp)}</span></p>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full ${event.type === "offline" ? "bg-red-500" : "bg-blue-500"} transition-all duration-1000`} style={{ width: `${(secs / 30) * 100}%` }} />
+          </div>
+          <span className="text-[10px] text-muted-foreground tabular-nums">{secs}с</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Driver events scrolling block
+function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
+  const [events, setEvents] = useState<DriverEvent[]>(() => {
+    // Generate initial events from driver statuses
+    return drivers.slice(0, 12).map((d, i) => {
+      const types: DriverEventType[] = ["shift_start", "shift_end", "break", "online", "offline", "gibdd"];
+      const type = d.status === "on_shift" ? "shift_start"
+        : d.status === "break" ? "break"
+        : d.status === "off_shift" ? "shift_end"
+        : "offline";
+      const t = new Date();
+      t.setMinutes(t.getMinutes() - i * 4 - Math.floor(Math.random() * 3));
+      return { id: `init-${d.id}`, type, driverName: d.name, vehicleNumber: d.vehicleNumber, routeNumber: d.routeNumber, timestamp: t };
+    });
+  });
+
+  const [autoPopup, setAutoPopup] = useState<DriverEvent | null>(null);
+  const prevStatuses = useRef<Record<string, DriverInfo["status"]>>({});
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Detect status changes and generate events
+  useEffect(() => {
+    const newEvents: DriverEvent[] = [];
+    for (const d of drivers) {
+      const prev = prevStatuses.current[d.id];
+      if (prev !== undefined && prev !== d.status) {
+        const type: DriverEventType =
+          d.status === "on_shift" ? "online"
+          : d.status === "break" ? "break"
+          : d.status === "off_shift" ? "shift_end"
+          : "offline";
+        const ev: DriverEvent = { id: `${d.id}-${Date.now()}`, type, driverName: d.name, vehicleNumber: d.vehicleNumber, routeNumber: d.routeNumber, timestamp: new Date() };
+        newEvents.push(ev);
+        if (type === "offline" || type === "online") setAutoPopup(ev);
+      }
+      prevStatuses.current[d.id] = d.status;
+    }
+    if (newEvents.length > 0) {
+      setEvents(prev => [...newEvents, ...prev].slice(0, 50));
+    }
+  }, [drivers]);
+
+  // Simulate new events every 20s for demo
+  useEffect(() => {
+    if (drivers.length === 0) return;
+    const DEMO_EVENTS: { type: DriverEventType; suffix: string }[] = [
+      { type: "online", suffix: "вернулся в сеть" },
+      { type: "break", suffix: "ушёл на перерыв" },
+      { type: "shift_start", suffix: "начал смену" },
+      { type: "offline", suffix: "потерял связь" },
+      { type: "gibdd", suffix: "остановлен ГИБДД" },
+      { type: "shift_end", suffix: "завершил смену" },
+    ];
+    const t = setInterval(() => {
+      const d = drivers[Math.floor(Math.random() * drivers.length)];
+      const e = DEMO_EVENTS[Math.floor(Math.random() * DEMO_EVENTS.length)];
+      const ev: DriverEvent = { id: `demo-${Date.now()}`, type: e.type, driverName: d.name, vehicleNumber: d.vehicleNumber, routeNumber: d.routeNumber, timestamp: new Date() };
+      setEvents(prev => [ev, ...prev].slice(0, 50));
+      if (e.type === "offline" || e.type === "online") setAutoPopup(ev);
+    }, 20000);
+    return () => clearInterval(t);
+  }, [drivers]);
+
+  return (
+    <>
+      {autoPopup && <ConnectionEventPopup event={autoPopup} onClose={() => setAutoPopup(null)} />}
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col" style={{ gridColumn: "span 2" }}>
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
+          <Icon name="Activity" className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">События транспорта</h3>
+          <span className="ml-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{events.length}</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            {(["online","offline","break","shift_start","shift_end","gibdd"] as DriverEventType[]).map(type => (
+              <span key={type} className={`w-2 h-2 rounded-full ${EVENT_CONFIG[type].bg.replace('/10','').replace('bg-','bg-')}`}
+                style={{ backgroundColor: type === "online" ? "#3b82f6" : type === "offline" ? "#ef4444" : type === "break" ? "#eab308" : type === "shift_start" ? "#22c55e" : type === "shift_end" ? "#9ca3af" : "#9333ea" }}
+                title={EVENT_CONFIG[type].label}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Scrolling list */}
+        <div ref={listRef} className="overflow-y-auto flex-1" style={{ maxHeight: "11.5rem" }}>
+          {events.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+              <Icon name="Activity" className="w-5 h-5 mr-2 opacity-30" />
+              Нет событий
+            </div>
+          ) : events.map((ev) => {
+            const cfg = EVENT_CONFIG[ev.type];
+            return (
+              <div key={ev.id} className={`flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-muted/30 transition-colors`}>
+                <div className={`w-7 h-7 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                  <Icon name={cfg.icon} className={`w-3.5 h-3.5 ${cfg.color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border}`}>{cfg.label}</span>
+                    <span className="text-xs font-medium text-foreground truncate">{ev.driverName}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Борт #{ev.vehicleNumber} · М{ev.routeNumber}</p>
+                </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{fmtEventTime(ev.timestamp)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 // SPb tram/bus stops approximate positions
 const SPB_STOPS: [number, number][] = [
   [59.9505, 30.3165], [59.9447, 30.3200], [59.9390, 30.3235],
@@ -407,7 +588,14 @@ function OverviewView({
       userName={userName}
     />
     <div className="space-y-4">
-      <div className="grid grid-cols-5 gap-4">
+      {/* Driver events + stat widgets in one row: 2 + 4 + 1 = 7 cols */}
+      <div className="grid gap-4 items-start" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+        {/* Events block spans 2 cols */}
+        <div style={{ gridColumn: "span 2" }}>
+          <DriverEventsBlock drivers={drivers} />
+        </div>
+
+        {/* 4 stat cards */}
         {statCards.map((card) => (
           <button
             key={card.label}
@@ -424,7 +612,8 @@ function OverviewView({
             <Icon name="ChevronRight" className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground mt-1 shrink-0 transition-colors" />
           </button>
         ))}
-        {/* Clock widget — same height, no bg/border */}
+
+        {/* Clock widget */}
         <div className="rounded-2xl p-5 flex items-start gap-4">
           <div className="w-11 h-11 rounded-xl bg-muted/40 flex items-center justify-center shrink-0">
             <Icon name="Clock" className="w-5 h-5 text-muted-foreground" />
