@@ -712,6 +712,25 @@ function MiniMessenger({
   const isCriticalThread = (driverId: string) =>
     messages.some((m) => m.driverId === driverId && m.type === "urgent" && !m.read);
 
+  // Category by last unread incoming message:
+  // urgent → red, normal incoming unread → orange, read/outgoing → green
+  type MsgCategory = "red" | "orange" | "green" | "none";
+  const getThreadCategory = (thread: typeof threads[0]): MsgCategory => {
+    const unreadIncoming = messages.filter(
+      (m) => m.driverId === thread.driverId && m.direction === "incoming" && !m.read
+    );
+    if (unreadIncoming.length === 0) return "green";
+    if (unreadIncoming.some((m) => m.type === "urgent")) return "red";
+    return "orange";
+  };
+
+  const CATEGORY_STYLES: Record<MsgCategory, { bg: string; border: string; dot: string; avatarBg: string; avatarText: string }> = {
+    red:    { bg: "bg-red-500/8 hover:bg-red-500/14",    border: "border-l-red-500",    dot: "bg-red-500",    avatarBg: "bg-red-500/20",    avatarText: "text-red-500" },
+    orange: { bg: "bg-orange-500/8 hover:bg-orange-500/14", border: "border-l-orange-500", dot: "bg-orange-500", avatarBg: "bg-orange-500/20", avatarText: "text-orange-500" },
+    green:  { bg: "bg-green-500/5 hover:bg-green-500/10",  border: "border-l-green-500",  dot: "bg-green-500",  avatarBg: "bg-green-500/15",  avatarText: "text-green-600" },
+    none:   { bg: "hover:bg-muted/40",                      border: "",                    dot: "",              avatarBg: "bg-muted",          avatarText: "text-muted-foreground" },
+  };
+
   return (
     <>
       {popupThread && (
@@ -746,19 +765,30 @@ function MiniMessenger({
               <p className="text-sm text-muted-foreground p-4 text-center">Нет чатов</p>
             ) : threads.map((thread) => {
               const last = thread.lastMessage;
-              const isCritical = isCriticalThread(thread.driverId);
               const isSelected = miniSelectedThread === thread.driverId;
+              const cat = getThreadCategory(thread);
+              const hasUnread = thread.unreadCount > 0;
+              const st = hasUnread ? CATEGORY_STYLES[cat] : CATEGORY_STYLES["none"];
               return (
                 <button
                   key={thread.driverId}
                   onClick={() => setMiniSelectedThread(thread.driverId)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-border transition-colors relative ${isSelected ? "bg-primary/10" : isCritical ? "bg-red-500/5 hover:bg-red-500/10" : "hover:bg-muted/40"}`}
+                  className={`w-full text-left px-3 py-2.5 border-b border-border transition-all relative group ${
+                    isSelected ? "bg-primary/10" : hasUnread ? `${st.bg} border-l-2 ${st.border}` : "hover:bg-muted/40"
+                  }`}
                 >
-                  {isCritical && <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-red-500 rounded-r" />}
                   <div className="flex items-start gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 ${isCritical ? "bg-red-500/20 text-red-500" : thread.unreadCount > 0 ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                      {thread.vehicleNumber.slice(-2)}
+                    {/* Avatar with color dot */}
+                    <div className="relative shrink-0 mt-0.5">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${hasUnread ? `${st.avatarBg} ${st.avatarText}` : "bg-muted text-muted-foreground"}`}>
+                        {thread.vehicleNumber.slice(-2)}
+                      </div>
+                      {/* Color dot — always visible, shows category */}
+                      {cat !== "none" && (
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${st.dot} ${hasUnread ? "animate-pulse" : ""}`} />
+                      )}
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-bold text-foreground truncate">#{thread.vehicleNumber}</span>
@@ -767,19 +797,22 @@ function MiniMessenger({
                       <p className="text-[10px] text-primary font-medium">М{last.routeNumber} · {thread.driverName}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         {last.direction === "outgoing" && <MsgStatus msg={last} />}
-                        <p className={`text-[10px] truncate flex-1 ${last.type === "urgent" ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                        <p className={`text-[10px] truncate flex-1 ${cat === "red" && hasUnread ? "text-red-500 font-medium" : cat === "orange" && hasUnread ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
                           {last.direction === "outgoing" ? "Вы: " : ""}{last.text}
                         </p>
-                        {thread.unreadCount > 0 && (
-                          <span className="bg-red-500 text-white text-[9px] font-bold min-w-[15px] h-[15px] rounded-full flex items-center justify-center px-0.5 shrink-0">{thread.unreadCount}</span>
+                        {hasUnread && (
+                          <span className={`text-white text-[9px] font-bold min-w-[15px] h-[15px] rounded-full flex items-center justify-center px-0.5 shrink-0 ${st.dot}`}>
+                            {thread.unreadCount}
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
-                  {/* Open in popup */}
+
+                  {/* Open in popup — visible on hover */}
                   <button
                     onClick={(e) => { e.stopPropagation(); setPopupThread(thread); }}
-                    className="absolute right-2 top-2 w-6 h-6 rounded-md flex items-center justify-center bg-muted/60 hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                    className="absolute right-2 top-2 w-6 h-6 rounded-md flex items-center justify-center bg-muted/70 hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
                     title="Открыть чат"
                   >
                     <Icon name="Maximize2" className="w-3 h-3 text-muted-foreground" />
