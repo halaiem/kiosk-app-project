@@ -21,7 +21,7 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
         <div className="bg-card text-card-foreground rounded-2xl elevation-3 p-8">
           <div className="flex flex-col items-center mb-8">
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4 overflow-hidden">
-              <img src="/Znak.svg" alt="ИРИДА" className="w-10 h-10" />
+              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-10 h-10 object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">
               ИРИДА

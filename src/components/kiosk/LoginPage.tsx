@@ -39,7 +39,7 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
       <div className="animate-scale-in relative z-10 w-full max-w-md mx-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary elevation-3 mb-4">
-            <img src="/Znak.svg" alt="ИРИДА" className="w-12 h-12 text-primary-foreground" style={{ filter: 'brightness(0) invert(1)' }} />
+            <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-12 h-12 object-contain" />
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">ИРИДА</h1>
           <p className="text-muted-foreground text-sm mt-1">Мобильное рабочее место</p>

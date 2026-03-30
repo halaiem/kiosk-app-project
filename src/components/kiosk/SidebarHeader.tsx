@@ -32,7 +32,7 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
     <div className="p-5 border-b border-sidebar-border bg-gradient-to-br from-primary/20 to-transparent">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center overflow-hidden">
-          <img src="/Znak.svg" alt="ИРИДА" className="w-8 h-8" style={{ color: 'hsl(var(--sidebar-primary))' }} />
+          <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-8 h-8 object-contain" />
         </div>
         <div>
           <div className={`font-bold ${roleTextClass}`}>ИРИДА</div>
