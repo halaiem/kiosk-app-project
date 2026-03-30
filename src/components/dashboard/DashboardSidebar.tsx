@@ -1,6 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole } from "@/types/dashboard";
+
+function useSidebarLight() {
+  const [isLight, setIsLight] = useState(true);
+  useEffect(() => {
+    const check = () => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-background').trim();
+      // HSL format: "H S% L%"
+      const match = raw.match(/(\d+)\s+([\d.]+)%\s+([\d.]+)%/);
+      if (match) {
+        setIsLight(parseFloat(match[3]) > 50);
+      }
+    };
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] });
+    return () => obs.disconnect();
+  }, []);
+  return isLight;
+}
 
 interface NavItem {
   tab: DashboardTab;
@@ -36,10 +55,10 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   admin: ADMIN_NAV,
 };
 
-const ROLE_BADGE_COLORS: Record<UserRole, string> = {
-  dispatcher: "bg-blue-500/20 text-blue-400",
-  technician: "bg-green-500/20 text-green-400",
-  admin: "bg-red-500/20 text-red-400",
+const ROLE_BADGE_BG: Record<UserRole, string> = {
+  dispatcher: "bg-black/15",
+  technician: "bg-black/15",
+  admin: "bg-black/15",
 };
 
 interface DashboardSidebarProps {
@@ -64,6 +83,7 @@ export default function DashboardSidebar({
   onToggleTheme,
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const sidebarIsLight = useSidebarLight();
   const navItems = NAV_BY_ROLE[user.role];
 
   return (
@@ -87,7 +107,7 @@ export default function DashboardSidebar({
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold leading-tight truncate">ТрамДиспетч</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ROLE_BADGE_COLORS[user.role]}`}>
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ROLE_BADGE_BG[user.role]} ${sidebarIsLight ? 'text-[#141414]' : 'text-white'}`}>
                 {getRoleName(user.role)}
               </span>
             </div>
