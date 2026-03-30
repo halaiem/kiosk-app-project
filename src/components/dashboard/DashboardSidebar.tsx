@@ -102,7 +102,7 @@ export default function DashboardSidebar({
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
-              style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.15)" }}>
+              style={{ backgroundColor: 'hsl(24 88% 49%)' }}>
               <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-6 h-6 object-contain" />
             </div>
             <div className="min-w-0">
