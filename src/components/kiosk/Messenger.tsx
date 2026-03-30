@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/types/kiosk';
 
@@ -23,9 +23,20 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 30);
+
+  const handleFocus = useCallback(() => {
+    setKeyboardOpen(true);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
+  }, []);
+
+  const handleBlur = useCallback(() => {
+    setKeyboardOpen(false);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,45 +70,47 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages list */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0">
-        {chatMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-            <Icon name="MessageSquare" size={32} className="opacity-30" />
-            <span className="text-sm">Нет сообщений</span>
-          </div>
-        )}
-        {[...chatMessages].map(msg => {
-          const isOutgoing = msg.text.startsWith('[Водитель]');
-          return (
-            <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${
-                msg.type === 'important'
-                  ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
-                  : isOutgoing
-                  ? 'bg-primary text-primary-foreground rounded-br-sm'
-                  : 'bg-muted text-foreground rounded-bl-sm'
-              }`}>
-                {msg.type === 'important' && (
-                  <div className="flex items-center gap-1 mb-1">
-                    <Icon name="AlertTriangle" size={12} className="text-destructive" />
-                    <span className="text-[10px] font-bold text-destructive uppercase">Важное</span>
+      {/* Messages list — скрывается когда открыта клавиатура */}
+      {!keyboardOpen && (
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0">
+          {chatMessages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+              <Icon name="MessageSquare" size={32} className="opacity-30" />
+              <span className="text-sm">Нет сообщений</span>
+            </div>
+          )}
+          {[...chatMessages].map(msg => {
+            const isOutgoing = msg.text.startsWith('[Водитель]');
+            return (
+              <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${
+                  msg.type === 'important'
+                    ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
+                    : isOutgoing
+                    ? 'bg-primary text-primary-foreground rounded-br-sm'
+                    : 'bg-muted text-foreground rounded-bl-sm'
+                }`}>
+                  {msg.type === 'important' && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <Icon name="AlertTriangle" size={12} className="text-destructive" />
+                      <span className="text-[10px] font-bold text-destructive uppercase">Важное</span>
+                    </div>
+                  )}
+                  <p className="text-xs leading-relaxed">{msg.text}</p>
+                  <div className={`text-[9px] mt-1 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
+                    {formatTime(msg.timestamp)}
+                    {isOutgoing && <Icon name="CheckCheck" size={10} className="inline ml-1" />}
                   </div>
-                )}
-                <p className="text-xs leading-relaxed">{msg.text}</p>
-                <div className={`text-[9px] mt-1 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
-                  {formatTime(msg.timestamp)}
-                  {isOutgoing && <Icon name="CheckCheck" size={10} className="inline ml-1" />}
                 </div>
               </div>
-            </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
 
-      {/* Quick templates */}
-      {(!isMoving || input.length === 0) ? (
+      {/* Quick templates — только когда клавиатура закрыта */}
+      {!keyboardOpen && (!isMoving || input.length === 0) && (
         <div className="px-3 py-1 border-t border-border">
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {QUICK_TEMPLATES.map((tpl, i) => (
@@ -111,19 +124,19 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Input area */}
-      <div className="px-3 pb-2 pt-1 border-t border-border">
+      <div className="px-3 pb-3 pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
-            <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
-            <span className="text-sm text-destructive font-medium flex-1">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-destructive/10 border border-destructive/30">
+            <div className="w-4 h-4 rounded-full bg-destructive animate-pulse" />
+            <span className="text-base text-destructive font-medium flex-1">
               Запись... {recordTime}с
             </span>
             <button
               onPointerUp={stopRecord}
-              className="px-3 py-1.5 rounded-lg bg-destructive text-white text-sm ripple"
+              className="px-5 py-3 rounded-2xl bg-destructive text-white text-base font-semibold ripple"
             >
               Стоп
             </button>
@@ -131,25 +144,28 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
         ) : (
           <div className="flex items-center gap-2">
             <input
+              ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               placeholder="Сообщение диспетчеру..."
-              className="flex-1 px-3 py-2.5 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="flex-1 min-w-0 px-3 py-3 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
             <button
               onPointerDown={startRecord}
-              className="w-10 h-10 rounded-xl bg-muted hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+              className="w-14 h-14 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
               title="Голосовое сообщение (удерживайте)"
             >
-              <Icon name="Mic" size={18} className="text-muted-foreground" />
+              <Icon name="Mic" size={26} className="text-muted-foreground" />
             </button>
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1"
+              className="w-14 h-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1"
             >
-              <Icon name="Send" size={16} />
+              <Icon name="Send" size={24} />
             </button>
           </div>
         )}

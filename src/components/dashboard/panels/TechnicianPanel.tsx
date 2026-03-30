@@ -857,11 +857,16 @@ function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
 
 type SortKey = "name" | "status" | "rating";
 
+function generatePin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 function DriversView({ drivers }: { drivers: DriverInfo[] }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [showForm, setShowForm] = useState(false);
   const [detailDriver, setDetailDriver] = useState<DriverInfo | null>(null);
+  const [newPin, setNewPin] = useState(() => generatePin());
   // Mock PINs per driver (in real app from backend)
   const driverPins = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1080,10 +1085,28 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Рейтинг</label>
                 <input type="number" min={1} max={5} step={0.1} placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">PIN для входа в планшет</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-9 px-3 rounded-lg border border-primary/40 bg-primary/5 flex items-center gap-3">
+                    <Icon name="KeyRound" className="w-4 h-4 text-primary flex-shrink-0" />
+                    <span className="font-mono text-xl font-bold tracking-[0.4em] text-foreground select-all">{newPin}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewPin(generatePin())}
+                    className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <Icon name="RefreshCw" className="w-3.5 h-3.5" />
+                    Новый
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Водитель вводит этот PIN при авторизации на устройстве</p>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
+              <button onClick={() => { setShowForm(false); setNewPin(generatePin()); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
             </div>
           </div>
         </div>

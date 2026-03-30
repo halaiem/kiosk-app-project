@@ -202,7 +202,7 @@ export default function MainPage({
                 </div>
               )}
             </div>
-            <div className="h-[220px] overflow-hidden">
+            <div className="h-[240px] overflow-hidden">
               <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
             </div>
           </div>
