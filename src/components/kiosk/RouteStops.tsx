@@ -51,19 +51,19 @@ export default function RouteStops({ currentStopIndex }: Props) {
               <div className={`flex flex-col items-center gap-1 cursor-default transition-all duration-300 ${isCurrent ? 'scale-110' : ''}`}>
                 {/* Dot */}
                 <div className={`relative flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-300
-                  ${isCurrent ? 'w-5 h-5 bg-primary shadow-lg shadow-primary/40' : isNext ? 'w-3.5 h-3.5 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
+                  ${isCurrent ? 'w-5 h-5 bg-green-500 shadow-lg shadow-green-500/40' : isNext ? 'w-3.5 h-3.5 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
                   {isCurrent && (
-                    <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+                    <div className="absolute inset-0 rounded-full bg-green-500/30 animate-ping" />
                   )}
                   {isPassed && <Icon name="Check" size={8} className="text-primary-foreground" />}
                 </div>
 
                 {/* Label */}
                 <div className={`text-center leading-tight transition-all duration-300 max-w-[72px]
-                  ${isCurrent ? 'text-primary font-semibold text-[10px]' : isNext ? 'text-foreground text-[9px] font-medium' : isPassed ? 'text-muted-foreground text-[9px]' : 'text-muted-foreground/60 text-[9px]'}`}
+                  ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-[10px]' : isNext ? 'text-foreground text-[9px] font-medium' : isPassed ? 'text-muted-foreground text-[9px]' : 'text-muted-foreground/60 text-[9px]'}`}
                   style={{ writingMode: 'horizontal-tb' }}>
                   <span className="line-clamp-2 text-center">{stop}</span>
-                  {isCurrent && <span className="block text-[8px] text-primary/70">● текущая</span>}
+                  {isCurrent && <span className="block text-[8px] text-green-500/80">● текущая</span>}
                   {isNext && <span className="block text-[8px] text-muted-foreground">следующая</span>}
                 </div>
               </div>

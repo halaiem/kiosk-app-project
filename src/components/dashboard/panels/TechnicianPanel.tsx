@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type {
@@ -120,9 +120,36 @@ const SCHEDULE_STATUS_LABELS: Record<ScheduleEntry["status"], string> = {
   cancelled: "Отменено",
 };
 
+// ── Shared modal wrapper ──────────────────────────────────────────────────────
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className={`bg-card border border-border rounded-2xl shadow-2xl overflow-hidden ${wide ? "w-full max-w-2xl" : "w-full max-w-lg"} mx-4`} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+            <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <div className="overflow-y-auto max-h-[70vh]">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Generate mock stops list for a route
+function makeStops(route: RouteInfo): string[] {
+  const base = ["Депо", "ул. Заводская", "пл. Ленина", "ул. Садовая", "Центральный рынок",
+    "пр. Мира", "ул. Комсомольская", "пл. Советская", "ул. Кирова", "Парк культуры",
+    "ул. Победы", "ст. м. Площадь", "Торговый центр", "ул. Гагарина", "пр. Строителей",
+    "ул. Молодёжная", "Стадион", "Больница №2", "ул. Весенняя", "Конечная"];
+  return base.slice(0, Math.min(route.stopsCount, base.length));
+}
+
 function RoutesView({ routes }: { routes: RouteInfo[] }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [stopsRoute, setStopsRoute] = useState<RouteInfo | null>(null);
   const totalDistance = useMemo(() => routes.reduce((s, r) => s + r.distance, 0), [routes]);
   const totalStops = useMemo(() => routes.reduce((s, r) => s + r.stopsCount, 0), [routes]);
   const activeCount = useMemo(() => routes.filter((r) => r.isActive).length, [routes]);
@@ -204,10 +231,45 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
                   {route.assignedVehicles} ТС
                 </span>
               </div>
+              <button
+                onClick={() => setStopsRoute(route)}
+                className="mt-2 flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
+              >
+                <Icon name="List" className="w-3 h-3" />
+                Список остановок
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {stopsRoute && (
+        <Modal title={`Маршрут №${stopsRoute.number} — ${stopsRoute.name}`} onClose={() => setStopsRoute(null)} wide>
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4 flex-wrap">
+              <span className="flex items-center gap-1.5"><Icon name="MapPin" className="w-3.5 h-3.5" />{stopsRoute.stopsCount} остановок</span>
+              <span className="flex items-center gap-1.5"><Icon name="Ruler" className="w-3.5 h-3.5" />{stopsRoute.distance} км</span>
+              <span className="flex items-center gap-1.5"><Icon name="Clock" className="w-3.5 h-3.5" />{stopsRoute.avgTime} мин</span>
+              <span className={`flex items-center gap-1.5 font-medium ${stopsRoute.isActive ? "text-green-500" : "text-muted-foreground"}`}>
+                <span className={`w-2 h-2 rounded-full ${stopsRoute.isActive ? "bg-green-500" : "bg-gray-400"}`} />
+                {stopsRoute.isActive ? "Активен" : "Неактивен"}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {makeStops(stopsRoute).map((stop, i) => (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                  <div className="flex flex-col items-center shrink-0 w-5">
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${i === 0 ? "bg-green-500" : i === makeStops(stopsRoute).length - 1 ? "bg-red-500" : "bg-primary/60"}`} />
+                    {i < makeStops(stopsRoute).length - 1 && <div className="w-0.5 h-4 bg-border mt-0.5" />}
+                  </div>
+                  <span className="text-sm text-foreground flex-1">{stop}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">ост. {i + 1}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
@@ -275,6 +337,26 @@ function DocumentsView({
   const [filter, setFilter] = useState<DocFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [viewDoc, setViewDoc] = useState<DocumentInfo | null>(null);
+
+  const downloadDoc = useCallback((doc: DocumentInfo) => {
+    const content = [
+      `Документ: ${doc.title}`,
+      `Тип: ${DOC_TYPE_LABELS[doc.type]}`,
+      `Статус: ${DOC_STATUS_LABELS[doc.status]}`,
+      `Автор: ${doc.author}`,
+      `Назначен: ${doc.assignedTo ?? "—"}`,
+      `Создан: ${formatDate(doc.createdAt)}`,
+      `Обновлён: ${formatDate(doc.updatedAt)}`,
+      "",
+      "Содержание документа генерируется системой.",
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${doc.title}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const filtered = useMemo(() => {
     let list = [...documents].sort(
@@ -372,22 +454,38 @@ function DocumentsView({
                   <td className="px-3 py-3 text-muted-foreground text-xs">{doc.assignedTo ?? "---"}</td>
                   <td className="px-3 py-3 text-muted-foreground text-xs">{formatDate(doc.updatedAt)}</td>
                   <td className="px-5 py-3 text-right">
-                    {doc.status === "draft" && (
+                    <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => onUpdateDocumentStatus(doc.id, "review")}
-                        className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-yellow-500/15 text-yellow-600 hover:bg-yellow-500/25 transition-colors"
+                        onClick={() => setViewDoc(doc)}
+                        className="text-[11px] font-medium px-2 py-1 rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center gap-1"
+                        title="Открыть"
                       >
-                        На проверку
+                        <Icon name="Eye" className="w-3 h-3" />
                       </button>
-                    )}
-                    {doc.status === "review" && (
                       <button
-                        onClick={() => onUpdateDocumentStatus(doc.id, "approved")}
-                        className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-green-500/15 text-green-500 hover:bg-green-500/25 transition-colors"
+                        onClick={() => downloadDoc(doc)}
+                        className="text-[11px] font-medium px-2 py-1 rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center gap-1"
+                        title="Скачать"
                       >
-                        Утвердить
+                        <Icon name="Download" className="w-3 h-3" />
                       </button>
-                    )}
+                      {doc.status === "draft" && (
+                        <button
+                          onClick={() => onUpdateDocumentStatus(doc.id, "review")}
+                          className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-yellow-500/15 text-yellow-600 hover:bg-yellow-500/25 transition-colors"
+                        >
+                          На проверку
+                        </button>
+                      )}
+                      {doc.status === "review" && (
+                        <button
+                          onClick={() => onUpdateDocumentStatus(doc.id, "approved")}
+                          className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-green-500/15 text-green-500 hover:bg-green-500/25 transition-colors"
+                        >
+                          Утвердить
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -395,6 +493,52 @@ function DocumentsView({
           </tbody>
         </table>
       </div>
+
+      {viewDoc && (
+        <Modal title={viewDoc.title} onClose={() => setViewDoc(null)} wide>
+          <div className="px-5 py-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Тип</p>
+                <div className="flex items-center gap-2">
+                  <Icon name={DOC_TYPE_ICONS[viewDoc.type]} className="w-4 h-4 text-primary" />
+                  <span className="font-medium text-foreground">{DOC_TYPE_LABELS[viewDoc.type]}</span>
+                </div>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Статус</p>
+                <span className={`text-sm font-medium px-2 py-0.5 rounded ${DOC_STATUS_STYLES[viewDoc.status]}`}>{DOC_STATUS_LABELS[viewDoc.status]}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Автор</p>
+                <span className="font-medium text-foreground">{viewDoc.author}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Назначен</p>
+                <span className="font-medium text-foreground">{viewDoc.assignedTo ?? "—"}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Создан</p>
+                <span className="font-medium text-foreground">{formatDate(viewDoc.createdAt)}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Обновлён</p>
+                <span className="font-medium text-foreground">{formatDate(viewDoc.updatedAt)}</span>
+              </div>
+            </div>
+            <div className="bg-muted/20 rounded-xl p-4 text-sm text-muted-foreground leading-relaxed border border-border">
+              <p className="text-xs font-semibold text-foreground mb-2">Содержание</p>
+              <p>Документ «{viewDoc.title}» — {DOC_TYPE_LABELS[viewDoc.type].toLowerCase()}.</p>
+              <p className="mt-1">Назначен: {viewDoc.assignedTo ?? "не назначен"}. Последнее обновление: {formatDate(viewDoc.updatedAt)}.</p>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => downloadDoc(viewDoc)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">
+                <Icon name="Download" className="w-4 h-4" />Скачать
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
@@ -628,6 +772,13 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [showForm, setShowForm] = useState(false);
+  const [detailDriver, setDetailDriver] = useState<DriverInfo | null>(null);
+  // Mock PINs per driver (in real app from backend)
+  const driverPins = useMemo(() => {
+    const map: Record<string, string> = {};
+    drivers.forEach((d, i) => { map[d.id] = String(1000 + i * 137 % 9000).padStart(4, "0"); });
+    return map;
+  }, [drivers]);
 
   const filtered = useMemo(() => {
     let list = [...drivers];
@@ -700,9 +851,11 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
               <th className="text-left px-3 py-2.5 font-medium">Статус</th>
               <th className="text-left px-3 py-2.5 font-medium">ТС</th>
               <th className="text-left px-3 py-2.5 font-medium">Маршрут</th>
-              <th className="text-left px-3 py-2.5 font-medium">Начало смены</th>
+              <th className="text-left px-3 py-2.5 font-medium">Смена</th>
+              <th className="text-left px-3 py-2.5 font-medium">PIN</th>
               <th className="text-left px-3 py-2.5 font-medium">Телефон</th>
               <th className="text-left px-3 py-2.5 font-medium">Рейтинг</th>
+              <th className="px-3 py-2.5" />
             </tr>
           </thead>
           <tbody>
@@ -725,21 +878,28 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
                   </td>
                   <td className="px-3 py-3 text-muted-foreground text-xs">{d.vehicleNumber || "---"}</td>
                   <td className="px-3 py-3 text-muted-foreground text-xs">{d.routeNumber || "---"}</td>
-                  <td className="px-3 py-3 text-muted-foreground text-xs">
-                    {d.shiftStart ? formatTime(d.shiftStart) : "---"}
+                  <td className="px-3 py-3 text-xs">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-muted-foreground">{d.shiftStart ? `↑ ${formatTime(d.shiftStart)}` : "---"}</span>
+                      <span className="text-muted-foreground">{d.shiftEnd ? `↓ ${formatTime(d.shiftEnd)}` : d.status === "on_shift" ? <span className="text-green-500">активна</span> : "---"}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground select-all">{driverPins[d.id]}</span>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground text-xs font-mono">{d.phone}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-0.5">
                       {Array.from({ length: 5 }, (_, i) => (
-                        <Icon
-                          key={i}
-                          name="Star"
-                          className={`w-3.5 h-3.5 ${i < Math.round(d.rating) ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"}`}
-                        />
+                        <Icon key={i} name="Star" className={`w-3.5 h-3.5 ${i < Math.round(d.rating) ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"}`} />
                       ))}
                       <span className="text-[11px] text-muted-foreground ml-1">{d.rating.toFixed(1)}</span>
                     </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <button onClick={() => setDetailDriver(d)} className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                      <Icon name="Eye" className="w-3 h-3" />
+                    </button>
                   </td>
                 </tr>
               ))
@@ -747,6 +907,41 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
           </tbody>
         </table>
       </div>
+
+      {detailDriver && (
+        <Modal title={`Водитель — ${detailDriver.name}`} onClose={() => setDetailDriver(null)}>
+          <div className="px-5 py-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {[
+                { label: "Таб. номер", value: detailDriver.tabNumber },
+                { label: "Статус", value: DRIVER_STATUS_LABELS[detailDriver.status], colored: DRIVER_STATUS_STYLES[detailDriver.status] },
+                { label: "Бортовой номер", value: detailDriver.vehicleNumber || "—" },
+                { label: "Маршрут", value: detailDriver.routeNumber ? `№${detailDriver.routeNumber}` : "—" },
+                { label: "Начало смены", value: detailDriver.shiftStart ? formatTime(detailDriver.shiftStart) : "—" },
+                { label: "Конец смены", value: detailDriver.shiftEnd ? formatTime(detailDriver.shiftEnd) : detailDriver.status === "on_shift" ? "Активна" : "—" },
+                { label: "Телефон", value: detailDriver.phone },
+                { label: "Рейтинг", value: `${detailDriver.rating.toFixed(1)} / 5.0` },
+              ].map(({ label, value, colored }) => (
+                <div key={label} className="bg-muted/40 rounded-xl p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
+                  {colored ? (
+                    <span className={`text-sm font-medium px-2 py-0.5 rounded ${colored}`}>{value}</span>
+                  ) : (
+                    <span className="font-medium text-foreground">{value}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="bg-muted/40 rounded-xl p-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">PIN для входа в планшет</p>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-2xl font-bold tracking-[0.4em] text-foreground select-all">{driverPins[detailDriver.id]}</span>
+                <span className="text-xs text-muted-foreground">Используется для авторизации на устройстве</span>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
@@ -811,6 +1006,7 @@ function DriversView({ drivers }: { drivers: DriverInfo[] }) {
 function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [detailEntry, setDetailEntry] = useState<ScheduleEntry | null>(null);
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
 
@@ -893,13 +1089,14 @@ function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
               sorted.map((entry) => (
                 <tr
                   key={entry.id}
-                  className={`border-b border-border hover:bg-muted/30 transition-colors ${
+                  onClick={() => setDetailEntry(entry)}
+                  className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
                     entry.status === "cancelled" ? "opacity-50" : ""
                   }`}
                 >
                   <td className="px-5 py-3">
                     <span className="font-mono text-foreground font-medium">
-                      {entry.startTime} - {entry.endTime}
+                      {entry.startTime} – {entry.endTime}
                     </span>
                   </td>
                   <td className="px-3 py-3">
@@ -917,12 +1114,65 @@ function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
                       {SCHEDULE_STATUS_LABELS[entry.status]}
                     </span>
                   </td>
+                  <td className="px-3 py-3">
+                    <Icon name="ChevronRight" className="w-3.5 h-3.5 text-muted-foreground/40" />
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {detailEntry && (
+        <Modal title={`Смена — М${detailEntry.routeNumber} · ${detailEntry.driverName}`} onClose={() => setDetailEntry(null)}>
+          <div className="px-5 py-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Маршрут</p>
+                <span className="font-bold text-foreground text-lg">№{detailEntry.routeNumber}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Статус</p>
+                <span className={`text-sm font-medium px-2 py-0.5 rounded ${SCHEDULE_STATUS_STYLES[detailEntry.status]}`}>{SCHEDULE_STATUS_LABELS[detailEntry.status]}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Водитель</p>
+                <span className="font-medium text-foreground">{detailEntry.driverName}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Транспорт</p>
+                <span className="font-medium text-foreground">Борт #{detailEntry.vehicleNumber}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Начало смены</p>
+                <span className="font-mono font-bold text-foreground text-base">{detailEntry.startTime}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Конец смены</p>
+                <span className="font-mono font-bold text-foreground text-base">{detailEntry.endTime}</span>
+              </div>
+              <div className="bg-muted/40 rounded-xl p-3 col-span-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Дата</p>
+                <span className="font-medium text-foreground">{detailEntry.date}</span>
+              </div>
+            </div>
+            <div className="bg-muted/20 rounded-xl p-4 border border-border text-xs text-muted-foreground">
+              <p className="font-semibold text-foreground mb-1">Информация о перевозке</p>
+              <p>Парк: <span className="text-foreground font-medium">Трамвайный парк №1 (ТП-1)</span></p>
+              <p className="mt-0.5">Направление: <span className="text-foreground font-medium">Маршрут №{detailEntry.routeNumber} — кольцевой</span></p>
+              <p className="mt-0.5">Длительность смены: <span className="text-foreground font-medium">
+                {(() => {
+                  const [sh, sm] = detailEntry.startTime.split(":").map(Number);
+                  const [eh, em] = detailEntry.endTime.split(":").map(Number);
+                  const diff = (eh * 60 + em) - (sh * 60 + sm);
+                  return diff > 0 ? `${Math.floor(diff / 60)}ч ${diff % 60}мин` : "—";
+                })()}
+              </span></p>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>

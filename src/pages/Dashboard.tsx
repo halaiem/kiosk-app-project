@@ -75,6 +75,8 @@ export default function Dashboard() {
         onLogout={handleLogout}
         getRoleName={getRoleName}
         counts={counts}
+        isDark={!isLight}
+        onToggleTheme={toggleTheme}
       />
       <main className="flex-1 overflow-auto p-6 relative">
         {/* Theme toggle */}

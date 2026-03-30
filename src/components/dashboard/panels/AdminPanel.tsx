@@ -17,6 +17,7 @@ import {
   type CityOption,
   type TransportType,
   type FeatureFlags,
+  type BrandColors,
 } from "@/context/AppSettingsContext";
 
 interface AdminPanelProps {
@@ -518,6 +519,51 @@ function InterfaceSettingsView() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Цвета бренда */}
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+            <Icon name="Palette" className="w-4 h-4 text-orange-500" />
+            <h3 className="text-sm font-semibold text-foreground">Цвета интерфейса</h3>
+          </div>
+          <div className="p-5 space-y-3">
+            {([
+              { key: 'sidebarBg', label: 'Sidebar (боковое меню)' },
+              { key: 'headerBg', label: 'Header (шапка планшета)' },
+              { key: 'primaryBtn', label: 'Основной цвет кнопок' },
+            ] as { key: keyof BrandColors; label: string }[]).map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <label className="text-xs text-muted-foreground flex-1">{label}</label>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg border border-border overflow-hidden shrink-0">
+                    <input
+                      type="color"
+                      value={settings.brandColors?.[key] ?? '#ec660c'}
+                      onChange={(e) => updateSettings({ brandColors: { ...(settings.brandColors ?? { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c' }), [key]: e.target.value } })}
+                      className="w-full h-full cursor-pointer border-0 p-0"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={settings.brandColors?.[key] ?? '#ec660c'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (/^#[0-9a-fA-F]{0,6}$/.test(v)) updateSettings({ brandColors: { ...(settings.brandColors ?? { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c' }), [key]: v } });
+                    }}
+                    className="w-24 h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => updateSettings({ brandColors: { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c' } })}
+              className="text-xs text-muted-foreground hover:text-foreground mt-1"
+            >
+              Сбросить к #ec660c
+            </button>
           </div>
         </div>
 

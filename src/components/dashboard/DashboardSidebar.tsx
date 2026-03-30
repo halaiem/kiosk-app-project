@@ -49,6 +49,8 @@ interface DashboardSidebarProps {
   onLogout: () => void;
   getRoleName: (role: UserRole) => string;
   counts?: Record<string, number>;
+  isDark?: boolean;
+  onToggleTheme?: () => void;
 }
 
 export default function DashboardSidebar({
@@ -58,6 +60,8 @@ export default function DashboardSidebar({
   onLogout,
   getRoleName,
   counts,
+  isDark,
+  onToggleTheme,
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navItems = NAV_BY_ROLE[user.role];
@@ -157,8 +161,21 @@ export default function DashboardSidebar({
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="px-2 pb-4 pt-2" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
+      {/* Logout + theme toggle */}
+      <div className="px-2 pb-4 pt-2 space-y-0.5" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            title={collapsed ? (isDark ? "Светлая тема" : "Тёмная тема") : undefined}
+            className={`w-full flex items-center rounded-lg text-sm font-medium opacity-70 hover:opacity-100 transition-colors
+              ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"}`}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            <Icon name={isDark ? "Sun" : "Moon"} className="w-[18px] h-[18px] shrink-0" />
+            {!collapsed && <span>{isDark ? "Светлая тема" : "Тёмная тема"}</span>}
+          </button>
+        )}
         <button
           onClick={onLogout}
           title={collapsed ? "Выйти" : undefined}
