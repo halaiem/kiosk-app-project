@@ -77,7 +77,7 @@ function ConnectionEventPopup({ event, onClose }: { event: DriverEvent; onClose:
         </div>
         <div className="mt-3 flex items-center gap-2">
           <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-            <div className={`h-full ${event.type === "offline" ? "bg-red-500" : "bg-blue-500"} transition-all duration-1000`} style={{ width: `${(secs / 30) * 100}%` }} />
+            <div className={`h-full ${event.type === "offline" ? "bg-red-500" : event.type === "gibdd" ? "bg-purple-500" : "bg-blue-500"} transition-all duration-1000`} style={{ width: `${(secs / 30) * 100}%` }} />
           </div>
           <span className="text-[10px] text-muted-foreground tabular-nums">{secs}с</span>
         </div>
@@ -103,6 +103,7 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
   });
 
   const [autoPopup, setAutoPopup] = useState<DriverEvent | null>(null);
+  const [showEventsModal, setShowEventsModal] = useState(false);
   const prevStatuses = useRef<Record<string, DriverInfo["status"]>>({});
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +120,7 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
           : "offline";
         const ev: DriverEvent = { id: `${d.id}-${Date.now()}`, type, driverName: d.name, vehicleNumber: d.vehicleNumber, routeNumber: d.routeNumber, timestamp: new Date() };
         newEvents.push(ev);
-        if (type === "offline" || type === "online") setAutoPopup(ev);
+        if (type === "offline" || type === "online" || type === "gibdd") setAutoPopup(ev);
       }
       prevStatuses.current[d.id] = d.status;
     }
@@ -144,7 +145,7 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
       const e = DEMO_EVENTS[Math.floor(Math.random() * DEMO_EVENTS.length)];
       const ev: DriverEvent = { id: `demo-${Date.now()}`, type: e.type, driverName: d.name, vehicleNumber: d.vehicleNumber, routeNumber: d.routeNumber, timestamp: new Date() };
       setEvents(prev => [ev, ...prev].slice(0, 50));
-      if (e.type === "offline" || e.type === "online") setAutoPopup(ev);
+      if (e.type === "offline" || e.type === "online" || e.type === "gibdd") setAutoPopup(ev);
     }, 20000);
     return () => clearInterval(t);
   }, [drivers]);
@@ -153,7 +154,7 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
     <>
       {autoPopup && <ConnectionEventPopup event={autoPopup} onClose={() => setAutoPopup(null)} />}
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col" style={{ gridColumn: "span 2" }}>
+      <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <Icon name="Activity" className="w-4 h-4 text-primary" />
@@ -166,11 +167,14 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
                 title={EVENT_CONFIG[type].label}
               />
             ))}
+            <button onClick={() => setShowEventsModal(true)} className="ml-2 w-6 h-6 rounded-lg hover:bg-muted flex items-center justify-center transition-colors" title="Развернуть">
+              <Icon name="Maximize2" className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
           </div>
         </div>
 
         {/* Scrolling list */}
-        <div ref={listRef} className="overflow-y-auto flex-1" style={{ maxHeight: "11.5rem" }}>
+        <div ref={listRef} className="overflow-y-auto flex-1" style={{ maxHeight: "5.8rem" }}>
           {events.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <Icon name="Activity" className="w-5 h-5 mr-2 opacity-30" />
@@ -196,17 +200,66 @@ function DriverEventsBlock({ drivers }: { drivers: DriverInfo[] }) {
           })}
         </div>
       </div>
+
+      {showEventsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEventsModal(false)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Icon name="Activity" className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Все события транспорта</h3>
+                <span className="ml-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{events.length}</span>
+              </div>
+              <button onClick={() => setShowEventsModal(false)} className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center transition-colors">
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[70vh]">
+              {events.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                  <Icon name="Activity" className="w-5 h-5 mr-2 opacity-30" />
+                  Нет событий
+                </div>
+              ) : events.map((ev) => {
+                const cfg = EVENT_CONFIG[ev.type];
+                return (
+                  <div key={ev.id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <div className={`w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                      <Icon name={cfg.icon} className={`w-4 h-4 ${cfg.color}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border}`}>{cfg.label}</span>
+                        <span className="text-sm font-medium text-foreground truncate">{ev.driverName}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Борт #{ev.vehicleNumber} · М{ev.routeNumber}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">{fmtEventTime(ev.timestamp)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-// SPb tram/bus stops approximate positions
-const SPB_STOPS: [number, number][] = [
-  [59.9505, 30.3165], [59.9447, 30.3200], [59.9390, 30.3235],
-  [59.9333, 30.3160], [59.9270, 30.3080], [59.9210, 30.2960],
-  [59.9300, 30.2700], [59.9390, 30.2600], [59.9460, 30.2750],
-  [59.9530, 30.2850], [59.9580, 30.3050], [59.9620, 30.3250],
-];
+// SPb route-specific stops — multiple paths across the city
+const SPB_ROUTES: Record<string, [number, number][]> = {
+  "5":  [[59.970, 30.315], [59.962, 30.330], [59.955, 30.345], [59.948, 30.360], [59.940, 30.370], [59.932, 30.355], [59.925, 30.340], [59.918, 30.320]],
+  "3":  [[59.930, 30.250], [59.935, 30.270], [59.940, 30.290], [59.945, 30.310], [59.950, 30.330], [59.942, 30.345], [59.935, 30.335], [59.928, 30.315]],
+  "7":  [[59.910, 30.280], [59.915, 30.300], [59.920, 30.320], [59.925, 30.340], [59.930, 30.360], [59.935, 30.380], [59.928, 30.395], [59.920, 30.375]],
+  "9":  [[59.955, 30.220], [59.950, 30.240], [59.945, 30.260], [59.940, 30.280], [59.935, 30.300], [59.930, 30.280], [59.938, 30.260], [59.945, 30.245]],
+  "11": [[59.980, 30.290], [59.975, 30.310], [59.968, 30.325], [59.960, 30.340], [59.952, 30.355], [59.945, 30.370], [59.950, 30.385], [59.958, 30.370]],
+  "14": [[59.920, 30.380], [59.925, 30.395], [59.930, 30.410], [59.935, 30.420], [59.940, 30.405], [59.945, 30.390], [59.938, 30.375], [59.930, 30.365]],
+  "6":  [[59.905, 30.340], [59.910, 30.355], [59.915, 30.370], [59.920, 30.385], [59.925, 30.400], [59.918, 30.415], [59.910, 30.400], [59.905, 30.380]],
+  "18": [[59.960, 30.380], [59.955, 30.395], [59.948, 30.410], [59.940, 30.420], [59.933, 30.410], [59.938, 30.395], [59.945, 30.385], [59.952, 30.375]],
+  "22": [[59.942, 30.330], [59.948, 30.345], [59.955, 30.355], [59.962, 30.340], [59.958, 30.325], [59.952, 30.310], [59.945, 30.315], [59.940, 30.325]],
+  "2":  [[59.895, 30.310], [59.900, 30.325], [59.905, 30.340], [59.910, 30.355], [59.915, 30.340], [59.910, 30.325], [59.905, 30.310], [59.900, 30.300]],
+};
+const SPB_STOPS_FALLBACK: [number, number][] = [[59.935, 30.316], [59.945, 30.320], [59.930, 30.310], [59.940, 30.300], [59.925, 30.330], [59.950, 30.340]];
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
@@ -246,6 +299,7 @@ function DispatcherMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const progressRef = useRef<Map<string, number>>(new Map());
+  const routeMapRef = useRef<Map<string, [number, number][]>>(new Map());
   const animRef = useRef<number>();
   const lastTimeRef = useRef(0);
   const onVehicleClickRef = useRef(onVehicleClick);
@@ -277,11 +331,12 @@ function DispatcherMap({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Init progress for new vehicles
+    // Init progress and route mapping for new vehicles
     filteredVehicles.forEach((v) => {
       if (!progressRef.current.has(v.id)) {
         progressRef.current.set(v.id, Math.random());
       }
+      routeMapRef.current.set(v.id, SPB_ROUTES[v.route] || SPB_STOPS_FALLBACK);
     });
 
     // Remove stale markers
@@ -289,13 +344,15 @@ function DispatcherMap({
       if (!filteredVehicles.find((v) => v.id === id)) {
         marker.remove();
         markersRef.current.delete(id);
+        routeMapRef.current.delete(id);
       }
     });
 
     // Add/update markers
     filteredVehicles.forEach((v) => {
       const progress = progressRef.current.get(v.id) ?? 0;
-      const pos = getPosOnRoute(progress, SPB_STOPS);
+      const stops = routeMapRef.current.get(v.id) || SPB_STOPS_FALLBACK;
+      const pos = getPosOnRoute(progress, stops);
       if (markersRef.current.has(v.id)) {
         markersRef.current.get(v.id)!.setLatLng(pos).setIcon(makeVehicleIcon(v.status));
       } else {
@@ -319,7 +376,8 @@ function DispatcherMap({
         progressRef.current.set(id, newP);
         const marker = markersRef.current.get(id);
         if (marker) {
-          marker.setLatLng(getPosOnRoute(newP, SPB_STOPS));
+          const stops = routeMapRef.current.get(id) || SPB_STOPS_FALLBACK;
+          marker.setLatLng(getPosOnRoute(newP, stops));
         }
       });
       animRef.current = requestAnimationFrame(animate);

@@ -46,16 +46,16 @@ const INIT_ALERTS: Alert[] = [
 ];
 
 const INIT_ROUTES: RouteInfo[] = [
-  { id: '1', number: '5', name: 'Депо Северное → Депо Южное', stopsCount: 24, distance: 18.5, avgTime: 52, isActive: true, assignedVehicles: 18 },
-  { id: '2', number: '3', name: 'ЖД Вокзал → Микрорайон Восток', stopsCount: 18, distance: 12.3, avgTime: 38, isActive: true, assignedVehicles: 14 },
-  { id: '3', number: '7', name: 'Центр → Промзона', stopsCount: 15, distance: 9.8, avgTime: 28, isActive: true, assignedVehicles: 12 },
-  { id: '4', number: '9', name: 'Площадь Мира → Аэропорт', stopsCount: 30, distance: 22.1, avgTime: 65, isActive: true, assignedVehicles: 20 },
-  { id: '5', number: '11', name: 'Депо Западное → Университет', stopsCount: 20, distance: 14.7, avgTime: 42, isActive: true, assignedVehicles: 16 },
-  { id: '6', number: '2', name: 'Старый город → Новый район', stopsCount: 12, distance: 7.2, avgTime: 22, isActive: false, assignedVehicles: 0 },
-  { id: '7', number: '14', name: 'Проспект Мира → Южный вокзал', stopsCount: 22, distance: 16.0, avgTime: 45, isActive: true, assignedVehicles: 10 },
-  { id: '8', number: '6', name: 'Центральный рынок → Заречный р-н', stopsCount: 16, distance: 11.1, avgTime: 32, isActive: true, assignedVehicles: 8 },
-  { id: '9', number: '18', name: 'Медгородок → Технопарк', stopsCount: 19, distance: 13.4, avgTime: 36, isActive: true, assignedVehicles: 10 },
-  { id: '10', number: '22', name: 'Площадь Победы → Пл. Ленина', stopsCount: 8, distance: 4.2, avgTime: 14, isActive: true, assignedVehicles: 6 },
+  { id: '1', number: '5', name: 'Депо Северное → Депо Южное', stopsCount: 24, distance: 18.5, avgTime: 52, isActive: true, assignedVehicles: 18, routeStatus: 'active' },
+  { id: '2', number: '3', name: 'ЖД Вокзал → Микрорайон Восток', stopsCount: 18, distance: 12.3, avgTime: 38, isActive: true, assignedVehicles: 14, routeStatus: 'route_change' },
+  { id: '3', number: '7', name: 'Центр → Промзона', stopsCount: 15, distance: 9.8, avgTime: 28, isActive: true, assignedVehicles: 12, routeStatus: 'temp_route' },
+  { id: '4', number: '9', name: 'Площадь Мира → Аэропорт', stopsCount: 30, distance: 22.1, avgTime: 65, isActive: true, assignedVehicles: 20, routeStatus: 'active' },
+  { id: '5', number: '11', name: 'Депо Западное → Университет', stopsCount: 20, distance: 14.7, avgTime: 42, isActive: true, assignedVehicles: 16, routeStatus: 'route_extension' },
+  { id: '6', number: '2', name: 'Старый город → Новый район', stopsCount: 12, distance: 7.2, avgTime: 22, isActive: false, assignedVehicles: 0, routeStatus: 'suspended' },
+  { id: '7', number: '14', name: 'Проспект Мира → Южный вокзал', stopsCount: 22, distance: 16.0, avgTime: 45, isActive: true, assignedVehicles: 10, routeStatus: 'active' },
+  { id: '8', number: '6', name: 'Центральный рынок → Заречный р-н', stopsCount: 16, distance: 11.1, avgTime: 32, isActive: true, assignedVehicles: 8, routeStatus: 'temp_route' },
+  { id: '9', number: '18', name: 'Медгородок → Технопарк', stopsCount: 19, distance: 13.4, avgTime: 36, isActive: true, assignedVehicles: 10, routeStatus: 'planned' },
+  { id: '10', number: '22', name: 'Площадь Победы → Пл. Ленина', stopsCount: 8, distance: 4.2, avgTime: 14, isActive: true, assignedVehicles: 6, routeStatus: 'active' },
 ];
 
 // --- 100 транспортных средств ---

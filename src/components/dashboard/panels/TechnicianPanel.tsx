@@ -11,6 +11,7 @@ import type {
   DocumentStatus,
   VehicleStatus,
   DriverStatus,
+  RouteStatus,
 } from "@/types/dashboard";
 
 interface TechnicianPanelProps {
@@ -138,26 +139,70 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 }
 
 // Generate mock stops list for a route
-function makeStops(route: RouteInfo): string[] {
-  const base = ["Депо", "ул. Заводская", "пл. Ленина", "ул. Садовая", "Центральный рынок",
-    "пр. Мира", "ул. Комсомольская", "пл. Советская", "ул. Кирова", "Парк культуры",
-    "ул. Победы", "ст. м. Площадь", "Торговый центр", "ул. Гагарина", "пр. Строителей",
-    "ул. Молодёжная", "Стадион", "Больница №2", "ул. Весенняя", "Конечная"];
+interface StopInfo {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+function makeStops(route: RouteInfo): StopInfo[] {
+  const base: StopInfo[] = [
+    { name: "Депо", lat: 59.970, lng: 30.315 },
+    { name: "ул. Заводская", lat: 59.965, lng: 30.325 },
+    { name: "пл. Ленина", lat: 59.955, lng: 30.335 },
+    { name: "ул. Садовая", lat: 59.950, lng: 30.320 },
+    { name: "Центральный рынок", lat: 59.945, lng: 30.310 },
+    { name: "пр. Мира", lat: 59.940, lng: 30.300 },
+    { name: "ул. Комсомольская", lat: 59.935, lng: 30.290 },
+    { name: "пл. Советская", lat: 59.930, lng: 30.305 },
+    { name: "ул. Кирова", lat: 59.925, lng: 30.320 },
+    { name: "Парк культуры", lat: 59.920, lng: 30.335 },
+    { name: "ул. Победы", lat: 59.915, lng: 30.350 },
+    { name: "ст. м. Площадь", lat: 59.910, lng: 30.340 },
+    { name: "Торговый центр", lat: 59.905, lng: 30.325 },
+    { name: "ул. Гагарина", lat: 59.900, lng: 30.310 },
+    { name: "пр. Строителей", lat: 59.895, lng: 30.295 },
+    { name: "ул. Молодёжная", lat: 59.890, lng: 30.305 },
+    { name: "Стадион", lat: 59.885, lng: 30.320 },
+    { name: "Больница №2", lat: 59.882, lng: 30.335 },
+    { name: "ул. Весенняя", lat: 59.878, lng: 30.345 },
+    { name: "Конечная", lat: 59.875, lng: 30.355 },
+  ];
   return base.slice(0, Math.min(route.stopsCount, base.length));
+}
+
+const ROUTE_STATUS_CONFIG: Record<RouteStatus, { label: string; color: string; bg: string; border: string }> = {
+  active:          { label: "Активный",          color: "text-green-600",  bg: "bg-green-500/10",  border: "border-green-500/30" },
+  route_change:    { label: "Изменение маршрута", color: "text-orange-600", bg: "bg-orange-500/10", border: "border-orange-500/30" },
+  temp_route:      { label: "Временная трасса",   color: "text-blue-600",   bg: "bg-blue-500/10",   border: "border-blue-500/30" },
+  route_extension: { label: "Продление маршрута", color: "text-purple-600", bg: "bg-purple-500/10", border: "border-purple-500/30" },
+  suspended:       { label: "Приостановлен",      color: "text-gray-500",   bg: "bg-gray-500/10",   border: "border-gray-400/30" },
+  planned:         { label: "Планируется",        color: "text-cyan-600",   bg: "bg-cyan-500/10",   border: "border-cyan-500/30" },
+};
+
+function getRouteStatus(route: RouteInfo): RouteStatus {
+  return route.routeStatus || (route.isActive ? 'active' : 'suspended');
 }
 
 function RoutesView({ routes }: { routes: RouteInfo[] }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [stopsRoute, setStopsRoute] = useState<RouteInfo | null>(null);
+  const [statusFilter, setStatusFilter] = useState<RouteStatus | "all">("all");
   const totalDistance = useMemo(() => routes.reduce((s, r) => s + r.distance, 0), [routes]);
   const totalStops = useMemo(() => routes.reduce((s, r) => s + r.stopsCount, 0), [routes]);
   const activeCount = useMemo(() => routes.filter((r) => r.isActive).length, [routes]);
   const filtered = useMemo(() => {
-    if (!search.trim()) return routes;
-    const q = search.toLowerCase();
-    return routes.filter((r) => r.number.includes(q) || r.name.toLowerCase().includes(q));
-  }, [routes, search]);
+    let result = routes;
+    if (statusFilter !== "all") {
+      result = result.filter((r) => getRouteStatus(r) === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter((r) => r.number.includes(q) || r.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [routes, search, statusFilter]);
 
   const summaryCards = [
     { icon: "Route", value: routes.length, label: "Всего маршрутов", color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -194,12 +239,34 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap">
+        {([
+          { key: "all" as const, label: "Все" },
+          ...Object.entries(ROUTE_STATUS_CONFIG).map(([key, cfg]) => ({ key: key as RouteStatus, label: cfg.label }))
+        ] as { key: RouteStatus | "all"; label: string }[]).map(f => (
+          <button
+            key={f.key}
+            onClick={() => setStatusFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              statusFilter === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
-        {filtered.map((route) => (
+        {filtered.map((route) => {
+          const rs = getRouteStatus(route);
+          const rsConfig = ROUTE_STATUS_CONFIG[rs];
+          return (
           <div key={route.id} className="bg-card border border-border rounded-2xl p-5 flex gap-4">
             <div
               className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-lg font-bold text-white ${
-                route.isActive ? "bg-green-500" : "bg-gray-400"
+                rs === "active" ? "bg-green-500" : rs === "route_change" ? "bg-orange-500" : rs === "temp_route" ? "bg-blue-500" : rs === "route_extension" ? "bg-purple-500" : rs === "planned" ? "bg-cyan-500" : "bg-gray-400"
               }`}
             >
               {route.number}
@@ -207,11 +274,7 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-sm font-semibold text-foreground truncate">{route.name}</p>
-                {route.isActive ? (
-                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
-                )}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rsConfig.bg} ${rsConfig.color} border ${rsConfig.border}`}>{rsConfig.label}</span>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -240,7 +303,8 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {stopsRoute && (
@@ -250,10 +314,15 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
               <span className="flex items-center gap-1.5"><Icon name="MapPin" className="w-3.5 h-3.5" />{stopsRoute.stopsCount} остановок</span>
               <span className="flex items-center gap-1.5"><Icon name="Ruler" className="w-3.5 h-3.5" />{stopsRoute.distance} км</span>
               <span className="flex items-center gap-1.5"><Icon name="Clock" className="w-3.5 h-3.5" />{stopsRoute.avgTime} мин</span>
-              <span className={`flex items-center gap-1.5 font-medium ${stopsRoute.isActive ? "text-green-500" : "text-muted-foreground"}`}>
-                <span className={`w-2 h-2 rounded-full ${stopsRoute.isActive ? "bg-green-500" : "bg-gray-400"}`} />
-                {stopsRoute.isActive ? "Активен" : "Неактивен"}
-              </span>
+              {(() => {
+                const srs = getRouteStatus(stopsRoute);
+                const srsCfg = ROUTE_STATUS_CONFIG[srs];
+                return (
+                  <span className={`flex items-center gap-1.5 font-medium ${srsCfg.color}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${srsCfg.bg} ${srsCfg.color} border ${srsCfg.border}`}>{srsCfg.label}</span>
+                  </span>
+                );
+              })()}
             </div>
             <div className="space-y-1">
               {makeStops(stopsRoute).map((stop, i) => (
@@ -262,8 +331,11 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
                     <div className={`w-3 h-3 rounded-full shrink-0 ${i === 0 ? "bg-green-500" : i === makeStops(stopsRoute).length - 1 ? "bg-red-500" : "bg-primary/60"}`} />
                     {i < makeStops(stopsRoute).length - 1 && <div className="w-0.5 h-4 bg-border mt-0.5" />}
                   </div>
-                  <span className="text-sm text-foreground flex-1">{stop}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">ост. {i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-foreground">{stop.name}</span>
+                    <p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">ост. {i + 1}</span>
                 </div>
               ))}
             </div>
@@ -308,10 +380,27 @@ function RoutesView({ routes }: { routes: RouteInfo[] }) {
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
                 <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
-                  <option value="active">Активен</option>
-                  <option value="inactive">Неактивен</option>
+                  <option value="">--- выберите ---</option>
+                  {Object.entries(ROUTE_STATUS_CONFIG).map(([key, cfg]) => (
+                    <option key={key} value={key}>{cfg.label}</option>
+                  ))}
                 </select>
+              </div>
+              <div className="col-span-2 border-t border-border pt-3 mt-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-2">Остановки (координаты)</label>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {[1, 2, 3].map(n => (
+                    <div key={n} className="grid grid-cols-3 gap-2">
+                      <input type="text" placeholder={`Остановка ${n}`} className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                      <input type="text" placeholder="Широта" className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                      <input type="text" placeholder="Долгота" className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                    </div>
+                  ))}
+                </div>
+                <button type="button" className="mt-2 text-xs text-primary hover:underline flex items-center gap-1">
+                  <Icon name="Plus" className="w-3 h-3" />
+                  Добавить остановку
+                </button>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">

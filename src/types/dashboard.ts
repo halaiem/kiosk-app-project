@@ -19,6 +19,7 @@ export type VehicleStatus = 'active' | 'maintenance' | 'idle' | 'offline';
 export type DriverStatus = 'on_shift' | 'off_shift' | 'break' | 'sick';
 export type ServerStatus = 'online' | 'warning' | 'offline';
 export type DocumentStatus = 'draft' | 'review' | 'approved' | 'expired';
+export type RouteStatus = 'active' | 'route_change' | 'temp_route' | 'route_extension' | 'suspended' | 'planned';
 
 export interface DispatchMessage {
   id: string;
@@ -67,6 +68,7 @@ export interface RouteInfo {
   avgTime: number;
   isActive: boolean;
   assignedVehicles: number;
+  routeStatus?: RouteStatus;
 }
 
 export interface VehicleInfo {
