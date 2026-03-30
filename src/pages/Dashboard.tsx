@@ -22,19 +22,15 @@ export default function Dashboard() {
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
-  // Apply dashboard theme to <html> element (separate from kiosk dark mode)
+  // Theme is driven by brandColors brightness in AppSettingsContext.
+  // Manual toggle overrides via dashboardTheme only when brandColors haven't set class yet.
   useEffect(() => {
+    const colors = settings.brandColors;
+    if (colors?.sidebarBg?.startsWith('#')) return; // brightness-driven, skip
     const root = document.documentElement;
-    if (settings.dashboardTheme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      root.classList.add('dark');
-    }
-    return () => {
-      // Restore dark on unmount (kiosk manages its own)
-      root.classList.add('dark');
-    };
-  }, [settings.dashboardTheme]);
+    root.classList.toggle('dark', settings.dashboardTheme === 'dark');
+    return () => { root.classList.add('dark'); };
+  }, [settings.dashboardTheme, settings.brandColors]);
 
   const handleLogin = (id: string, password: string) => {
     const success = login(id, password);

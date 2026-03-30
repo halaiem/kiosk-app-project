@@ -106,6 +106,8 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     setSettings(prev => {
       const next = { ...prev, ...patch };
       localStorage.setItem('app_settings', JSON.stringify(next));
+      // notify other tabs/hooks (kiosk) about settings change
+      window.dispatchEvent(new StorageEvent('storage', { key: 'app_settings' }));
       return next;
     });
   }, []);
@@ -124,7 +126,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('app_settings');
   }, []);
 
-  // Apply brand colors + font to CSS variables
+  // Apply brand colors + font to CSS variables + auto theme by brightness
   useEffect(() => {
     const root = document.documentElement;
     const colors = { ...DEFAULT_SETTINGS.brandColors, ...(settings.brandColors ?? {}) };
@@ -136,6 +138,12 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--sidebar-background', hsl);
       root.style.setProperty('--sidebar-accent', darker);
       root.style.setProperty('--sidebar-border', darker);
+
+      // Auto-adapt dashboard theme by sidebar brightness
+      const lMatch = hsl.match(/(\d+)%$/);
+      const l = lMatch ? parseFloat(lMatch[1]) : 50;
+      const sidebarIsDark = l <= 55;
+      root.classList.toggle('dark', sidebarIsDark);
     }
     if (sidebarTextColor?.startsWith('#')) {
       const hsl = hexToHsl(sidebarTextColor);
