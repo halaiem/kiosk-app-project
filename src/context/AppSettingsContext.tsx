@@ -16,6 +16,14 @@ export interface BrandColors {
   sidebarBg: string;
   headerBg: string;
   primaryBtn: string;
+  textColor: string;
+  sidebarTextColor: string;
+}
+
+export interface BrandFont {
+  name: string;       // display name, e.g. "Roboto"
+  url: string;        // google fonts URL or data: base64
+  family: string;     // CSS font-family value
 }
 
 export interface AppSettings {
@@ -29,6 +37,7 @@ export interface AppSettings {
   featuresTechnician: FeatureFlags;
   dashboardTheme: 'dark' | 'light';
   brandColors: BrandColors;
+  brandFont: BrandFont | null;
 }
 
 const DEFAULT_FEATURES: FeatureFlags = {
@@ -50,7 +59,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   featuresDispatcher: { ...DEFAULT_FEATURES },
   featuresTechnician: { ...DEFAULT_FEATURES },
   dashboardTheme: 'dark',
-  brandColors: { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c' },
+  brandColors: { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c', textColor: '#141414', sidebarTextColor: '#141414' },
+  brandFont: null,
 };
 
 function loadSettings(): AppSettings {
@@ -114,20 +124,24 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('app_settings');
   }, []);
 
-  // Apply brand colors to CSS variables
+  // Apply brand colors + font to CSS variables
   useEffect(() => {
     const root = document.documentElement;
-    const { sidebarBg, headerBg, primaryBtn } = settings.brandColors ?? DEFAULT_SETTINGS.brandColors;
+    const colors = { ...DEFAULT_SETTINGS.brandColors, ...(settings.brandColors ?? {}) };
+    const { sidebarBg, headerBg, primaryBtn, textColor, sidebarTextColor } = colors;
+
     if (sidebarBg?.startsWith('#')) {
       const hsl = hexToHsl(sidebarBg);
       const darker = hexToHsl(sidebarBg).replace(/(\d+)%$/, (_, l) => `${Math.max(0, parseInt(l) - 8)}%`);
       root.style.setProperty('--sidebar-background', hsl);
       root.style.setProperty('--sidebar-accent', darker);
       root.style.setProperty('--sidebar-border', darker);
-      // text always #141414
-      root.style.setProperty('--sidebar-foreground', '0 0% 8%');
-      root.style.setProperty('--sidebar-primary', '0 0% 8%');
-      root.style.setProperty('--sidebar-accent-foreground', '0 0% 8%');
+    }
+    if (sidebarTextColor?.startsWith('#')) {
+      const hsl = hexToHsl(sidebarTextColor);
+      root.style.setProperty('--sidebar-foreground', hsl);
+      root.style.setProperty('--sidebar-primary', hsl);
+      root.style.setProperty('--sidebar-accent-foreground', hsl);
     }
     if (headerBg?.startsWith('#')) {
       root.style.setProperty('--kiosk-header-bg', hexToHsl(headerBg));
@@ -135,7 +149,44 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     if (primaryBtn?.startsWith('#')) {
       root.style.setProperty('--primary', hexToHsl(primaryBtn));
     }
+    if (textColor?.startsWith('#')) {
+      const hsl = hexToHsl(textColor);
+      root.style.setProperty('--foreground', hsl);
+      root.style.setProperty('--card-foreground', hsl);
+      root.style.setProperty('--popover-foreground', hsl);
+    }
   }, [settings.brandColors]);
+
+  // Apply custom font
+  useEffect(() => {
+    const font = settings.brandFont;
+    if (!font) return;
+    // inject @font-face or link
+    const id = '__brand_font__';
+    let el = document.getElementById(id);
+    if (!el) {
+      if (font.url.startsWith('data:') || font.url.startsWith('http')) {
+        if (font.url.startsWith('http')) {
+          el = document.createElement('link');
+          (el as HTMLLinkElement).rel = 'stylesheet';
+          (el as HTMLLinkElement).href = font.url;
+        } else {
+          el = document.createElement('style');
+          el.textContent = `@font-face { font-family: "${font.family}"; src: url("${font.url}"); }`;
+        }
+        el.id = id;
+        document.head.appendChild(el);
+      }
+    } else {
+      if (font.url.startsWith('http')) {
+        (el as HTMLLinkElement).href = font.url;
+      } else {
+        el.textContent = `@font-face { font-family: "${font.family}"; src: url("${font.url}"); }`;
+      }
+    }
+    document.documentElement.style.setProperty('--brand-font', `"${font.family}", "Golos Text", system-ui, sans-serif`);
+    (document.body.style as CSSStyleDeclaration & { fontFamily: string }).fontFamily = `"${font.family}", "Golos Text", system-ui, sans-serif`;
+  }, [settings.brandFont]);
 
   return (
     <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, resetSettings }}>
