@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 export type TransportType = 'tram' | 'trolleybus' | 'bus';
-export type CityOption = 'spb' | 'moscow' | 'kazan' | 'novosibirsk' | 'custom';
+export type CityOption = 'spb' | 'moscow' | 'kazan' | 'novosibirsk' | 'ekaterinburg' | 'custom';
 
 export interface FeatureFlags {
   showMap: boolean;
@@ -52,7 +52,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
 const DEFAULT_SETTINGS: AppSettings = {
   carrierName: 'ИРИДА',
   carrierLogo: null,
-  city: 'spb',
+  city: 'ekaterinburg',
   customCityName: '',
   transportType: 'tram',
   featuresTablet: { ...DEFAULT_FEATURES },
@@ -201,6 +201,7 @@ export const CITY_LABELS: Record<CityOption, string> = {
   moscow: 'Москва',
   kazan: 'Казань',
   novosibirsk: 'Новосибирск',
+  ekaterinburg: 'Екатеринбург',
   custom: 'Другой город',
 };
 

@@ -9,18 +9,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// SPb tram route #5 approximate stops (lat/lng)
+// Ekaterinburg tram route approximate stops (lat/lng)
 const ROUTE_STOPS: [number, number][] = [
-  [59.9240, 30.2950], // Депо Северное
-  [59.9265, 30.3010],
-  [59.9290, 30.3070],
-  [59.9310, 30.3130],
-  [59.9335, 30.3200],
-  [59.9355, 30.3260],
-  [59.9375, 30.3320],
-  [59.9395, 30.3380],
-  [59.9415, 30.3450],
-  [59.9440, 30.3520], // Конечная
+  [56.8310, 60.5950], // Депо
+  [56.8330, 60.6010],
+  [56.8350, 60.6070],
+  [56.8370, 60.6130],
+  [56.8390, 60.6190],
+  [56.8410, 60.6250],
+  [56.8430, 60.6310],
+  [56.8450, 60.6370],
+  [56.8470, 60.6430],
+  [56.8490, 60.6490], // Конечная
 ];
 
 interface VehicleState {
@@ -92,7 +92,7 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    const center: [number, number] = [59.9330, 30.3200];
+    const center: [number, number] = [56.8400, 60.6200];
     const map = L.map(mapRef.current, {
       center,
       zoom: 14,
