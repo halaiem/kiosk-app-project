@@ -182,7 +182,7 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP */}
-        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2">
+        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
           <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
         </div>
 
