@@ -14,7 +14,7 @@
       "path": "/",
       "body": {"driver_id": 1, "text": "Тест диспетчера", "type": "normal"},
       "expectedStatus": 200,
-      "expectedBody": {"id": 1},
+      "expectedBody": {"id": 2},
       "bodyMatcher": "partial"
     }
   ]

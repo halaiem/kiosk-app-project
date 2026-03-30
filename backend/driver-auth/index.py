@@ -19,15 +19,16 @@ def handler(event: dict, context) -> dict:
     cur = conn.cursor()
 
     try:
-        # POST ?action=login — вход по PIN
+        # POST ?action=login — вход по табельному номеру + PIN
         if method == 'POST' and action == 'login':
             body = json.loads(event.get('body') or '{}')
+            employee_id = body.get('employee_id', '').strip()
             pin = body.get('pin', '').strip()
 
-            if not pin:
-                return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'PIN обязателен'})}
+            if not employee_id or not pin:
+                return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Табельный номер и PIN обязательны'})}
 
-            cur.execute("SELECT id, full_name, vehicle_type, vehicle_number, route_number, shift_start FROM drivers WHERE pin = %s AND is_active = true", (pin,))
+            cur.execute("SELECT id, full_name, vehicle_type, vehicle_number, route_number, shift_start FROM drivers WHERE employee_id = %s AND pin = %s AND is_active = true", (employee_id, pin))
             driver = cur.fetchone()
 
             if not driver:

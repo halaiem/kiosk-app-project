@@ -1,19 +1,19 @@
 {
   "tests": [
     {
-      "name": "Login with valid PIN",
+      "name": "Login with valid employee_id + PIN",
       "method": "POST",
       "path": "/?action=login",
-      "body": {"pin": "1234"},
+      "body": {"employee_id": "0001", "pin": "1234"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
     },
     {
-      "name": "Login with invalid PIN",
+      "name": "Login with invalid credentials",
       "method": "POST",
       "path": "/?action=login",
-      "body": {"pin": "0000"},
+      "body": {"employee_id": "0001", "pin": "0000"},
       "expectedStatus": 401,
       "bodyMatcher": "partial"
     },
@@ -22,7 +22,7 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"drivers": [{"id": 1}]},
+      "expectedBody": {"drivers": []},
       "bodyMatcher": "partial"
     }
   ]

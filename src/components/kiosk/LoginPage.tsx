@@ -2,32 +2,31 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 
 interface Props {
-  onLogin: (id: string, password: string) => void;
+  onLogin: (employeeId: string, pin: string) => void;
+  error?: string | null;
+  loading?: boolean;
 }
 
-export default function LoginPage({ onLogin }: Props) {
-  const [driverId, setDriverId] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function LoginPage({ onLogin, error, loading }: Props) {
+  const [employeeId, setEmployeeId] = useState('');
+  const [pin, setPin] = useState('');
+  const [localError, setLocalError] = useState('');
 
-  const handleSubmit = async () => {
-    if (!driverId.trim()) { setError('Введите ID водителя'); return; }
-    if (!password.trim()) { setError('Введите пароль'); return; }
-    setError('');
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 900));
-    setLoading(false);
-    onLogin(driverId, password);
+  const handleSubmit = () => {
+    if (!employeeId.trim()) { setLocalError('Введите табельный номер'); return; }
+    if (!pin.trim()) { setLocalError('Введите PIN-код'); return; }
+    setLocalError('');
+    onLogin(employeeId.trim(), pin.trim());
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSubmit();
   };
 
+  const displayError = localError || error;
+
   return (
     <div className="flex h-full w-full items-center justify-center kiosk-bg relative overflow-hidden">
-      {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-primary via-accent to-primary" />
         <div className="absolute top-20 -left-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
@@ -37,9 +36,7 @@ export default function LoginPage({ onLogin }: Props) {
         />
       </div>
 
-      {/* Login card */}
       <div className="animate-scale-in relative z-10 w-full max-w-md mx-4">
-        {/* Logo / Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary elevation-3 mb-4">
             <Icon name="Tram" size={42} className="text-primary-foreground" />
@@ -48,7 +45,6 @@ export default function LoginPage({ onLogin }: Props) {
           <p className="text-muted-foreground text-sm mt-1">Система управления транспортом</p>
         </div>
 
-        {/* Card */}
         <div className="kiosk-surface rounded-2xl elevation-3 p-8">
           <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
             <Icon name="LogIn" size={20} className="text-primary" />
@@ -57,15 +53,15 @@ export default function LoginPage({ onLogin }: Props) {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">ID Водителя</label>
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Табельный номер</label>
               <div className="relative">
                 <Icon name="IdCard" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  value={driverId}
-                  onChange={e => setDriverId(e.target.value)}
+                  value={employeeId}
+                  onChange={e => setEmployeeId(e.target.value)}
                   onKeyDown={handleKey}
-                  placeholder="Введите ваш ID"
+                  placeholder="Например: 0001"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-base transition-all"
                   autoComplete="off"
                 />
@@ -73,24 +69,24 @@ export default function LoginPage({ onLogin }: Props) {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Пароль</label>
+              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">PIN-код</label>
               <div className="relative">
                 <Icon name="Lock" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  value={pin}
+                  onChange={e => setPin(e.target.value)}
                   onKeyDown={handleKey}
-                  placeholder="••••••••"
+                  placeholder="••••"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-base transition-all"
                 />
               </div>
             </div>
 
-            {error && (
+            {displayError && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm animate-shake">
                 <Icon name="AlertCircle" size={16} />
-                {error}
+                {displayError}
               </div>
             )}
 
@@ -102,7 +98,7 @@ export default function LoginPage({ onLogin }: Props) {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Проверка наряда...
+                  Проверка...
                 </>
               ) : (
                 <>

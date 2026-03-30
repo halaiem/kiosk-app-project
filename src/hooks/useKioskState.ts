@@ -104,11 +104,11 @@ export function useKioskState() {
     return () => clearInterval(interval);
   }, [screen]);
 
-  const login = useCallback(async (pin: string, _password: string) => {
+  const login = useCallback(async (employeeId: string, pin: string) => {
     setLoginError(null);
     setLoginLoading(true);
     try {
-      const data = await loginByPin(pin);
+      const data = await loginByPin(employeeId, pin);
       const d: Driver = {
         id: String(data.driver.id),
         name: data.driver.name,

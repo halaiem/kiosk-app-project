@@ -26,14 +26,14 @@ function clearSession() {
   localStorage.removeItem(DRIVER_KEY);
 }
 
-export async function loginByPin(pin: string) {
+export async function loginByPin(employeeId: string, pin: string) {
   const res = await fetch(`${URLS.auth}/?action=login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
+    body: JSON.stringify({ employee_id: employeeId, pin }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Неверный PIN');
+  if (!res.ok) throw new Error(data.error || 'Неверный табельный номер или PIN');
   storeSession(data.token, data.driver);
   return data;
 }

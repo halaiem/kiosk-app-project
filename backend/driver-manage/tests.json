@@ -5,14 +5,14 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": {"drivers": [{"id": 1}]},
+      "expectedBody": {"drivers": [{"employeeId": "0001"}]},
       "bodyMatcher": "partial"
     },
     {
       "name": "Create driver",
       "method": "POST",
       "path": "/",
-      "body": {"fullName": "Тест Водитель", "pin": "9999", "vehicleType": "tram", "vehicleNumber": "ТМ-0001", "routeNumber": "1", "shiftStart": "07:00"},
+      "body": {"fullName": "Новый Водитель", "pin": "0000", "vehicleType": "tram", "vehicleNumber": "ТМ-9999", "routeNumber": "9", "shiftStart": "10:00"},
       "expectedStatus": 200,
       "expectedBody": {"ok": true},
       "bodyMatcher": "partial"

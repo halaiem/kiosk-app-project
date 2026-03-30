@@ -20,7 +20,7 @@ def handler(event: dict, context) -> dict:
         # GET — список всех водителей
         if method == 'GET':
             cur.execute("""
-                SELECT d.id, d.full_name, d.pin, d.vehicle_type, d.vehicle_number, d.route_number,
+                SELECT d.id, d.full_name, d.pin, d.employee_id, d.vehicle_type, d.vehicle_number, d.route_number,
                        d.shift_start, d.is_active, d.created_at,
                        s.is_online, s.last_seen
                 FROM drivers d
@@ -31,11 +31,11 @@ def handler(event: dict, context) -> dict:
             drivers = []
             for r in rows:
                 drivers.append({
-                    'id': r[0], 'fullName': r[1], 'pin': r[2],
-                    'vehicleType': r[3], 'vehicleNumber': r[4], 'routeNumber': r[5],
-                    'shiftStart': str(r[6]) if r[6] else None,
-                    'isActive': r[7], 'createdAt': str(r[8]),
-                    'isOnline': bool(r[9]), 'lastSeen': str(r[10]) if r[10] else None
+                    'id': r[0], 'fullName': r[1], 'pin': r[2], 'employeeId': r[3],
+                    'vehicleType': r[4], 'vehicleNumber': r[5], 'routeNumber': r[6],
+                    'shiftStart': str(r[7]) if r[7] else None,
+                    'isActive': r[8], 'createdAt': str(r[9]),
+                    'isOnline': bool(r[10]), 'lastSeen': str(r[11]) if r[11] else None
                 })
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'drivers': drivers})}
 
@@ -59,9 +59,17 @@ def handler(event: dict, context) -> dict:
             if cur.fetchone():
                 return {'statusCode': 409, 'headers': headers, 'body': json.dumps({'error': 'PIN уже используется'})}
 
+            cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM drivers")
+            next_id = cur.fetchone()[0]
+            employee_id = body.get('employeeId', '').strip() or str(next_id).zfill(4)
+
+            cur.execute("SELECT id FROM drivers WHERE employee_id = %s", (employee_id,))
+            if cur.fetchone():
+                employee_id = str(next_id).zfill(4)
+
             cur.execute(
-                "INSERT INTO drivers (full_name, pin, vehicle_type, vehicle_number, route_number, shift_start) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                (full_name, pin, vehicle_type, vehicle_number, route_number, shift_start)
+                "INSERT INTO drivers (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start)
             )
             driver_id = cur.fetchone()[0]
             conn.commit()
