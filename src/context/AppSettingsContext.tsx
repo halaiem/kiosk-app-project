@@ -124,6 +124,10 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--sidebar-background', hsl);
       root.style.setProperty('--sidebar-accent', darker);
       root.style.setProperty('--sidebar-border', darker);
+      // text always #141414
+      root.style.setProperty('--sidebar-foreground', '0 0% 8%');
+      root.style.setProperty('--sidebar-primary', '0 0% 8%');
+      root.style.setProperty('--sidebar-accent-foreground', '0 0% 8%');
     }
     if (headerBg?.startsWith('#')) {
       root.style.setProperty('--kiosk-header-bg', hexToHsl(headerBg));
