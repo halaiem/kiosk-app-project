@@ -1,6 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 
-interface VehicleMarker {
+// Fix default Leaflet icon paths for Vite
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// SPb tram route #5 approximate stops (lat/lng)
+const ROUTE_STOPS: [number, number][] = [
+  [59.9240, 30.2950], // Депо Северное
+  [59.9265, 30.3010],
+  [59.9290, 30.3070],
+  [59.9310, 30.3130],
+  [59.9335, 30.3200],
+  [59.9355, 30.3260],
+  [59.9375, 30.3320],
+  [59.9395, 30.3380],
+  [59.9415, 30.3450],
+  [59.9440, 30.3520], // Конечная
+];
+
+interface VehicleState {
   id: string;
   label: string;
   progress: number;
@@ -8,35 +31,46 @@ interface VehicleMarker {
   isOwn?: boolean;
 }
 
-const ROUTE_STOPS_COORDS = [
-  { x: 15, y: 80 }, { x: 20, y: 72 }, { x: 27, y: 62 },
-  { x: 35, y: 52 }, { x: 42, y: 43 }, { x: 48, y: 36 },
-  { x: 55, y: 30 }, { x: 63, y: 24 }, { x: 72, y: 19 },
-  { x: 82, y: 14 },
-];
-
-const VEHICLES: VehicleMarker[] = [
-  { id: 'v1', label: 'ТМ-3405', progress: 0.15, color: '#22c55e' },
+const VEHICLES: VehicleState[] = [
+  { id: 'v1', label: 'ТМ-3405', progress: 0.12, color: '#22c55e' },
   { id: 'v2', label: 'ТМ-3407', progress: 0.38, color: '#3b82f6', isOwn: true },
   { id: 'v3', label: 'ТМ-3410', progress: 0.55, color: '#f59e0b' },
   { id: 'v4', label: 'ТМ-3412', progress: 0.72, color: '#a78bfa' },
-  { id: 'v5', label: 'ТМ-3415', progress: 0.88, color: '#f43f5e' },
 ];
 
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+function getPosOnRoute(progress: number): [number, number] {
+  const total = ROUTE_STOPS.length - 1;
+  const segIdx = Math.min(Math.floor(progress * total), total - 1);
+  const segProgress = progress * total - segIdx;
+  const [aLat, aLng] = ROUTE_STOPS[segIdx];
+  const [bLat, bLng] = ROUTE_STOPS[Math.min(segIdx + 1, total)];
+  return [lerp(aLat, bLat, segProgress), lerp(aLng, bLng, segProgress)];
 }
 
-function getPosOnRoute(progress: number) {
-  const total = ROUTE_STOPS_COORDS.length - 1;
-  const segIdx = Math.min(Math.floor(progress * total), total - 1);
-  const segProgress = (progress * total) - segIdx;
-  const from = ROUTE_STOPS_COORDS[segIdx];
-  const to = ROUTE_STOPS_COORDS[segIdx + 1] || ROUTE_STOPS_COORDS[total];
-  return {
-    x: lerp(from.x, to.x, segProgress),
-    y: lerp(from.y, to.y, segProgress),
-  };
+function makeVehicleIcon(color: string, isOwn = false) {
+  const size = isOwn ? 20 : 14;
+  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    ${isOwn ? `<circle cx="10" cy="10" r="9" fill="${color}" opacity="0.25"/>` : ''}
+    <rect x="3" y="5" width="14" height="10" rx="3" fill="${color}"/>
+    <rect x="5" y="7" width="4" height="4" rx="1" fill="white" opacity="0.6"/>
+    <rect x="11" y="7" width="4" height="4" rx="1" fill="white" opacity="0.6"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function makeStopIcon(passed: boolean, isCurrent: boolean) {
+  const color = isCurrent ? '#22c55e' : passed ? '#64748b' : '#475569';
+  const svg = `<svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="5" cy="5" r="4" fill="${color}" ${isCurrent ? `stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.5"` : ''}/>
+  </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [10, 10], iconAnchor: [5, 5] });
 }
 
 interface Props {
@@ -45,113 +79,126 @@ interface Props {
 }
 
 export default function MapWidget({ currentStopIndex, speed }: Props) {
-  const [vehicles, setVehicles] = useState(VEHICLES);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const vehicleMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const stopMarkersRef = useRef<L.Marker[]>([]);
+  const routeLineRef = useRef<L.Polyline | null>(null);
+  const [vehicles, setVehicles] = useState<VehicleState[]>(VEHICLES);
   const animRef = useRef<number>();
-  const lastTime = useRef<number>(0);
+  const lastTimeRef = useRef(0);
 
+  // Init map once
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const center: [number, number] = [59.9330, 30.3200];
+    const map = L.map(mapRef.current, {
+      center,
+      zoom: 14,
+      zoomControl: false,
+      attributionControl: false,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Route line
+    const line = L.polyline(ROUTE_STOPS, {
+      color: '#3b82f6',
+      weight: 4,
+      opacity: 0.8,
+      dashArray: '8 6',
+    }).addTo(map);
+    routeLineRef.current = line;
+
+    // Stop markers
+    ROUTE_STOPS.forEach((pos, i) => {
+      const marker = L.marker(pos, {
+        icon: makeStopIcon(i < currentStopIndex, i === currentStopIndex),
+        zIndexOffset: 100,
+      }).addTo(map);
+      stopMarkersRef.current.push(marker);
+    });
+
+    // Vehicle markers
+    VEHICLES.forEach((v) => {
+      const pos = getPosOnRoute(v.progress);
+      const marker = L.marker(pos, {
+        icon: makeVehicleIcon(v.color, v.isOwn),
+        zIndexOffset: v.isOwn ? 1000 : 500,
+      }).addTo(map);
+      if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
+      vehicleMarkersRef.current.set(v.id, marker);
+    });
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Update stop icons when currentStopIndex changes
+  useEffect(() => {
+    stopMarkersRef.current.forEach((marker, i) => {
+      marker.setIcon(makeStopIcon(i < currentStopIndex, i === currentStopIndex));
+    });
+  }, [currentStopIndex]);
+
+  // Animate vehicles
   useEffect(() => {
     const animate = (time: number) => {
-      const delta = (time - lastTime.current) / 1000;
-      lastTime.current = time;
-      setVehicles(prev => prev.map(v => ({
-        ...v,
-        progress: (v.progress + delta * 0.008) % 1,
-      })));
+      const delta = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
+      setVehicles((prev) =>
+        prev.map((v) => ({ ...v, progress: (v.progress + delta * 0.006) % 1 }))
+      );
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, []);
 
-  const routePath = ROUTE_STOPS_COORDS
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-    .join(' ');
+  // Sync vehicle markers to map
+  useEffect(() => {
+    vehicles.forEach((v) => {
+      const marker = vehicleMarkersRef.current.get(v.id);
+      if (marker) marker.setLatLng(getPosOnRoute(v.progress));
+    });
+  }, [vehicles]);
 
   return (
     <div className="map-container w-full h-full rounded-xl overflow-hidden relative">
-      <div className="map-grid" />
+      <div ref={mapRef} className="w-full h-full" />
 
-      {/* Street labels decoration */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Background street lines */}
-        <line x1="0" y1="30" x2="100" y2="30" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <line x1="0" y1="55" x2="100" y2="55" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <line x1="25" y1="0" x2="25" y2="100" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-        <line x1="60" y1="0" x2="60" y2="100" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
-
-        {/* Route track */}
-        <path d={routePath} fill="none" stroke="rgba(59,130,246,0.25)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={routePath} fill="none" stroke="rgba(59,130,246,0.6)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-          strokeDasharray="2 4" />
-        {/* Glow */}
-        <path d={routePath} fill="none" stroke="#3b82f6" strokeWidth="0.5"
-          filter="drop-shadow(0 0 4px rgba(59,130,246,0.8))" strokeLinecap="round" strokeLinejoin="round" />
-
-        {/* Stop markers */}
-        {ROUTE_STOPS_COORDS.map((stop, i) => (
-          <g key={i}>
-            <circle cx={stop.x} cy={stop.y} r="1.2" fill={i <= currentStopIndex ? '#22c55e' : '#64748b'} />
-            <circle cx={stop.x} cy={stop.y} r="2.2" fill="none"
-              stroke={i === currentStopIndex ? '#22c55e' : 'transparent'} strokeWidth="0.5" />
-          </g>
-        ))}
-
-        {/* Vehicle markers */}
-        {vehicles.map(v => {
-          const pos = getPosOnRoute(v.progress);
-          return (
-            <g key={v.id}>
-              {v.isOwn && (
-                <>
-                  <circle cx={pos.x} cy={pos.y} r="3.5" fill={v.color} opacity="0.15" />
-                  <circle cx={pos.x} cy={pos.y} r="2.5" fill={v.color} opacity="0.25" />
-                </>
-              )}
-              <rect
-                x={pos.x - 1.8} y={pos.y - 1}
-                width="3.6" height="2"
-                rx="0.5"
-                fill={v.color}
-                filter={v.isOwn ? `drop-shadow(0 0 3px ${v.color})` : undefined}
-              />
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Map overlay info */}
-      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-        <div className="bg-black/60 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs flex items-center gap-1.5">
+      {/* HUD overlay */}
+      <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5 pointer-events-none">
+        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           <span>GPS активен</span>
         </div>
-        <div className="bg-black/60 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs">
-          Маршрут №5 · Линия А
+        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs">
+          Маршрут №5 · СПб
         </div>
       </div>
 
-      {/* Speed */}
-      <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm rounded-xl p-2.5 text-center min-w-[64px]">
+      <div className="absolute top-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm rounded-xl p-2.5 text-center min-w-[64px] pointer-events-none">
         <div className="text-2xl font-bold text-white tabular-nums leading-none">{Math.round(speed)}</div>
         <div className="text-[10px] text-gray-400 mt-0.5">км/ч</div>
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg px-2.5 py-2 space-y-1">
-        {vehicles.map(v => (
+      <div className="absolute bottom-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-2 space-y-1 pointer-events-none">
+        {vehicles.map((v) => (
           <div key={v.id} className="flex items-center gap-1.5">
-            <div className="w-2.5 h-1.5 rounded-sm flex-shrink-0" style={{ backgroundColor: v.color }} />
+            <div className="w-2.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: v.color }} />
             <span className="text-[10px] text-gray-300">{v.label}{v.isOwn ? ' (вы)' : ''}</span>
           </div>
         ))}
-      </div>
-
-      {/* Compass */}
-      <div className="absolute bottom-3 left-3 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
-        <div className="text-[10px] font-bold">
-          <span className="text-red-400 block text-center leading-tight">С</span>
-          <span className="text-gray-400 text-[8px] block text-center leading-tight">↑</span>
-        </div>
       </div>
     </div>
   );
