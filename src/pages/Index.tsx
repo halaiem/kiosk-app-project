@@ -8,6 +8,8 @@ import { ImportantMessageOverlay, MessageToast } from '@/components/kiosk/Notifi
 import BreakModal from '@/components/kiosk/BreakModal';
 import KioskUnlockModal from '@/components/kiosk/KioskUnlockModal';
 import DispatcherAlert from '@/components/kiosk/DispatcherAlert';
+import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/SupportModals';
+import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 
 const DISPATCHER_ALERTS = [
@@ -28,6 +30,7 @@ export default function Index() {
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
   const [dispatcherAlert, setDispatcherAlert] = useState<typeof DISPATCHER_ALERTS[0] | null>(null);
   const [shownAlerts, setShownAlerts] = useState<Set<string>>(new Set());
+  const [supportModal, setSupportModal] = useState<SupportModalRequest | null>(null);
 
   const triggerRandomAlert = useCallback(() => {
     const unseen = DISPATCHER_ALERTS.filter(a => !shownAlerts.has(a.id));
@@ -146,7 +149,23 @@ export default function Index() {
             onSetDarkFrom={state.setDarkFrom}
             onSetDarkTo={state.setDarkTo}
             onSendMessage={state.sendMessage}
+            onSupportModal={req => setSupportModal(req)}
           />
+
+          {/* Support modals — outside sidebar, full screen */}
+          {supportModal?.type === 'contact' && (
+            <SupportContactModal
+              contact={supportModal.contact}
+              onClose={() => setSupportModal(null)}
+              onSend={text => { state.sendMessage(text); setSupportModal(null); }}
+            />
+          )}
+          {supportModal?.type === 'equipment' && (
+            <SupportEquipmentModal
+              onClose={() => setSupportModal(null)}
+              onSend={text => { state.sendMessage(text); setSupportModal(null); }}
+            />
+          )}
 
           {/* Toast notifications — top right */}
           <div className="fixed top-16 right-4 z-30 flex flex-col gap-2 pointer-events-none">

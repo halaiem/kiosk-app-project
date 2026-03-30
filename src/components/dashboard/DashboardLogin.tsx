@@ -20,8 +20,8 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
       <div className="w-full max-w-sm mx-4">
         <div className="bg-card text-card-foreground rounded-2xl elevation-3 p-8">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-              <Icon name="TramFront" className="w-8 h-8 text-primary" />
+            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4 overflow-hidden">
+              <img src="/Znak.svg" alt="ИРИДА" className="w-10 h-10" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">
               ИРИДА

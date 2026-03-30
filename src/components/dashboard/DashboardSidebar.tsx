@@ -101,9 +101,9 @@ export default function DashboardSidebar({
       >
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
               style={{ backgroundColor: "hsl(var(--sidebar-primary) / 0.15)" }}>
-              <Icon name="TramFront" className="w-4 h-4" style={{ color: "hsl(var(--sidebar-primary))" }} />
+              <img src="/Znak.svg" alt="ИРИДА" className="w-6 h-6" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold leading-tight truncate">ИРИДА</p>

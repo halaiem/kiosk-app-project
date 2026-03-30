@@ -7,6 +7,7 @@ import {
   ArchiveSection,
   SupportSection,
   AdminSection,
+  SupportModalRequest,
 } from '@/components/kiosk/SidebarSections';
 
 const MENU_ITEMS: { id: MenuSection; label: string; icon: string; desc: string }[] = [
@@ -31,12 +32,13 @@ interface SidebarNavProps {
   onSetDarkFrom: (h: number) => void;
   onSetDarkTo: (h: number) => void;
   onSendMessage?: (text: string) => void;
+  onSupportModal?: (req: SupportModalRequest) => void;
 }
 
 export default function SidebarNav({
   driver, unreadCount, activeSection, sectionVisible, onSection,
   theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo,
-  onSendMessage,
+  onSendMessage, onSupportModal,
 }: SidebarNavProps) {
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
@@ -90,7 +92,7 @@ export default function SidebarNav({
           {activeSection === 'notifications' && <NotificationsSection unreadCount={unreadCount} />}
           {activeSection === 'settings' && <SettingsSection theme={theme} isDark={isDark} darkFrom={darkFrom} darkTo={darkTo} onSetTheme={onSetTheme} onSetDarkFrom={onSetDarkFrom} onSetDarkTo={onSetDarkTo} />}
           {activeSection === 'archive' && <ArchiveSection />}
-          {activeSection === 'support' && <SupportSection onSendMessage={onSendMessage} />}
+          {activeSection === 'support' && <SupportSection onSendMessage={onSendMessage} onOpenModal={onSupportModal} />}
           {activeSection === 'admin' && <AdminSection />}
         </div>
       )}

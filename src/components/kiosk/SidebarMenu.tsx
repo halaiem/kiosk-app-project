@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { MenuSection, ThemeMode, Driver } from '@/types/kiosk';
 import SidebarHeader from '@/components/kiosk/SidebarHeader';
 import SidebarNav from '@/components/kiosk/SidebarNav';
+import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 
 interface Props {
   isOpen: boolean;
@@ -22,9 +23,10 @@ interface Props {
   onSetDarkFrom: (h: number) => void;
   onSetDarkTo: (h: number) => void;
   onSendMessage?: (text: string) => void;
+  onSupportModal?: (req: SupportModalRequest) => void;
 }
 
-export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo, onSendMessage }: Props) {
+export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo, onSendMessage, onSupportModal }: Props) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -84,6 +86,7 @@ export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, acti
           onSetDarkFrom={onSetDarkFrom}
           onSetDarkTo={onSetDarkTo}
           onSendMessage={onSendMessage}
+          onSupportModal={onSupportModal}
         />
 
         <div className="p-4 border-t border-sidebar-border space-y-2">

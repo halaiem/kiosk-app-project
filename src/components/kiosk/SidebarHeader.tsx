@@ -31,8 +31,8 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
   return (
     <div className="p-5 border-b border-sidebar-border bg-gradient-to-br from-primary/20 to-transparent">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">
-          <Icon name="Tram" size={26} className="text-sidebar-primary" />
+        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center overflow-hidden">
+          <img src="/Znak.svg" alt="ИРИДА" className="w-8 h-8" style={{ color: 'hsl(var(--sidebar-primary))' }} />
         </div>
         <div>
           <div className={`font-bold ${roleTextClass}`}>ИРИДА</div>
