@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Driver } from '@/types/kiosk';
+import { useAppSettings } from '@/context/AppSettingsContext';
 
 function useSidebarLight() {
   const [isLight, setIsLight] = useState(true);
@@ -25,6 +26,7 @@ interface SidebarHeaderProps {
 
 export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
   const sidebarIsLight = useSidebarLight();
+  const { settings } = useAppSettings();
   const roleTextClass = sidebarIsLight ? 'text-[#141414]' : 'text-white';
   const roleBadgeClass = sidebarIsLight ? 'bg-black/15 text-[#141414]' : 'bg-white/15 text-white';
 
@@ -33,13 +35,21 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
       <div className="flex items-center gap-3 mb-4">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden"
           style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
-          <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-8 h-8 object-contain" />
+          {settings.carrierLogo ? (
+            <img src={settings.carrierLogo} alt={settings.carrierName} className="w-8 h-8 object-contain" />
+          ) : (
+            <Icon name="Building2" size={24} className="text-white" />
+          )}
         </div>
-        <div>
-          <div className={`font-bold ${roleTextClass}`}>ИРИДА</div>
-          <div className={`text-xs px-1.5 py-0.5 rounded font-medium inline-block ${roleBadgeClass}`}>
-            Система водителя
-          </div>
+        <div className="flex-1 min-w-0">
+          <div className={`font-bold ${roleTextClass} truncate`}>{settings.carrierName || 'ИРИДА'}</div>
+          {settings.carrierDescription ? (
+            <div className={`text-[10px] opacity-60 ${roleTextClass} truncate`}>{settings.carrierDescription}</div>
+          ) : (
+            <div className={`text-xs px-1.5 py-0.5 rounded font-medium inline-block ${roleBadgeClass}`}>
+              Система водителя
+            </div>
+          )}
         </div>
         <button onClick={onClose} className="ml-auto w-9 h-9 rounded-xl bg-sidebar-accent flex items-center justify-center ripple">
           <Icon name="X" size={18} className="text-sidebar-foreground" />

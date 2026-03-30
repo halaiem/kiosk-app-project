@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import { Driver, ThemeMode, Message } from '@/types/kiosk';
 
@@ -65,83 +66,105 @@ const EQUIPMENT: DocFile[] = [
 ];
 
 export function ProfileSection({ driver }: { driver: Driver | null }) {
-  const [activeTab, setActiveTab] = useState<'info' | 'docs' | 'equip'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'docs' | 'equip' | null>(null);
   const [viewDoc, setViewDoc] = useState<DocFile | null>(null);
 
+  const tabContent = activeTab && (
+    <div className="fixed top-0 left-80 right-0 bottom-0 z-[45] bg-background/95 backdrop-blur-sm overflow-y-auto" onClick={() => setActiveTab(null)}>
+      <div className="max-w-2xl mx-auto p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-foreground">
+            {activeTab === 'info' ? 'Данные водителя' : activeTab === 'docs' ? 'Документы' : 'Оборудование'}
+          </h2>
+          <button onClick={() => setActiveTab(null)} className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/70 transition-colors">
+            <Icon name="X" size={18} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        {activeTab === 'info' && driver && (
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'ФИО', value: driver.name, icon: 'User' },
+              { label: 'ID водителя', value: driver.id, icon: 'IdCard' },
+              { label: 'Маршрут', value: `№${driver.routeNumber}`, icon: 'Route' },
+              { label: 'ТС', value: driver.vehicleNumber, icon: 'Tram' },
+              { label: 'Смена', value: `с ${driver.shiftStart}`, icon: 'Clock' },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name={item.icon} size={22} className="text-primary" />
+                <div>
+                  <div className="text-xs text-muted-foreground">{item.label}</div>
+                  <div className="font-semibold text-foreground text-base">{item.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'docs' && (
+          <div className="space-y-2">
+            {DOCUMENTS.map(doc => (
+              <div key={doc.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={22} className="text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{doc.name}</div>
+                  <div className="text-xs text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
+                </div>
+                <button
+                  onClick={() => setViewDoc(doc)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
+                >
+                  <Icon name="Eye" size={14} />
+                  Открыть
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'equip' && (
+          <div className="space-y-2">
+            {EQUIPMENT.map(eq => (
+              <div key={eq.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name="Cpu" size={22} className="text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{eq.name}</div>
+                  <div className="text-xs text-muted-foreground">{eq.type.toUpperCase()} · {eq.size}</div>
+                </div>
+                <button
+                  onClick={() => setViewDoc(eq)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
+                >
+                  <Icon name="Eye" size={14} />
+                  Открыть
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {viewDoc && <DocViewer doc={viewDoc} onClose={() => setViewDoc(null)} />}
 
       <div className="flex gap-2">
-        {(['info', 'docs', 'equip'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ripple ${activeTab === tab ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-            {tab === 'info' ? 'Данные' : tab === 'docs' ? 'Документы' : 'Оборудование'}
+        {([
+          { key: 'info' as const, label: 'Данные', icon: 'User' },
+          { key: 'docs' as const, label: 'Документы', icon: 'FileText' },
+          { key: 'equip' as const, label: 'Оборудование', icon: 'Cpu' },
+        ]).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(activeTab === tab.key ? null : tab.key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all ripple ${activeTab === tab.key ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-sidebar-accent text-sidebar-foreground'}`}>
+            <Icon name={tab.icon} size={14} />
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'info' && driver && (
-        <div className="space-y-3">
-          {[
-            { label: 'ФИО', value: driver.name, icon: 'User' },
-            { label: 'ID водителя', value: driver.id, icon: 'IdCard' },
-            { label: 'Маршрут', value: `№${driver.routeNumber}`, icon: 'Route' },
-            { label: 'ТС', value: driver.vehicleNumber, icon: 'Tram' },
-            { label: 'Смена', value: `с ${driver.shiftStart}`, icon: 'Clock' },
-          ].map(item => (
-            <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-muted">
-              <Icon name={item.icon} size={18} className="text-primary" />
-              <div>
-                <div className="text-xs text-muted-foreground">{item.label}</div>
-                <div className="font-medium text-foreground">{item.value}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {activeTab === 'docs' && (
-        <div className="space-y-2">
-          {DOCUMENTS.map(doc => (
-            <div key={doc.name} className="flex items-center gap-3 p-3 rounded-xl bg-muted">
-              <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={18} className="text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-foreground truncate">{doc.name}</div>
-                <div className="text-[10px] text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
-              </div>
-              <button
-                onClick={() => setViewDoc(doc)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-medium ripple shrink-0"
-              >
-                <Icon name="Eye" size={12} />
-                Открыть
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {activeTab === 'equip' && (
-        <div className="space-y-2">
-          {EQUIPMENT.map(eq => (
-            <div key={eq.name} className="flex items-center gap-3 p-3 rounded-xl bg-muted">
-              <Icon name="Wrench" size={18} className="text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">{eq.name}</div>
-                <div className="text-[10px] text-muted-foreground">Инструкция · {eq.size}</div>
-              </div>
-              <button
-                onClick={() => setViewDoc(eq)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-medium ripple shrink-0"
-              >
-                <Icon name="Eye" size={12} />
-                Открыть
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {tabContent && createPortal(tabContent, document.body)}
     </div>
   );
 }

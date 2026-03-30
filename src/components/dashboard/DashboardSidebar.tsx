@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole } from "@/types/dashboard";
+import { useAppSettings } from '@/context/AppSettingsContext';
 
 function useSidebarLight() {
   const [isLight, setIsLight] = useState(true);
@@ -84,6 +85,7 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const sidebarIsLight = useSidebarLight();
+  const { settings } = useAppSettings();
   const navItems = NAV_BY_ROLE[user.role];
 
   return (
@@ -103,13 +105,21 @@ export default function DashboardSidebar({
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
               style={{ backgroundColor: 'hsl(24 88% 49%)' }}>
-              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-6 h-6 object-contain" />
+              {settings.carrierLogo ? (
+                <img src={settings.carrierLogo} alt={settings.carrierName} className="w-6 h-6 object-contain" />
+              ) : (
+                <Icon name="Building2" className="w-4 h-4" />
+              )}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold leading-tight truncate">ИРИДА</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ROLE_BADGE_BG[user.role]} ${sidebarIsLight ? 'text-[#141414]' : 'text-white'}`}>
-                {getRoleName(user.role)}
-              </span>
+              <p className="text-sm font-bold leading-tight truncate">{settings.carrierName || 'ИРИДА'}</p>
+              {settings.carrierDescription ? (
+                <p className="text-[10px] opacity-60 truncate leading-tight">{settings.carrierDescription}</p>
+              ) : (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ROLE_BADGE_BG[user.role]} ${sidebarIsLight ? 'text-[#141414]' : 'text-white'}`}>
+                  {getRoleName(user.role)}
+                </span>
+              )}
             </div>
           </div>
         )}

@@ -29,6 +29,7 @@ export interface BrandFont {
 export interface AppSettings {
   carrierName: string;
   carrierLogo: string | null;
+  carrierDescription: string;
   city: CityOption;
   customCityName: string;
   transportType: TransportType;
@@ -52,6 +53,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
 const DEFAULT_SETTINGS: AppSettings = {
   carrierName: 'ИРИДА',
   carrierLogo: null,
+  carrierDescription: '',
   city: 'ekaterinburg',
   customCityName: '',
   transportType: 'tram',

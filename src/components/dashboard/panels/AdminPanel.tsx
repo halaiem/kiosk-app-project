@@ -76,6 +76,13 @@ const LOG_ACTION_ICONS: Record<string, string> = {
 type RoleFilter = "all" | UserRole;
 
 function UsersView() {
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = '';
+    for (let i = 0; i < 10; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+    return pass;
+  };
+
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -160,7 +167,7 @@ function UsersView() {
               <Icon name="UserPlus" className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold text-foreground">Новый пользователь</span>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <input
                 type="text"
                 value={newId}
@@ -184,13 +191,37 @@ function UsersView() {
                 <option value="technician">Техник</option>
                 <option value="admin">Администратор</option>
               </select>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Пароль"
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+            </div>
+            <div className="mt-3">
+              <label className="text-xs text-muted-foreground mb-1.5 block">Пароль</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-9 px-3 rounded-lg border border-border bg-background flex items-center">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Введите или сгенерируйте пароль"
+                    className="flex-1 bg-transparent text-foreground text-sm font-mono tracking-wide placeholder:text-muted-foreground focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewPassword(generatePassword())}
+                  className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                >
+                  <Icon name="RefreshCw" className="w-3.5 h-3.5" />
+                  Сгенерировать
+                </button>
+                {newPassword && (
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(newPassword)}
+                    className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0"
+                  >
+                    <Icon name="Copy" className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 mt-3">
               <button
@@ -534,6 +565,16 @@ function InterfaceSettingsView() {
                 </div>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
               </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Описание</label>
+              <textarea
+                value={settings.carrierDescription}
+                onChange={(e) => updateSettings({ carrierDescription: e.target.value })}
+                placeholder="Краткое описание компании-перевозчика"
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              />
             </div>
           </div>
         </div>
