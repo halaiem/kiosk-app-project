@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import L from "leaflet";
 import Icon from "@/components/ui/icon";
 import CriticalAlertPopup from "@/components/dashboard/CriticalAlertPopup";
 import MapControls from "@/components/dashboard/MapControls";
@@ -17,6 +18,170 @@ import type {
 } from "@/types/dashboard";
 
 const ALL_MAP_VEHICLES: MapVehicleInfo[] = generateMapVehicles();
+
+// SPb tram/bus stops approximate positions
+const SPB_STOPS: [number, number][] = [
+  [59.9505, 30.3165], [59.9447, 30.3200], [59.9390, 30.3235],
+  [59.9333, 30.3160], [59.9270, 30.3080], [59.9210, 30.2960],
+  [59.9300, 30.2700], [59.9390, 30.2600], [59.9460, 30.2750],
+  [59.9530, 30.2850], [59.9580, 30.3050], [59.9620, 30.3250],
+];
+
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+function getPosOnRoute(progress: number, stops: [number, number][]): [number, number] {
+  const total = stops.length - 1;
+  const segIdx = Math.min(Math.floor(progress * total), total - 1);
+  const segT = progress * total - segIdx;
+  const [aLat, aLng] = stops[segIdx];
+  const [bLat, bLng] = stops[Math.min(segIdx + 1, total)];
+  return [lerp(aLat, bLat, segT), lerp(aLng, bLng, segT)];
+}
+
+const VEHICLE_COLORS: Record<MapVehicleInfo["status"], string> = {
+  ok: "#22c55e",
+  warning: "#f59e0b",
+  critical: "#ef4444",
+};
+
+function makeVehicleIcon(status: MapVehicleInfo["status"]) {
+  const color = VEHICLE_COLORS[status];
+  const svg = `<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
+    ${status === "critical" ? `<circle cx="7" cy="7" r="6" fill="${color}" opacity="0.3"/>` : ""}
+    <circle cx="7" cy="7" r="5" fill="${color}" stroke="white" stroke-width="1.5"/>
+  </svg>`;
+  return L.divIcon({ html: svg, className: "", iconSize: [14, 14], iconAnchor: [7, 7] });
+}
+
+// Dispatcher map component using real Leaflet + SPb tiles
+function DispatcherMap({
+  filteredVehicles,
+  onVehicleClick,
+}: {
+  filteredVehicles: MapVehicleInfo[];
+  onVehicleClick: (v: MapVehicleInfo) => void;
+}) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const progressRef = useRef<Map<string, number>>(new Map());
+  const animRef = useRef<number>();
+  const lastTimeRef = useRef(0);
+  const onVehicleClickRef = useRef(onVehicleClick);
+  onVehicleClickRef.current = onVehicleClick;
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      center: [59.935, 30.316],
+      zoom: 12,
+      zoomControl: true,
+      attributionControl: false,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      map.remove();
+      mapInstanceRef.current = null;
+      markersRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Init progress for new vehicles
+    filteredVehicles.forEach((v) => {
+      if (!progressRef.current.has(v.id)) {
+        progressRef.current.set(v.id, Math.random());
+      }
+    });
+
+    // Remove stale markers
+    markersRef.current.forEach((marker, id) => {
+      if (!filteredVehicles.find((v) => v.id === id)) {
+        marker.remove();
+        markersRef.current.delete(id);
+      }
+    });
+
+    // Add/update markers
+    filteredVehicles.forEach((v) => {
+      const progress = progressRef.current.get(v.id) ?? 0;
+      const pos = getPosOnRoute(progress, SPB_STOPS);
+      if (markersRef.current.has(v.id)) {
+        markersRef.current.get(v.id)!.setLatLng(pos).setIcon(makeVehicleIcon(v.status));
+      } else {
+        const marker = L.marker(pos, { icon: makeVehicleIcon(v.status), zIndexOffset: v.status === "critical" ? 1000 : 500 })
+          .bindTooltip(`Борт ${v.number} · М${v.route}`, { direction: "top", offset: [0, -8] })
+          .on("click", () => onVehicleClickRef.current(v))
+          .addTo(map);
+        markersRef.current.set(v.id, marker);
+      }
+    });
+  }, [filteredVehicles]);
+
+  useEffect(() => {
+    const animate = (time: number) => {
+      const delta = Math.min((time - lastTimeRef.current) / 1000, 0.1);
+      lastTimeRef.current = time;
+      const map = mapInstanceRef.current;
+      if (!map) return;
+      progressRef.current.forEach((p, id) => {
+        const newP = (p + delta * 0.004) % 1;
+        progressRef.current.set(id, newP);
+        const marker = markersRef.current.get(id);
+        if (marker) {
+          marker.setLatLng(getPosOnRoute(newP, SPB_STOPS));
+        }
+      });
+      animRef.current = requestAnimationFrame(animate);
+    };
+    animRef.current = requestAnimationFrame(animate);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, []);
+
+  return <div ref={mapRef} className="w-full h-full" />;
+}
+
+// Stat widget popup
+interface StatPopupData {
+  title: string;
+  items: { label: string; value: string; sub?: string; color?: string }[];
+}
+
+function StatPopup({ data, onClose }: { data: StatPopupData; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-bold text-foreground">{data.title}</h3>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors">
+            <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <div className="overflow-y-auto max-h-80">
+          {data.items.map((item, i) => (
+            <div key={i} className="flex items-center justify-between px-5 py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-foreground">{item.label}</p>
+                {item.sub && <p className="text-xs text-muted-foreground mt-0.5">{item.sub}</p>}
+              </div>
+              <span className={`text-sm font-bold ${item.color ?? "text-foreground"}`}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface DispatcherPanelProps {
   tab: DispatcherTab;
@@ -102,11 +267,15 @@ function OverviewView({
   onResolveAlert: (id: string, resolverName: string) => void;
   userName: string;
 }) {
-  const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<MapVehicleInfo | null>(null);
   const [filteredVehicles, setFilteredVehicles] = useState<MapVehicleInfo[]>(ALL_MAP_VEHICLES);
   const [miniInput, setMiniInput] = useState("");
   const [miniSelectedThread, setMiniSelectedThread] = useState<string | null>(null);
+  const [activePopup, setActivePopup] = useState<StatPopupData | null>(null);
+
+  const onlineDrivers = drivers.filter((d) => d.status === "on_shift" || d.status === "break");
+  const unresolvedAlerts = alerts.filter((a) => !a.resolved);
+  const onTimeDrivers = drivers.filter((d) => d.status === "on_shift");
 
   const statCards = [
     {
@@ -115,6 +284,17 @@ function OverviewView({
       label: "Водителей на линии",
       color: "text-blue-500",
       bg: "bg-blue-500/10",
+      popup: {
+        title: "Водители на линии",
+        items: onlineDrivers.length > 0
+          ? onlineDrivers.map((d) => ({
+              label: d.name,
+              value: d.status === "on_shift" ? "На смене" : "Перерыв",
+              sub: `Борт #${d.vehicleNumber} · М${d.routeNumber}`,
+              color: d.status === "on_shift" ? "text-green-500" : "text-yellow-500",
+            }))
+          : [{ label: "Нет водителей на линии", value: "—" }],
+      } as StatPopupData,
     },
     {
       icon: "Route",
@@ -122,6 +302,15 @@ function OverviewView({
       label: "Активных маршрутов",
       color: "text-green-500",
       bg: "bg-green-500/10",
+      popup: {
+        title: "Активные маршруты",
+        items: Array.from(new Set(drivers.filter((d) => d.status === "on_shift").map((d) => d.routeNumber)))
+          .sort()
+          .map((rn) => {
+            const cnt = drivers.filter((d) => d.routeNumber === rn && d.status === "on_shift").length;
+            return { label: `Маршрут №${rn}`, value: `${cnt} борт${cnt === 1 ? "" : cnt < 5 ? "а" : "ов"}`, color: "text-green-500" };
+          }),
+      } as StatPopupData,
     },
     {
       icon: "AlertTriangle",
@@ -129,6 +318,17 @@ function OverviewView({
       label: "Нерешённых тревог",
       color: stats.unresolvedAlerts > 0 ? "text-red-500" : "text-yellow-500",
       bg: stats.unresolvedAlerts > 0 ? "bg-red-500/10" : "bg-yellow-500/10",
+      popup: {
+        title: "Нерешённые тревоги",
+        items: unresolvedAlerts.length > 0
+          ? unresolvedAlerts.map((a) => ({
+              label: a.driverName,
+              value: a.level === "critical" ? "Критично" : a.level === "warning" ? "Внимание" : "Инфо",
+              sub: `Борт #${a.vehicleNumber} · ${a.message}`,
+              color: a.level === "critical" ? "text-red-500" : "text-yellow-500",
+            }))
+          : [{ label: "Активных тревог нет", value: "✓", color: "text-green-500" }],
+      } as StatPopupData,
     },
     {
       icon: "TrendingUp",
@@ -136,6 +336,15 @@ function OverviewView({
       label: "Вовремя",
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
+      popup: {
+        title: "Точность расписания",
+        items: [
+          { label: "Едут вовремя", value: `${onTimeDrivers.length}`, color: "text-green-500" },
+          { label: "С задержкой", value: `${drivers.filter((d) => d.status === "on_shift").length - onTimeDrivers.length}`, color: "text-yellow-500" },
+          { label: "Итого на линии", value: `${stats.activeDrivers}` },
+          { label: "% вовремя", value: `${stats.onTimePercent}%`, color: stats.onTimePercent >= 80 ? "text-green-500" : "text-red-500" },
+        ],
+      } as StatPopupData,
     },
   ];
 
@@ -177,12 +386,9 @@ function OverviewView({
 
   const totalUnread = threads.reduce((s, t) => s + t.unreadCount, 0);
 
-  const okCount = ALL_MAP_VEHICLES.filter((v) => v.status === "ok").length;
-  const warningCount = ALL_MAP_VEHICLES.filter((v) => v.status === "warning").length;
-  const criticalCount = ALL_MAP_VEHICLES.filter((v) => v.status === "critical").length;
-
   return (
     <>
+    {activePopup && <StatPopup data={activePopup} onClose={() => setActivePopup(null)} />}
     <CriticalAlertPopup
       messages={messages}
       alerts={alerts}
@@ -194,22 +400,24 @@ function OverviewView({
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-4">
         {statCards.map((card) => (
-          <div
+          <button
             key={card.label}
-            className="bg-card border border-border rounded-2xl p-5 flex items-start gap-4"
+            onClick={() => setActivePopup(card.popup)}
+            className="bg-card border border-border rounded-2xl p-5 flex items-start gap-4 hover:border-primary/50 hover:bg-muted/30 transition-all text-left group active:scale-[0.98]"
           >
             <div className={`w-11 h-11 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}>
               <Icon name={card.icon} className={`w-5 h-5 ${card.color}`} />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="text-2xl font-bold text-foreground">{card.value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
             </div>
-          </div>
+            <Icon name="ChevronRight" className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-muted-foreground mt-1 shrink-0 transition-colors" />
+          </button>
         ))}
       </div>
 
-      {/* MAP — full width */}
+      {/* MAP — full width, Leaflet + SPb tiles */}
       {selectedVehicle && (
         <MapVehicleCard
           vehicle={selectedVehicle}
@@ -221,44 +429,23 @@ function OverviewView({
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon name="MapPin" className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Карта транспорта</h3>
+            <h3 className="text-sm font-semibold text-foreground">Карта транспорта — Санкт-Петербург</h3>
             <span className="ml-1 text-xs text-muted-foreground">{filteredVehicles.length} / {ALL_MAP_VEHICLES.length} ТС</span>
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Норма ({okCount})</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Внимание ({warningCount})</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Критично ({criticalCount})</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Норма</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />Внимание</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Критично</span>
           </div>
         </div>
-        <div className="map-container h-72 relative">
-          <div className="map-grid" />
-          <div className="absolute h-px bg-white/10" style={{ top: "20%", left: 0, right: 0 }} />
-          <div className="absolute h-px bg-white/10" style={{ top: "45%", left: 0, right: 0 }} />
-          <div className="absolute h-px bg-white/10" style={{ top: "70%", left: 0, right: 0 }} />
-          <div className="absolute h-px bg-white/10" style={{ top: "88%", left: 0, right: 0 }} />
-          <div className="absolute w-px bg-white/10" style={{ left: "25%", top: 0, bottom: 0 }} />
-          <div className="absolute w-px bg-white/10" style={{ left: "50%", top: 0, bottom: 0 }} />
-          <div className="absolute w-px bg-white/10" style={{ left: "72%", top: 0, bottom: 0 }} />
-          <div className="absolute w-px bg-white/10" style={{ left: "88%", top: 0, bottom: 0 }} />
-          <MapControls vehicles={ALL_MAP_VEHICLES} onFilterChange={setFilteredVehicles} />
-          {filteredVehicles.map((v) => (
-            <div key={v.id} className="absolute" style={{ left: `${v.x}%`, top: `${v.y}%`, transform: "translate(-50%, -50%)" }}
-              onMouseEnter={() => setHoveredVehicle(v.id)} onMouseLeave={() => setHoveredVehicle(null)}
-              onClick={() => setSelectedVehicle(v)}>
-              <div className="relative">
-                {v.status === "critical" && (
-                  <span className="absolute inset-0 rounded-full bg-red-500/40 animate-pulse scale-[2.2]" />
-                )}
-                <div className={`w-3.5 h-3.5 rounded-full relative z-10 cursor-pointer hover:scale-125 transition-transform ${v.status === "ok" ? "bg-green-500" : v.status === "warning" ? "bg-yellow-400" : "bg-red-500"}`} />
-                {hoveredVehicle === v.id && (
-                  <div className={`absolute z-20 bg-popover text-popover-foreground text-[11px] rounded-lg px-2 py-1.5 shadow-lg whitespace-nowrap pointer-events-none border border-border ${v.x > 60 ? "right-5 top-0" : "left-5 top-0"}`}>
-                    <span className="font-bold">Борт {v.number}</span> · М{v.route} · {v.label}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Нажмите для подробностей</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="relative overflow-hidden" style={{ height: "26rem", isolation: "isolate" }}>
+          <DispatcherMap
+            filteredVehicles={filteredVehicles}
+            onVehicleClick={(v) => setSelectedVehicle(v)}
+          />
+          <div className="absolute top-2 right-2 z-[1000]">
+            <MapControls vehicles={ALL_MAP_VEHICLES} onFilterChange={setFilteredVehicles} />
+          </div>
         </div>
       </div>
 

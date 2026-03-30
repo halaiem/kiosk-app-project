@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import type { DispatchMessage, Alert } from '@/types/dashboard';
 
@@ -59,6 +59,9 @@ export default function CriticalAlertPopup({ messages, alerts, onResolveAlert, o
   const [replyText, setReplyText] = useState('');
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordTime, setRecordTime] = useState(0);
+  const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Собираем критичные элементы: нерешённые алерты + непрочитанные urgent-сообщения
   const criticalItems: CriticalItem[] = [
@@ -137,6 +140,19 @@ export default function CriticalAlertPopup({ messages, alerts, onResolveAlert, o
     onMarkMessageRead((current as { rawId?: string } & CriticalItem).rawId ?? '');
     setDismissed(prev => new Set([...prev, current.id]));
     setReplyText('');
+  };
+
+  const startRecord = () => {
+    setIsRecording(true);
+    setRecordTime(0);
+    recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
+  };
+
+  const stopRecord = () => {
+    setIsRecording(false);
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    handleReply(`🎤 Голосовое сообщение (${recordTime}с)`);
+    setRecordTime(0);
   };
 
   return (
@@ -233,22 +249,37 @@ export default function CriticalAlertPopup({ messages, alerts, onResolveAlert, o
           </div>
 
           {/* Custom reply */}
-          <div className="flex gap-2">
-            <input
-              value={replyText}
-              onChange={e => setReplyText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleReply(replyText)}
-              placeholder="Написать ответ водителю..."
-              className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              onClick={() => handleReply(replyText)}
-              disabled={!replyText.trim()}
-              className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-40 transition-all"
-            >
-              <Icon name="Send" className="w-4 h-4" />
-            </button>
-          </div>
+          {isRecording ? (
+            <div className="flex items-center gap-3 h-10 px-4 rounded-xl bg-destructive/10 border border-destructive/30">
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm text-destructive font-medium flex-1">Запись... {recordTime}с</span>
+              <button onPointerUp={stopRecord} className="text-xs font-medium px-3 py-1 rounded-lg bg-destructive text-white">Стоп</button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onPointerDown={startRecord}
+                className="h-10 w-10 rounded-xl bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
+                title="Голосовое сообщение (удерживайте)"
+              >
+                <Icon name="Mic" className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <input
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleReply(replyText)}
+                placeholder="Написать ответ водителю..."
+                className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                onClick={() => handleReply(replyText)}
+                disabled={!replyText.trim()}
+                className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-40 transition-all"
+              >
+                <Icon name="Send" className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-1">

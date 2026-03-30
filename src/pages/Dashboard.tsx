@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -54,6 +54,15 @@ export default function Dashboard() {
     updateSettings({ dashboardTheme: settings.dashboardTheme === 'dark' ? 'light' : 'dark' });
   };
 
+  const [now, setNow] = useState(new Date());
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    clockRef.current = setInterval(() => setNow(new Date()), 1000);
+    return () => { if (clockRef.current) clearInterval(clockRef.current); };
+  }, []);
+  const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+
   const counts = useMemo(() => ({
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
     notifications: data.notifications.filter((n) => !n.read).length,
@@ -77,14 +86,20 @@ export default function Dashboard() {
         counts={counts}
       />
       <main className="flex-1 overflow-auto p-6 relative">
-        {/* Theme toggle button */}
-        <button
-          onClick={toggleTheme}
-          title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
-          className="fixed top-4 right-4 z-50 w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
-        >
-          <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
-        </button>
+        {/* Header bar: theme toggle + clock */}
+        <div className="fixed top-3 right-4 z-50 flex items-center gap-2">
+          <div className="flex flex-col items-end justify-center px-3 py-1.5 rounded-xl bg-card border border-border shadow-md">
+            <span className="text-sm font-black tabular-nums text-foreground leading-none">{timeStr}</span>
+            <span className="text-[10px] text-muted-foreground capitalize leading-none mt-0.5">{dateStr}</span>
+          </div>
+          <button
+            onClick={toggleTheme}
+            title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
+          >
+            <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
+          </button>
+        </div>
 
         {user.role === 'dispatcher' && (
           <DispatcherPanel
