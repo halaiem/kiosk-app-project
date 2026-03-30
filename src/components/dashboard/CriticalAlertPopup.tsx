@@ -257,13 +257,6 @@ export default function CriticalAlertPopup({ messages, alerts, onResolveAlert, o
             </div>
           ) : (
             <div className="flex gap-2">
-              <button
-                onPointerDown={startRecord}
-                className="h-10 w-10 rounded-xl bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
-                title="Голосовое сообщение (удерживайте)"
-              >
-                <Icon name="Mic" className="w-4 h-4 text-muted-foreground" />
-              </button>
               <input
                 value={replyText}
                 onChange={e => setReplyText(e.target.value)}
@@ -271,6 +264,13 @@ export default function CriticalAlertPopup({ messages, alerts, onResolveAlert, o
                 placeholder="Написать ответ водителю..."
                 className="flex-1 h-10 px-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
+              <button
+                onPointerDown={startRecord}
+                className="h-10 w-10 rounded-xl bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0"
+                title="Голосовое сообщение (удерживайте)"
+              >
+                <Icon name="Mic" className="w-4 h-4 text-muted-foreground" />
+              </button>
               <button
                 onClick={() => handleReply(replyText)}
                 disabled={!replyText.trim()}

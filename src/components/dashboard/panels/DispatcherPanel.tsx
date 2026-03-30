@@ -828,12 +828,6 @@ function MessagesView({
             </div>
           )}
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleVoice}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors shrink-0 ${isRecording ? "bg-red-500/20 text-red-500" : "bg-muted hover:bg-muted/80 text-muted-foreground"}`}
-            >
-              <Icon name={isRecording ? "MicOff" : "Mic"} className="w-4 h-4" />
-            </button>
             <input
               type="text"
               value={newMessage}
@@ -843,6 +837,12 @@ function MessagesView({
               disabled={isRecording || !selectedDriverId}
               className="flex-1 h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
             />
+            <button
+              onClick={handleVoice}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors shrink-0 ${isRecording ? "bg-red-500/20 text-red-500" : "bg-muted hover:bg-muted/80 text-muted-foreground"}`}
+            >
+              <Icon name={isRecording ? "MicOff" : "Mic"} className="w-4 h-4" />
+            </button>
             <button
               onClick={handleSend}
               disabled={!newMessage.trim() || isRecording || !selectedDriverId}

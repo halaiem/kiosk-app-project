@@ -67,7 +67,7 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
             <span className="text-sm">Нет сообщений</span>
           </div>
         )}
-        {[...chatMessages].reverse().map(msg => {
+        {[...chatMessages].map(msg => {
           const isOutgoing = msg.text.startsWith('[Водитель]');
           return (
             <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
