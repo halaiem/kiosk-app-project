@@ -36,57 +36,57 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         />
       </div>
 
-      <div className="animate-scale-in relative z-10 w-full max-w-md mx-4">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl elevation-3 mb-4"
+      <div className="animate-scale-in relative z-10 w-full max-w-sm mx-4">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl elevation-3 mb-3"
             style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
-            <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-12 h-12 object-contain" />
+            <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-10 h-10 object-contain" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">ИРИДА</h1>
-          <p className="text-muted-foreground text-sm mt-1">Мобильное рабочее место</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">ИРИДА</h1>
+          <p className="text-muted-foreground text-xs mt-1">Мобильное рабочее место</p>
         </div>
 
-        <div className="kiosk-surface rounded-2xl elevation-3 p-8">
-          <h2 className="text-xl font-semibold text-foreground mb-6 flex items-center gap-2">
-            <Icon name="LogIn" size={20} className="text-primary" />
+        <div className="kiosk-surface rounded-2xl elevation-3 p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-5 flex items-center gap-2">
+            <Icon name="LogIn" size={18} className="text-primary" />
             Авторизация водителя
           </h2>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">Табельный номер</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Табельный номер</label>
               <div className="relative">
-                <Icon name="IdCard" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Icon name="IdCard" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={employeeId}
                   onChange={e => setEmployeeId(e.target.value)}
                   onKeyDown={handleKey}
                   placeholder="Например: 0001"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-base transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all"
                   autoComplete="off"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-1.5 block">PIN-код</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">PIN-код</label>
               <div className="relative">
-                <Icon name="Lock" size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Icon name="Lock" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="password"
                   value={pin}
                   onChange={e => setPin(e.target.value)}
                   onKeyDown={handleKey}
                   placeholder="••••"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-base transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm transition-all"
                 />
               </div>
             </div>
 
             {displayError && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm animate-shake">
-                <Icon name="AlertCircle" size={16} />
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs animate-shake">
+                <Icon name="AlertCircle" size={14} />
                 {displayError}
               </div>
             )}
@@ -94,23 +94,23 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2 elevation-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-2 ripple"
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 elevation-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-1 ripple"
             >
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                   Проверка...
                 </>
               ) : (
                 <>
-                  <Icon name="LogIn" size={20} />
+                  <Icon name="LogIn" size={17} />
                   Войти в систему
                 </>
               )}
             </button>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+          <div className="mt-5 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
             <span>v2.4.1 · Android 10+</span>
             <span className="flex items-center gap-1">
               <div className="status-dot status-online" />
@@ -119,7 +119,7 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
           </div>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-4">
+        <p className="text-center text-xs text-muted-foreground mt-3">
           При проблемах со входом обратитесь к диспетчеру
         </p>
       </div>
