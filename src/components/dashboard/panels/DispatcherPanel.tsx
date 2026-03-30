@@ -664,6 +664,18 @@ function MiniMessenger({
   const [recordTime, setRecordTime] = useState(0);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const seenUrgentIds = useRef<Set<string>>(new Set());
+
+  // Auto-open popup on new incoming urgent message
+  useEffect(() => {
+    const newUrgent = messages.find(
+      (m) => m.direction === "incoming" && m.type === "urgent" && !m.read && !seenUrgentIds.current.has(m.id)
+    );
+    if (!newUrgent) return;
+    seenUrgentIds.current.add(newUrgent.id);
+    const thread = threads.find((t) => t.driverId === newUrgent.driverId);
+    if (thread) setPopupThread(thread);
+  }, [messages, threads]);
 
   const selectedConv = [...messages]
     .filter((m) => m.driverId === miniSelectedThread)
