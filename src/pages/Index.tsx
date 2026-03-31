@@ -40,7 +40,8 @@ export default function Index() {
     const pick = pool[Math.floor(Math.random() * pool.length)];
     setDispatcherAlert(pick);
     setShownAlerts(prev => new Set([...prev, pick.id]));
-  }, [shownAlerts]);
+    state.addDispatcherMessage(pick.text, pick.sub);
+  }, [shownAlerts, state.addDispatcherMessage]);
 
   useEffect(() => {
     if (state.screen !== 'main') return;

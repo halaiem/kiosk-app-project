@@ -170,6 +170,17 @@ export function useKioskState() {
     }
   }, []);
 
+  const addDispatcherMessage = useCallback((text: string, sender?: string) => {
+    const msg: Message = {
+      id: 'alert_' + Date.now(),
+      type: 'dispatcher',
+      text: sender ? `[${sender}]: ${text}` : text,
+      timestamp: new Date(),
+      read: false,
+    };
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
   const handleLogoTap = useCallback(() => {
     setLogoTapCount(prev => {
       const next = prev + 1;
@@ -217,6 +228,8 @@ export function useKioskState() {
     confirmImportant,
     markRead,
     sendMessage,
+    addDispatcherMessage,
     handleLogoTap,
+    logoTapCount,
   };
 }
