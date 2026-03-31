@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
-export type TransportType = 'tram' | 'trolleybus' | 'bus';
+export type TransportType = 'tram' | 'trolleybus' | 'bus' | 'electrobus';
 export type CityOption = 'spb' | 'moscow' | 'kazan' | 'novosibirsk' | 'ekaterinburg' | 'custom';
 
 export interface FeatureFlags {
@@ -32,7 +32,7 @@ export interface AppSettings {
   carrierDescription: string;
   city: CityOption;
   customCityName: string;
-  transportType: TransportType;
+  transportTypes: TransportType[];
   featuresTablet: FeatureFlags;
   featuresDispatcher: FeatureFlags;
   featuresTechnician: FeatureFlags;
@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   carrierDescription: '',
   city: 'ekaterinburg',
   customCityName: '',
-  transportType: 'tram',
+  transportTypes: ['tram'],
   featuresTablet: { ...DEFAULT_FEATURES },
   featuresDispatcher: { ...DEFAULT_FEATURES },
   featuresTechnician: { ...DEFAULT_FEATURES },
@@ -211,12 +211,14 @@ export const TRANSPORT_LABELS: Record<TransportType, string> = {
   tram: 'Трамвай',
   trolleybus: 'Троллейбус',
   bus: 'Автобус',
+  electrobus: 'Электробус',
 };
 
 export const TRANSPORT_ICONS: Record<TransportType, string> = {
   tram: 'TramFront',
   trolleybus: 'Bus',
   bus: 'Bus',
+  electrobus: 'Zap',
 };
 
 export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {

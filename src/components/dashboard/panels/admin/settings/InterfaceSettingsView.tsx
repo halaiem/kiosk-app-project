@@ -172,19 +172,38 @@ export function InterfaceSettingsView() {
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Вид транспорта</label>
               <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(TRANSPORT_LABELS) as TransportType[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => updateSettings({ transportType: key })}
-                    className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                      settings.transportType === key
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                    }`}
-                  >
-                    {TRANSPORT_LABELS[key]}
-                  </button>
-                ))}
+                <button
+                  onClick={() => updateSettings({ transportTypes: Object.keys(TRANSPORT_LABELS) as TransportType[] })}
+                  className={`col-span-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                    settings.transportTypes?.length === Object.keys(TRANSPORT_LABELS).length
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }`}
+                >
+                  Все виды транспорта
+                </button>
+                {(Object.keys(TRANSPORT_LABELS) as TransportType[]).map((key) => {
+                  const selected = settings.transportTypes?.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        const current = settings.transportTypes ?? [];
+                        const next = selected
+                          ? current.filter((t) => t !== key)
+                          : [...current, key];
+                        updateSettings({ transportTypes: next.length ? next : [key] });
+                      }}
+                      className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {TRANSPORT_LABELS[key]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
