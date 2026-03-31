@@ -1,4 +1,5 @@
-import { useState, useEffect, createPortal } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import MapWidget from './MapWidget';
 import RouteStops from './RouteStops';
@@ -44,6 +45,7 @@ export default function MainPage({
   const [interval] = useState(4);
   const [deviation] = useState(-2);
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
+  const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const now = useClock();
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -185,8 +187,19 @@ export default function MainPage({
 
         {/* STOPS + MESSENGER */}
         <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
-          <div className="py-2.5 border-b border-border">
-            <RouteStops currentStopIndex={currentStopIndex} />
+          <div className="flex items-center border-b border-border">
+            <div className="flex-1 py-2.5 min-w-0">
+              <RouteStops currentStopIndex={currentStopIndex} />
+            </div>
+            <div className="flex-shrink-0 pr-3">
+              <button
+                onClick={() => setStopsFullscreen(true)}
+                className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                title="Открыть на весь экран"
+              >
+                <Icon name="Maximize2" size={14} className="text-muted-foreground" />
+              </button>
+            </div>
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
@@ -216,10 +229,10 @@ export default function MainPage({
 
       {/* Messenger fullscreen overlay */}
       {messengerFullscreen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex flex-col kiosk-bg">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border kiosk-surface flex-shrink-0"
-            style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
+        <div className={`fixed inset-0 z-[9999] flex flex-col ${isDark ? 'dark' : ''}`}
+          style={{ backgroundColor: 'hsl(var(--kiosk-bg))' }}>
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0"
+            style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
             <Icon name="MessageSquare" size={18} className="text-white" />
             <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Диспетчерская связь</span>
             {unreadCount > 0 && (
@@ -235,9 +248,31 @@ export default function MainPage({
               <Icon name="X" size={20} className="text-white" />
             </button>
           </div>
-          {/* Messenger body */}
-          <div className="flex-1 min-h-0 kiosk-surface">
+          <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
             <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Stops fullscreen overlay */}
+      {stopsFullscreen && createPortal(
+        <div className={`fixed inset-0 z-[9999] flex flex-col ${isDark ? 'dark' : ''}`}
+          style={{ backgroundColor: 'hsl(var(--kiosk-bg))' }}>
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0"
+            style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
+            <Icon name="MapPin" size={18} className="text-white" />
+            <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Маршрут — остановки</span>
+            <button
+              onClick={() => setStopsFullscreen(false)}
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              title="Закрыть"
+            >
+              <Icon name="X" size={20} className="text-white" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-auto py-4" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
+            <RouteStops currentStopIndex={currentStopIndex} />
           </div>
         </div>,
         document.body
