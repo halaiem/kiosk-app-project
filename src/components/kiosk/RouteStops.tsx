@@ -15,10 +15,11 @@ const AVG_MINUTES_BETWEEN_STOPS = [
   0, 3, 2, 2, 4, 3, 2, 3, 2, 4, 3, 2, 3, 2, 3, 2, 4, 3, 2, 3
 ];
 
-function useETA(currentStopIndex: number) {
+function useETA(currentStopIndex: number, deviation: number) {
   return useMemo(() => {
     const now = new Date();
     const etas: (string | null)[] = [];
+    const stopsRemaining = STOPS.length - currentStopIndex - 1;
 
     for (let i = 0; i < STOPS.length; i++) {
       if (i < currentStopIndex) {
@@ -30,22 +31,28 @@ function useETA(currentStopIndex: number) {
         for (let j = currentStopIndex + 1; j <= i; j++) {
           totalMin += AVG_MINUTES_BETWEEN_STOPS[j] || 3;
         }
-        const eta = new Date(now.getTime() + totalMin * 60000);
+        const stopsAhead = i - currentStopIndex;
+        const deviationShare = stopsRemaining > 0
+          ? (deviation * stopsAhead) / stopsRemaining
+          : 0;
+        const adjustedMin = Math.max(0, totalMin + deviationShare);
+        const eta = new Date(now.getTime() + adjustedMin * 60000);
         etas.push(eta.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
       }
     }
     return etas;
-  }, [currentStopIndex]);
+  }, [currentStopIndex, deviation]);
 }
 
 interface Props {
   currentStopIndex: number;
   vertical?: boolean;
+  deviation?: number;
 }
 
-export default function RouteStops({ currentStopIndex, vertical }: Props) {
+export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const etas = useETA(currentStopIndex);
+  const etas = useETA(currentStopIndex, deviation);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -61,6 +68,13 @@ export default function RouteStops({ currentStopIndex, vertical }: Props) {
         <div className="flex items-center gap-2 px-4 mb-3">
           <Icon name="MapPin" size={16} className="text-primary flex-shrink-0" />
           <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Маршрут №5 — остановки</span>
+          {deviation !== 0 && (
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums
+              ${Math.abs(deviation) <= 1 ? 'bg-green-500/10 text-green-600 dark:text-green-400' : Math.abs(deviation) <= 3 ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+              <Icon name={deviation < 0 ? 'TrendingDown' : 'TrendingUp'} size={14} />
+              {deviation > 0 ? '+' : ''}{deviation} мин
+            </div>
+          )}
           <span className="ml-auto text-sm text-muted-foreground tabular-nums">{currentStopIndex + 1}/{STOPS.length}</span>
         </div>
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4" style={{ scrollbarWidth: 'thin' }}>

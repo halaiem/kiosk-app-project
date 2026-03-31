@@ -189,7 +189,7 @@ export default function MainPage({
         <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
           <div className="flex items-center border-b border-border">
             <div className="flex-1 py-2.5 min-w-0">
-              <RouteStops currentStopIndex={currentStopIndex} />
+              <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
             </div>
             <div className="flex-shrink-0 pr-3">
               <button
@@ -272,7 +272,7 @@ export default function MainPage({
             </button>
           </div>
           <div className="flex-1 min-h-0 pt-3" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <RouteStops currentStopIndex={currentStopIndex} vertical />
+            <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} vertical />
           </div>
         </div>,
         document.body
