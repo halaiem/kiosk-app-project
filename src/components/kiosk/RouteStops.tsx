@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import Icon from '@/components/ui/icon';
 
 const STOPS = [
@@ -11,6 +11,33 @@ const STOPS = [
   'ул. Весенняя', 'Депо Южное (кон.)',
 ];
 
+const AVG_MINUTES_BETWEEN_STOPS = [
+  0, 3, 2, 2, 4, 3, 2, 3, 2, 4, 3, 2, 3, 2, 3, 2, 4, 3, 2, 3
+];
+
+function useETA(currentStopIndex: number) {
+  return useMemo(() => {
+    const now = new Date();
+    const etas: (string | null)[] = [];
+
+    for (let i = 0; i < STOPS.length; i++) {
+      if (i < currentStopIndex) {
+        etas.push(null);
+      } else if (i === currentStopIndex) {
+        etas.push(now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+      } else {
+        let totalMin = 0;
+        for (let j = currentStopIndex + 1; j <= i; j++) {
+          totalMin += AVG_MINUTES_BETWEEN_STOPS[j] || 3;
+        }
+        const eta = new Date(now.getTime() + totalMin * 60000);
+        etas.push(eta.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
+      }
+    }
+    return etas;
+  }, [currentStopIndex]);
+}
+
 interface Props {
   currentStopIndex: number;
   vertical?: boolean;
@@ -18,6 +45,7 @@ interface Props {
 
 export default function RouteStops({ currentStopIndex, vertical }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const etas = useETA(currentStopIndex);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -40,6 +68,7 @@ export default function RouteStops({ currentStopIndex, vertical }: Props) {
             const isPassed = i < currentStopIndex;
             const isCurrent = i === currentStopIndex;
             const isNext = i === currentStopIndex + 1;
+            const eta = etas[i];
 
             return (
               <div key={i} className="flex items-stretch" data-active={isCurrent ? 'true' : undefined}>
@@ -65,13 +94,29 @@ export default function RouteStops({ currentStopIndex, vertical }: Props) {
                   ${isCurrent ? 'py-2' : 'py-1'}`}>
                   <div className={`flex-1 rounded-xl px-3 py-2 transition-all duration-300
                     ${isCurrent ? 'bg-green-500/10 border border-green-500/30' : ''}`}>
-                    <span className={`block transition-all duration-300
-                      ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-sm' : isNext ? 'text-foreground text-sm font-medium' : isPassed ? 'text-muted-foreground text-sm' : 'text-muted-foreground/60 text-sm'}`}>
-                      {stop}
-                    </span>
-                    {isCurrent && <span className="text-xs text-green-500/80 mt-0.5 block">● текущая остановка</span>}
-                    {isNext && <span className="text-xs text-muted-foreground mt-0.5 block">следующая</span>}
-                    {isPassed && <span className="text-xs text-muted-foreground/50 mt-0.5 block">пройдена</span>}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`block transition-all duration-300
+                        ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-sm' : isNext ? 'text-foreground text-sm font-medium' : isPassed ? 'text-muted-foreground text-sm' : 'text-muted-foreground/60 text-sm'}`}>
+                        {stop}
+                      </span>
+                      {eta && (
+                        <span className={`flex-shrink-0 tabular-nums text-xs font-medium px-2 py-0.5 rounded-lg
+                          ${isCurrent ? 'bg-green-500/20 text-green-600 dark:text-green-400' : isNext ? 'bg-primary/10 text-primary' : 'text-muted-foreground/70'}`}>
+                          {eta}
+                        </span>
+                      )}
+                    </div>
+                    {isCurrent && <span className="text-xs text-green-500/80 mt-0.5 block">● сейчас здесь</span>}
+                    {isNext && (
+                      <span className="text-xs text-muted-foreground mt-0.5 block">
+                        следующая · ~{AVG_MINUTES_BETWEEN_STOPS[i]} мин
+                      </span>
+                    )}
+                    {!isPassed && !isCurrent && !isNext && eta && (
+                      <span className="text-xs text-muted-foreground/50 mt-0.5 block">
+                        через ~{(() => { let t = 0; for (let j = currentStopIndex + 1; j <= i; j++) t += AVG_MINUTES_BETWEEN_STOPS[j] || 3; return t; })()} мин
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -95,6 +140,7 @@ export default function RouteStops({ currentStopIndex, vertical }: Props) {
           const isPassed = i < currentStopIndex;
           const isCurrent = i === currentStopIndex;
           const isNext = i === currentStopIndex + 1;
+          const eta = etas[i];
 
           return (
             <div key={i} className="flex items-center flex-shrink-0" data-active={isCurrent ? 'true' : undefined}>
@@ -114,7 +160,7 @@ export default function RouteStops({ currentStopIndex, vertical }: Props) {
                   style={{ writingMode: 'horizontal-tb' }}>
                   <span className="line-clamp-2 text-center">{stop}</span>
                   {isCurrent && <span className="block text-[8px] text-green-500/80">● текущая</span>}
-                  {isNext && <span className="block text-[8px] text-muted-foreground">следующая</span>}
+                  {isNext && eta && <span className="block text-[8px] text-primary tabular-nums">≈ {eta}</span>}
                 </div>
               </div>
             </div>
