@@ -42,6 +42,7 @@ export default function Index() {
   useAutoClose(messengerFullscreen, () => setMessengerFullscreen(false), 30000);
   useAutoClose(stopsFullscreen, () => setStopsFullscreen(false), 30000);
   useAutoClose(mapFullscreen, () => setMapFullscreen(false), 30000);
+  useAutoClose(menuOpen, () => { setMenuOpen(false); setActiveSection(null); }, 30000);
 
   const triggerRandomAlert = useCallback(() => {
     const unseen = DISPATCHER_ALERTS.filter(a => !shownAlerts.has(a.id));
