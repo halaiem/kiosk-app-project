@@ -3,11 +3,33 @@ import type {
   DispatchMessage, Notification, Alert, RouteInfo, VehicleInfo,
   DriverInfo, ScheduleEntry, DocumentInfo, ServerInfo, AuditLog, DashboardStats, DashboardUser,
 } from '@/types/dashboard';
+import type { MapVehicleInfo } from '@/components/dashboard/MapVehicleCard';
 import {
   fetchStats, fetchDrivers, fetchRoutes, fetchVehicles,
   fetchSchedule, fetchDocuments, fetchMessages, fetchAlerts, fetchAuditLogs,
   sendDispatcherMsg, resolveAlert as apiResolveAlert, updateDocumentStatus as apiUpdateDocumentStatus,
 } from '@/api/dashboardApi';
+
+const ROUTES = ['5','3','7','9','11','12','14','1','18','22'];
+const STATUSES: MapVehicleInfo['status'][] = ['ok','ok','ok','ok','ok','ok','ok','warning','critical','ok'];
+
+export function generateMapVehicles(): MapVehicleInfo[] {
+  const out: MapVehicleInfo[] = [];
+  for (let i = 0; i < 100; i++) {
+    const num = 100 + i;
+    const route = ROUTES[i % ROUTES.length];
+    out.push({
+      id: `V${String(i+1).padStart(3,'0')}`,
+      number: String(num),
+      route,
+      x: 8 + Math.random() * 84,
+      y: 8 + Math.random() * 84,
+      status: STATUSES[i % STATUSES.length],
+      label: `Борт ${num} • М${route}`,
+    });
+  }
+  return out;
+}
 
 function hoursAgo(h: number) { return new Date(Date.now() - h * 3600000); }
 
