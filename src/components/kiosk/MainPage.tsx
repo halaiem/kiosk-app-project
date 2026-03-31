@@ -26,6 +26,12 @@ interface Props {
   onBreak: () => void;
   onEndShift: () => void;
   onToggleTheme: () => void;
+  messengerFullscreen: boolean;
+  stopsFullscreen: boolean;
+  mapFullscreen: boolean;
+  onSetMessengerFullscreen: (v: boolean) => void;
+  onSetStopsFullscreen: (v: boolean) => void;
+  onSetMapFullscreen: (v: boolean) => void;
 }
 
 function useClock() {
@@ -41,11 +47,11 @@ export default function MainPage({
   driver, messages, speed, isMoving, currentStopIndex,
   connection, unreadCount, isDark, theme,
   onOpenMenu, onSendMessage, onLogoTap, onBreak, onEndShift, onToggleTheme,
+  messengerFullscreen, stopsFullscreen, mapFullscreen,
+  onSetMessengerFullscreen, onSetStopsFullscreen, onSetMapFullscreen,
 }: Props) {
   const [interval] = useState(4);
   const [deviation] = useState(-2);
-  const [messengerFullscreen, setMessengerFullscreen] = useState(false);
-  const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const now = useClock();
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -181,8 +187,15 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP */}
-        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
+        <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
           <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
+          <button
+            onClick={() => onSetMapFullscreen(true)}
+            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
+            title="Карта на весь экран"
+          >
+            <Icon name="Maximize2" size={15} className="text-foreground" />
+          </button>
         </div>
 
         {/* STOPS + MESSENGER */}
@@ -193,7 +206,7 @@ export default function MainPage({
             </div>
             <div className="flex-shrink-0 pr-3">
               <button
-                onClick={() => setStopsFullscreen(true)}
+                onClick={() => onSetStopsFullscreen(true)}
                 className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
                 title="Открыть на весь экран"
               >
@@ -212,7 +225,7 @@ export default function MainPage({
               )}
               <div className="ml-auto">
                 <button
-                  onClick={() => setMessengerFullscreen(true)}
+                  onClick={() => onSetMessengerFullscreen(true)}
                   className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
                   title="Открыть на весь экран"
                 >
@@ -241,7 +254,7 @@ export default function MainPage({
               </div>
             )}
             <button
-              onClick={() => setMessengerFullscreen(false)}
+              onClick={() => onSetMessengerFullscreen(false)}
               className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
               title="Закрыть"
             >
@@ -264,7 +277,7 @@ export default function MainPage({
             <Icon name="MapPin" size={18} className="text-white" />
             <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Маршрут — остановки</span>
             <button
-              onClick={() => setStopsFullscreen(false)}
+              onClick={() => onSetStopsFullscreen(false)}
               className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
               title="Закрыть"
             >
@@ -273,6 +286,29 @@ export default function MainPage({
           </div>
           <div className="flex-1 min-h-0 pt-3" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
             <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} vertical />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Map fullscreen overlay */}
+      {mapFullscreen && createPortal(
+        <div className={`fixed inset-0 z-[9999] flex flex-col ${isDark ? 'dark' : ''}`}
+          style={{ backgroundColor: 'hsl(var(--kiosk-bg))' }}>
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0"
+            style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
+            <Icon name="Map" size={18} className="text-white" />
+            <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Карта маршрута</span>
+            <button
+              onClick={() => onSetMapFullscreen(false)}
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              title="Закрыть"
+            >
+              <Icon name="X" size={20} className="text-white" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
+            <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
           </div>
         </div>,
         document.body

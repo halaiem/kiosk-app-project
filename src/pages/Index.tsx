@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useKioskState } from '@/hooks/useKioskState';
+import { useAutoClose } from '@/hooks/useAutoClose';
 import LoginPage from '@/components/kiosk/LoginPage';
 import WelcomeScreen from '@/components/kiosk/WelcomeScreen';
 import MainPage from '@/components/kiosk/MainPage';
@@ -33,6 +34,14 @@ export default function Index() {
   const [dispatcherAlert, setDispatcherAlert] = useState<typeof DISPATCHER_ALERTS[0] | null>(null);
   const [shownAlerts, setShownAlerts] = useState<Set<string>>(new Set());
   const [supportModal, setSupportModal] = useState<SupportModalRequest | null>(null);
+
+  const [messengerFullscreen, setMessengerFullscreen] = useState(false);
+  const [stopsFullscreen, setStopsFullscreen] = useState(false);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
+
+  useAutoClose(messengerFullscreen, () => setMessengerFullscreen(false), 30000);
+  useAutoClose(stopsFullscreen, () => setStopsFullscreen(false), 30000);
+  useAutoClose(mapFullscreen, () => setMapFullscreen(false), 30000);
 
   const triggerRandomAlert = useCallback(() => {
     const unseen = DISPATCHER_ALERTS.filter(a => !shownAlerts.has(a.id));
@@ -92,6 +101,11 @@ export default function Index() {
     state.toggleTheme();
   };
 
+  const handleReplyFromAlert = () => {
+    setDispatcherAlert(null);
+    setTimeout(() => setMessengerFullscreen(true), 400);
+  };
+
   const activeToasts = toasts
     .map(id => state.messages.find(m => m.id === id))
     .filter(Boolean);
@@ -135,6 +149,12 @@ export default function Index() {
             onBreak={() => setBreakOpen(true)}
             onEndShift={handleEndShift}
             onToggleTheme={handleToggleTheme}
+            messengerFullscreen={messengerFullscreen}
+            stopsFullscreen={stopsFullscreen}
+            mapFullscreen={mapFullscreen}
+            onSetMessengerFullscreen={setMessengerFullscreen}
+            onSetStopsFullscreen={setStopsFullscreen}
+            onSetMapFullscreen={setMapFullscreen}
           />
 
           <SidebarMenu
@@ -161,7 +181,6 @@ export default function Index() {
             onSupportModal={req => setSupportModal(req)}
           />
 
-          {/* Support modals — outside sidebar, full screen */}
           {supportModal?.type === 'contact' && (
             <SupportContactModal
               contact={supportModal.contact}
@@ -176,7 +195,6 @@ export default function Index() {
             />
           )}
 
-          {/* Toast notifications — top right */}
           <div className="fixed top-16 right-4 z-30 flex flex-col gap-2 pointer-events-none">
             {activeToasts.map(msg => msg && (
               <MessageToast
@@ -190,7 +208,6 @@ export default function Index() {
             ))}
           </div>
 
-          {/* Important full-screen overlay */}
           {state.pendingImportant && !state.pendingImportant.confirmed && (
             <ImportantMessageOverlay
               message={state.pendingImportant}
@@ -210,6 +227,7 @@ export default function Index() {
             <DispatcherAlert
               alert={dispatcherAlert}
               onConfirm={() => setDispatcherAlert(null)}
+              onReply={handleReplyFromAlert}
             />
           )}
         </>

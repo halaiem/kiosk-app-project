@@ -12,9 +12,10 @@ interface AlertData {
 interface Props {
   alert: AlertData;
   onConfirm: () => void;
+  onReply?: () => void;
 }
 
-export default function DispatcherAlert({ alert, onConfirm }: Props) {
+export default function DispatcherAlert({ alert, onConfirm, onReply }: Props) {
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(new Date());
 
@@ -65,15 +66,24 @@ export default function DispatcherAlert({ alert, onConfirm }: Props) {
             <p className="text-muted-foreground text-sm">{alert.sub}</p>
           </div>
 
-          {/* Action */}
-          <div className="px-6 pb-6">
+          {/* Actions */}
+          <div className="px-6 pb-6 flex gap-3">
             <button
               onClick={handleConfirm}
-              className={`w-full h-14 rounded-2xl ${alert.color} text-white font-bold text-base ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2`}
+              className={`flex-1 h-14 rounded-2xl ${alert.color} text-white font-bold text-base ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2`}
             >
               <Icon name="CheckCircle" size={22} />
               Принято
             </button>
+            {onReply && (
+              <button
+                onClick={() => { handleConfirm(); setTimeout(() => onReply(), 350); }}
+                className="flex-1 h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-base ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <Icon name="MessageSquare" size={22} />
+                Ответить
+              </button>
+            )}
           </div>
         </div>
       </div>
