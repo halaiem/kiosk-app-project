@@ -151,21 +151,21 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Сообщение диспетчеру..."
-              className="flex-1 min-w-0 px-3 py-3 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="flex-1 min-w-0 px-3 py-2 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
             <button
               onPointerDown={startRecord}
-              className="w-14 h-14 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+              className="w-20 h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
               title="Голосовое сообщение (удерживайте)"
             >
-              <Icon name="Mic" size={26} className="text-muted-foreground" />
+              <Icon name="Mic" size={36} className="text-muted-foreground" />
             </button>
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="w-14 h-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1"
+              className="w-20 h-20 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1"
             >
-              <Icon name="Send" size={24} />
+              <Icon name="Send" size={34} />
             </button>
           </div>
         )}
