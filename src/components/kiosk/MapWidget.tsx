@@ -36,8 +36,7 @@ interface VehicleState {
 const VEHICLES: VehicleState[] = [
   { id: 'v1', label: 'ТМ-3405', progress: 0.12, color: '#22c55e' },
   { id: 'v2', label: 'ТМ-3407', progress: 0.38, color: '#3b82f6', isOwn: true },
-  { id: 'v3', label: 'ТМ-3410', progress: 0.55, color: '#f59e0b' },
-  { id: 'v4', label: 'ТМ-3412', progress: 0.72, color: '#a78bfa' },
+  { id: 'v3', label: 'ТМ-3410', progress: 0.65, color: '#f59e0b' },
 ];
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
