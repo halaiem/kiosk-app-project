@@ -271,8 +271,8 @@ export default function MainPage({
               <Icon name="X" size={20} className="text-white" />
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-auto py-4" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <RouteStops currentStopIndex={currentStopIndex} />
+          <div className="flex-1 min-h-0 pt-3" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
+            <RouteStops currentStopIndex={currentStopIndex} vertical />
           </div>
         </div>,
         document.body
