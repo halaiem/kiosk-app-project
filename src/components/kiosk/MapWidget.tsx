@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import L from 'leaflet';
+import Icon from '@/components/ui/icon';
 
 // Fix default Leaflet icon paths for Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -79,6 +81,7 @@ interface Props {
 }
 
 export default function MapWidget({ currentStopIndex, speed }: Props) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const vehicleMarkersRef = useRef<Map<string, L.Marker>>(new Map());
@@ -171,10 +174,8 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
     });
   }, [vehicles]);
 
-  return (
-    <div className="map-container w-full h-full rounded-xl overflow-hidden relative">
-      <div ref={mapRef} className="w-full h-full" />
-
+  const mapHud = (
+    <>
       {/* HUD overlay */}
       <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5 pointer-events-none">
         <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs flex items-center gap-1.5">
@@ -200,6 +201,117 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
           </div>
         ))}
       </div>
+    </>
+  );
+
+  return (
+    <>
+      <div className="map-container w-full h-full rounded-xl overflow-hidden relative">
+        <div ref={mapRef} className="w-full h-full" />
+        {mapHud}
+
+        {/* Expand button — bottom left */}
+        <button
+          onClick={() => { setIsFullscreen(true); setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50); }}
+          className="absolute bottom-3 left-3 z-[1000] w-9 h-9 rounded-xl bg-black/70 backdrop-blur-sm hover:bg-black/90 flex items-center justify-center active:scale-95 transition-all"
+          title="Открыть карту на весь экран"
+        >
+          <Icon name="Maximize2" size={16} className="text-white" />
+        </button>
+      </div>
+
+      {/* Fullscreen overlay */}
+      {isFullscreen && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          <FullscreenMap
+            currentStopIndex={currentStopIndex}
+            speed={speed}
+            vehicles={vehicles}
+            onClose={() => setIsFullscreen(false)}
+          />
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+function FullscreenMap({ currentStopIndex, speed, vehicles, onClose }: {
+  currentStopIndex: number;
+  speed: number;
+  vehicles: VehicleState[];
+  onClose: () => void;
+}) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const vehicleMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const stopMarkersRef = useRef<L.Marker[]>([]);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const center: [number, number] = [56.8400, 60.6200];
+    const map = L.map(mapRef.current, { center, zoom: 14, zoomControl: true, attributionControl: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    L.polyline(ROUTE_STOPS, { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8 6' }).addTo(map);
+    ROUTE_STOPS.forEach((pos, i) => {
+      const marker = L.marker(pos, { icon: makeStopIcon(i < currentStopIndex, i === currentStopIndex), zIndexOffset: 100 }).addTo(map);
+      stopMarkersRef.current.push(marker);
+    });
+    vehicles.forEach((v) => {
+      const pos = getPosOnRoute(v.progress);
+      const marker = L.marker(pos, { icon: makeVehicleIcon(v.color, v.isOwn), zIndexOffset: v.isOwn ? 1000 : 500 }).addTo(map);
+      if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
+      vehicleMarkersRef.current.set(v.id, marker);
+    });
+    mapInstanceRef.current = map;
+    return () => { map.remove(); mapInstanceRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    vehicles.forEach((v) => {
+      const marker = vehicleMarkersRef.current.get(v.id);
+      if (marker) marker.setLatLng(getPosOnRoute(v.progress));
+    });
+  }, [vehicles]);
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full" />
+
+      {/* HUD */}
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2 pointer-events-none">
+        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+          <span>GPS активен</span>
+        </div>
+        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm">
+          Маршрут №5 · СПб
+        </div>
+      </div>
+
+      <div className="absolute top-4 right-16 z-[1000] bg-black/70 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[80px] pointer-events-none">
+        <div className="text-3xl font-bold text-white tabular-nums leading-none">{Math.round(speed)}</div>
+        <div className="text-xs text-gray-400 mt-1">км/ч</div>
+      </div>
+
+      {/* Legend */}
+      <div className="absolute bottom-6 right-4 z-[1000] bg-black/70 backdrop-blur-sm rounded-xl px-4 py-3 space-y-2 pointer-events-none">
+        {vehicles.map((v) => (
+          <div key={v.id} className="flex items-center gap-2">
+            <div className="w-3 h-2 rounded-sm shrink-0" style={{ backgroundColor: v.color }} />
+            <span className="text-xs text-gray-300">{v.label}{v.isOwn ? ' (вы)' : ''}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[1000] w-11 h-11 rounded-xl bg-black/70 backdrop-blur-sm hover:bg-black/90 flex items-center justify-center active:scale-95 transition-all"
+        title="Закрыть карту"
+      >
+        <Icon name="X" size={22} className="text-white" />
+      </button>
     </div>
   );
 }

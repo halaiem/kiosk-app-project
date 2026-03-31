@@ -151,7 +151,7 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Сообщение диспетчеру..."
-              className="flex-1 min-w-0 px-3 py-2 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              className="flex-1 min-w-0 h-20 px-4 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
             <button
               onPointerDown={startRecord}
