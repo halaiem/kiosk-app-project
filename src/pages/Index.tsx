@@ -156,6 +156,7 @@ export default function Index() {
             onSetMessengerFullscreen={setMessengerFullscreen}
             onSetStopsFullscreen={setStopsFullscreen}
             onSetMapFullscreen={setMapFullscreen}
+            pendingCount={state.pendingCount}
           />
 
           <SidebarMenu

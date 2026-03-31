@@ -32,6 +32,7 @@ interface Props {
   onSetMessengerFullscreen: (v: boolean) => void;
   onSetStopsFullscreen: (v: boolean) => void;
   onSetMapFullscreen: (v: boolean) => void;
+  pendingCount?: number;
 }
 
 function useClock() {
@@ -49,6 +50,7 @@ export default function MainPage({
   onOpenMenu, onSendMessage, onLogoTap, onBreak, onEndShift, onToggleTheme,
   messengerFullscreen, stopsFullscreen, mapFullscreen,
   onSetMessengerFullscreen, onSetStopsFullscreen, onSetMapFullscreen,
+  pendingCount = 0,
 }: Props) {
   const [interval] = useState(4);
   const [deviation] = useState(-2);
@@ -111,9 +113,12 @@ export default function MainPage({
         <div className="flex items-center gap-2 flex-shrink-0">
 
           {/* Connection */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 flex-shrink-0">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl flex-shrink-0 ${connection === 'online' ? 'bg-white/10' : 'bg-yellow-500/20 border border-yellow-500/30'}`}>
             <div className={`status-dot ${connection === 'online' ? 'status-online' : 'status-offline'}`} />
             <span className="text-white text-xs">{connection === 'online' ? 'Онлайн' : 'Оффлайн'}</span>
+            {connection === 'offline' && pendingCount > 0 && (
+              <span className="text-yellow-300 text-[10px] font-bold">({pendingCount})</span>
+            )}
           </div>
 
           <div className="w-px h-8 bg-white/20" />
@@ -234,7 +239,7 @@ export default function MainPage({
               </div>
             </div>
             <div className="h-[240px] overflow-hidden">
-              <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
+              <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
             </div>
           </div>
         </div>
@@ -262,7 +267,7 @@ export default function MainPage({
             </button>
           </div>
           <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
           </div>
         </div>,
         document.body

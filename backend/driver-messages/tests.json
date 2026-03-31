@@ -14,7 +14,25 @@
       "path": "/",
       "body": {"driver_id": 1, "text": "Тест диспетчера", "type": "normal"},
       "expectedStatus": 200,
-      "expectedBody": {"id": 2},
+      "expectedBody": {"id": "number"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Confirm delivery",
+      "method": "POST",
+      "path": "/?action=confirm_delivery",
+      "body": {"message_ids": [1]},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Batch send empty returns error",
+      "method": "POST",
+      "path": "/?action=batch",
+      "body": {"messages": []},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
     }
   ]

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
-import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, getStoredToken, getStoredDriver } from '@/api/driverApi';
+import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver } from '@/api/driverApi';
+import { addToQueue, getPendingMessages, updateQueueItem, removeFromQueue, clearSentMessages, cacheMessages, getCachedMessages, generateClientId } from '@/lib/offlineQueue';
 
 
 export function useKioskState() {
@@ -22,40 +23,48 @@ export function useKioskState() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const lastMessageIdRef = useRef(0);
+  const syncingRef = useRef(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  // Restore session on mount
   useEffect(() => {
     const token = getStoredToken();
     const storedDriver = getStoredDriver();
     if (token && storedDriver) {
       setDriver(storedDriver);
       setScreen('main');
+      const cached = getCachedMessages() as Message[];
+      if (cached.length > 0) {
+        setMessages(cached.map(m => ({ ...m, timestamp: new Date(m.timestamp) })));
+        const maxId = Math.max(0, ...cached.map(m => {
+          const num = parseInt(m.id);
+          return isNaN(num) ? 0 : num;
+        }));
+        lastMessageIdRef.current = maxId;
+      }
     }
   }, []);
 
-  // Auto theme by time schedule
   useEffect(() => {
-    const updateTheme = () => {
-      if (theme === 'auto') {
+    if (theme === 'auto') {
+      const updateTheme = () => {
         const hour = new Date().getHours();
         const isNight = darkFrom > darkTo
           ? (hour >= darkFrom || hour < darkTo)
           : (hour >= darkFrom && hour < darkTo);
         setIsDark(isNight);
-      } else {
-        setIsDark(theme === 'dark');
-      }
-    };
-    updateTheme();
-    const interval = setInterval(updateTheme, 60000);
-    return () => clearInterval(interval);
+      };
+      updateTheme();
+      const interval = setInterval(updateTheme, 60000);
+      return () => clearInterval(interval);
+    } else {
+      setIsDark(theme === 'dark');
+    }
   }, [theme, darkFrom, darkTo]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
-  // Simulate telemetry speed
   useEffect(() => {
     if (screen !== 'main') return;
     const interval = setInterval(() => {
@@ -64,7 +73,6 @@ export function useKioskState() {
     return () => clearInterval(interval);
   }, [screen]);
 
-  // Heartbeat every 30s
   useEffect(() => {
     if (screen !== 'main') return;
     sendHeartbeat(undefined, undefined, speed);
@@ -72,30 +80,114 @@ export function useKioskState() {
     return () => clearInterval(interval);
   }, [screen, speed]);
 
-  // Poll messages every 5s
+  useEffect(() => {
+    const handleOnline = () => {
+      setConnection('online');
+      syncOfflineQueue();
+    };
+    const handleOffline = () => setConnection('offline');
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    if (!navigator.onLine) setConnection('offline');
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const syncOfflineQueue = useCallback(async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+
+    try {
+      const pending = getPendingMessages();
+      if (pending.length === 0) {
+        syncingRef.current = false;
+        return;
+      }
+
+      const batch = pending.map(m => ({
+        text: m.text,
+        type: m.type,
+        clientId: m.clientId,
+      }));
+
+      const response = await sendBatchMessages(batch);
+      const results = response.results || [];
+
+      for (const result of results) {
+        if (result.status === 'sent' || result.status === 'duplicate') {
+          updateQueueItem(result.clientId, { status: 'sent', serverId: result.serverId });
+          setMessages(prev => prev.map(m =>
+            m.clientId === result.clientId
+              ? { ...m, id: String(result.serverId), deliveryStatus: 'sent' }
+              : m
+          ));
+        }
+      }
+
+      clearSentMessages();
+      setPendingCount(0);
+    } catch {
+      // still offline
+    } finally {
+      syncingRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     if (screen !== 'main') return;
     const poll = async () => {
       try {
-        setConnection('online');
         const newMsgs = await fetchMessages(lastMessageIdRef.current);
+        setConnection('online');
+
         if (newMsgs.length > 0) {
-          const mapped: Message[] = newMsgs.map((m: {id: number; sender: string; text: string; type: string; isRead: boolean; createdAt: string}) => ({
+          const mapped: Message[] = newMsgs.map((m: { id: number; sender: string; text: string; type: string; isRead: boolean; createdAt: string; clientId?: string; deliveredAt?: string }) => ({
             id: String(m.id),
             type: m.sender === 'dispatcher' ? 'dispatcher' : 'normal',
             text: m.sender === 'driver' ? `[Водитель]: ${m.text}` : m.text,
             timestamp: new Date(m.createdAt),
             read: m.isRead,
+            clientId: m.clientId || undefined,
+            deliveryStatus: m.sender === 'driver'
+              ? ('delivered' as const)
+              : (m.deliveredAt ? 'delivered' as const : 'sent' as const),
           }));
           lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
+
           setMessages(prev => {
             const existingIds = new Set(prev.map(m => m.id));
-            const fresh = mapped.filter(m => !existingIds.has(m.id));
+            const existingClientIds = new Set(prev.filter(m => m.clientId).map(m => m.clientId));
+
+            const fresh = mapped.filter(m => {
+              if (existingIds.has(m.id)) return false;
+              if (m.clientId && existingClientIds.has(m.clientId)) {
+                return false;
+              }
+              return true;
+            });
+
+            let updated = prev.map(msg => {
+              if (msg.clientId) {
+                const serverMsg = mapped.find(m => m.clientId === msg.clientId);
+                if (serverMsg) {
+                  return { ...msg, id: serverMsg.id, deliveryStatus: 'delivered' as const };
+                }
+              }
+              return msg;
+            });
+
             const important = fresh.find(m => m.type === 'important');
             if (important) setPendingImportant(important);
-            return [...prev, ...fresh];
+
+            updated = [...updated, ...fresh];
+            cacheMessages(updated);
+            return updated;
           });
         }
+
+        await syncOfflineQueue();
       } catch {
         setConnection('offline');
       }
@@ -103,7 +195,7 @@ export function useKioskState() {
     poll();
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
-  }, [screen]);
+  }, [screen, syncOfflineQueue]);
 
   const login = useCallback(async (employeeId: string, pin: string) => {
     setLoginError(null);
@@ -155,18 +247,44 @@ export function useKioskState() {
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
+    const clientId = generateClientId();
+    const isOnline = navigator.onLine;
+
     const tempMsg: Message = {
-      id: 'tmp_' + Date.now(),
+      id: 'tmp_' + clientId,
       type: 'dispatcher',
       text: `[Водитель]: ${text}`,
       timestamp: new Date(),
       read: true,
+      clientId,
+      deliveryStatus: isOnline ? 'sending' : 'pending',
     };
-    setMessages(prev => [...prev, tempMsg]);
-    try {
-      await apiSendMessage(text);
-    } catch {
-      // keep optimistic message
+    setMessages(prev => {
+      const updated = [...prev, tempMsg];
+      cacheMessages(updated);
+      return updated;
+    });
+
+    if (isOnline) {
+      try {
+        const result = await apiSendMessage(text, 'normal', clientId);
+        setMessages(prev => prev.map(m =>
+          m.clientId === clientId
+            ? { ...m, id: String(result.id), deliveryStatus: 'sent' }
+            : m
+        ));
+      } catch {
+        addToQueue(text, 'normal');
+        setMessages(prev => prev.map(m =>
+          m.clientId === clientId
+            ? { ...m, deliveryStatus: 'pending' }
+            : m
+        ));
+        setPendingCount(p => p + 1);
+      }
+    } else {
+      addToQueue(text, 'normal');
+      setPendingCount(p => p + 1);
     }
   }, []);
 
@@ -231,5 +349,6 @@ export function useKioskState() {
     addDispatcherMessage,
     handleLogoTap,
     logoTapCount,
+    pendingCount,
   };
 }

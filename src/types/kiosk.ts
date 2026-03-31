@@ -14,6 +14,8 @@ export interface Driver {
   shiftStart: string;
 }
 
+export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'failed';
+
 export interface Message {
   id: string;
   type: MessageType;
@@ -23,6 +25,8 @@ export interface Message {
   confirmed?: boolean;
   confirmedAt?: Date;
   severity?: Severity;
+  clientId?: string;
+  deliveryStatus?: DeliveryStatus;
 }
 
 export interface RouteStop {

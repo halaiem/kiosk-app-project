@@ -73,14 +73,36 @@ export async function fetchMessages(sinceId = 0) {
   return data.messages || [];
 }
 
-export async function sendMessage(text: string, type = 'normal') {
+export async function sendMessage(text: string, type = 'normal', clientId?: string) {
   const token = getStoredToken();
   const driver = getStoredDriver();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['X-Auth-Token'] = token;
   const body: Record<string, unknown> = { text, type };
+  if (clientId) body.clientId = clientId;
   if (!token && driver) body.driver_id = driver.id;
   const res = await fetch(URLS.messages, { method: 'POST', headers, body: JSON.stringify(body) });
+  return res.json();
+}
+
+export async function sendBatchMessages(messages: { text: string; type: string; clientId: string }[]) {
+  const token = getStoredToken();
+  if (!token) throw new Error('No token');
+  const res = await fetch(`${URLS.messages}/?action=batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+    body: JSON.stringify({ messages }),
+  });
+  if (!res.ok) throw new Error('Batch send failed');
+  return res.json();
+}
+
+export async function confirmDelivery(messageIds: number[]) {
+  const res = await fetch(`${URLS.messages}/?action=confirm_delivery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message_ids: messageIds }),
+  });
   return res.json();
 }
 

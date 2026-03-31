@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
-import { Message } from '@/types/kiosk';
+import { Message, ConnectionStatus } from '@/types/kiosk';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -17,9 +17,21 @@ interface Props {
   messages: Message[];
   onSend: (text: string) => void;
   isMoving: boolean;
+  connection?: ConnectionStatus;
+  pendingCount?: number;
 }
 
-export default function Messenger({ messages, onSend, isMoving }: Props) {
+function DeliveryIcon({ status }: { status?: string }) {
+  if (!status) return null;
+  if (status === 'pending') return <Icon name="Clock" size={13} className="inline ml-1 text-yellow-400" />;
+  if (status === 'sending') return <Icon name="Loader" size={13} className="inline ml-1 animate-spin" />;
+  if (status === 'sent') return <Icon name="Check" size={13} className="inline ml-1" />;
+  if (status === 'delivered') return <Icon name="CheckCheck" size={13} className="inline ml-1" />;
+  if (status === 'failed') return <Icon name="AlertCircle" size={13} className="inline ml-1 text-red-400" />;
+  return null;
+}
+
+export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0 }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -27,7 +39,8 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 30);
+  const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
+  const isOffline = connection === 'offline';
 
   const handleFocus = useCallback(() => {
     setKeyboardOpen(true);
@@ -70,6 +83,27 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
 
   return (
     <div className="flex flex-col h-full">
+      {isOffline && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/15 border-b border-yellow-500/30">
+          <Icon name="WifiOff" size={16} className="text-yellow-500" />
+          <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+            Нет сети
+            {pendingCount > 0 && ` — ${pendingCount} сообщ. в очереди`}
+          </span>
+          <div className="ml-auto flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+            <span className="text-[10px] text-yellow-600 dark:text-yellow-400">отправится при подключении</span>
+          </div>
+        </div>
+      )}
+
+      {!isOffline && pendingCount > 0 && (
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-500/10 border-b border-blue-500/20">
+          <Icon name="Loader" size={14} className="text-blue-500 animate-spin" />
+          <span className="text-xs text-blue-600 dark:text-blue-400">Отправка {pendingCount} сообщений...</span>
+        </div>
+      )}
+
       {!keyboardOpen && (
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
           {chatMessages.length === 0 && (
@@ -86,7 +120,9 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
                   msg.type === 'important'
                     ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
                     : isOutgoing
-                    ? 'bg-primary text-primary-foreground rounded-br-sm'
+                    ? (msg.deliveryStatus === 'pending' || msg.deliveryStatus === 'failed')
+                      ? 'bg-primary/60 text-primary-foreground rounded-br-sm'
+                      : 'bg-primary text-primary-foreground rounded-br-sm'
                     : 'bg-muted text-foreground rounded-bl-sm'
                 }`}>
                   {msg.type === 'important' && (
@@ -98,7 +134,7 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
                   <p className="text-base leading-relaxed">{msg.text}</p>
                   <div className={`text-xs mt-1.5 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
                     {formatTime(msg.timestamp)}
-                    {isOutgoing && <Icon name="CheckCheck" size={13} className="inline ml-1" />}
+                    {isOutgoing && <DeliveryIcon status={msg.deliveryStatus} />}
                   </div>
                 </div>
               </div>
@@ -147,8 +183,12 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               onFocus={handleFocus}
               onBlur={handleBlur}
-              placeholder="Сообщение диспетчеру..."
-              className="flex-1 min-w-0 h-20 px-4 rounded-2xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+              placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
+              className={`flex-1 min-w-0 h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 transition-all ${
+                isOffline
+                  ? 'border-yellow-500/40 focus:ring-yellow-500/40 focus:border-yellow-500'
+                  : 'border-border focus:ring-primary/40 focus:border-primary'
+              }`}
             />
             <button
               onPointerDown={startRecord}
@@ -160,7 +200,11 @@ export default function Messenger({ messages, onSend, isMoving }: Props) {
             <button
               onClick={handleSend}
               disabled={!input.trim()}
-              className="w-20 h-20 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1"
+              className={`w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
+                isOffline
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-primary text-primary-foreground'
+              }`}
             >
               <Icon name="Send" size={34} />
             </button>
