@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createPortal } from 'react';
 import Icon from '@/components/ui/icon';
 import MapWidget from './MapWidget';
 import RouteStops from './RouteStops';
@@ -43,6 +43,7 @@ export default function MainPage({
 }: Props) {
   const [interval] = useState(4);
   const [deviation] = useState(-2);
+  const [messengerFullscreen, setMessengerFullscreen] = useState(false);
   const now = useClock();
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -192,10 +193,19 @@ export default function MainPage({
               <Icon name="MessageSquare" size={14} className="text-primary" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
               {unreadCount > 0 && (
-                <div className="ml-auto px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
+                <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
                   {unreadCount} новых
                 </div>
               )}
+              <div className="ml-auto">
+                <button
+                  onClick={() => setMessengerFullscreen(true)}
+                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                  title="Открыть на весь экран"
+                >
+                  <Icon name="Maximize2" size={14} className="text-muted-foreground" />
+                </button>
+              </div>
             </div>
             <div className="h-[240px] overflow-hidden">
               <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
@@ -203,6 +213,35 @@ export default function MainPage({
           </div>
         </div>
       </div>
+
+      {/* Messenger fullscreen overlay */}
+      {messengerFullscreen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col kiosk-bg">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border kiosk-surface flex-shrink-0"
+            style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
+            <Icon name="MessageSquare" size={18} className="text-white" />
+            <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Диспетчерская связь</span>
+            {unreadCount > 0 && (
+              <div className="px-2.5 py-1 rounded-full bg-destructive/80 text-white text-xs font-bold">
+                {unreadCount} новых
+              </div>
+            )}
+            <button
+              onClick={() => setMessengerFullscreen(false)}
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              title="Закрыть"
+            >
+              <Icon name="X" size={20} className="text-white" />
+            </button>
+          </div>
+          {/* Messenger body */}
+          <div className="flex-1 min-h-0 kiosk-surface">
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} />
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
