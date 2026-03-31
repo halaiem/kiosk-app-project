@@ -76,22 +76,18 @@ export default function MainPage({
           </div>
 
           {/* Route + stops */}
-          <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/10">
-            <div className="flex flex-col items-center justify-center">
-              <span className="text-white/50 text-[10px] leading-none">маршрут</span>
-              <span className="text-white font-black text-3xl leading-none tabular-nums">№{driver.routeNumber}</span>
+          <div className="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/10 min-w-0">
+            <div className="flex flex-col items-center justify-center flex-shrink-0">
+              <span className="text-white/50 text-[9px] leading-none">маршрут</span>
+              <span className="text-white font-black text-2xl leading-none tabular-nums">№{driver.routeNumber}</span>
             </div>
-            <div className="w-px h-10 bg-white/20" />
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0" />
-                <span className="text-white/80 leading-tight max-w-[160px] truncate">{FIRST_STOP}</span>
-              </div>
-              <div className="h-2 ml-[5px] border-l border-dashed border-white/20" />
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400 flex-shrink-0" />
-                <span className="text-white/80 leading-tight max-w-[160px] truncate">{LAST_STOP}</span>
-              </div>
+            <div className="w-px h-7 bg-white/20 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 text-sm min-w-0">
+              <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+              <span className="text-white/90 font-medium leading-none truncate max-w-[200px]">{FIRST_STOP}</span>
+              <Icon name="ArrowRight" size={14} className="text-white/40 flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+              <span className="text-white/90 font-medium leading-none truncate max-w-[200px]">{LAST_STOP}</span>
             </div>
           </div>
 
