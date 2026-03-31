@@ -1,8 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { UserRole } from "@/types/dashboard";
-import { DEMO_USERS } from "@/hooks/useDashboardAuth";
+import {
+  fetchDashboardUsers,
+  createDashboardUser,
+  updateDashboardUser,
+  deleteDashboardUser,
+} from "@/api/dashboardApi";
+
+interface ApiUser {
+  id: number;
+  employee_id: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  phone?: string;
+}
 
 const ROLE_STYLES: Record<UserRole, string> = {
   dispatcher: "bg-blue-500/15 text-blue-500",
@@ -26,26 +40,38 @@ export function UsersView() {
     return pass;
   };
 
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState("");
-  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("dispatcher");
   const [newPassword, setNewPassword] = useState("");
 
+  const loadUsers = async () => {
+    try {
+      const data = await fetchDashboardUsers();
+      setUsers(data as ApiUser[]);
+    } catch (e) {
+      console.error('Load users:', e);
+    }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
   const filtered = useMemo(() => {
-    let list = roleFilter === "all" ? DEMO_USERS : DEMO_USERS.filter((u) => u.user.role === roleFilter);
+    let list = roleFilter === "all" ? users : users.filter((u) => u.role === roleFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter((u) => u.user.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q));
+      list = list.filter((u) => u.full_name.toLowerCase().includes(q) || u.employee_id.toLowerCase().includes(q));
     }
     return list;
-  }, [roleFilter, search]);
+  }, [roleFilter, search, users]);
 
   const filters: { key: RoleFilter; label: string }[] = [
     { key: "all", label: "Все" },
@@ -54,13 +80,52 @@ export function UsersView() {
     { key: "admin", label: "Администраторы" },
   ];
 
-  const toggleBlock = (id: string) => {
-    setBlockedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handleToggleBlock = async (user: ApiUser) => {
+    try {
+      await updateDashboardUser({ id: user.id, is_active: !user.is_active });
+      await loadUsers();
+    } catch (e) {
+      console.error('Toggle block:', e);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newId.trim() || !newName.trim() || !newPassword.trim()) return;
+    setSaving(true);
+    try {
+      await createDashboardUser({
+        employee_id: newId,
+        full_name: newName,
+        role: newRole,
+        password: newPassword,
+      });
+      resetAddForm();
+      await loadUsers();
+    } catch (e) {
+      console.error('Create user:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (userId: number) => {
+    if (!editPassword.trim()) return;
+    try {
+      await updateDashboardUser({ id: userId, password: editPassword });
+      setEditingUserId(null);
+      setEditPassword("");
+    } catch (e) {
+      console.error('Change password:', e);
+    }
+  };
+
+  const handleDelete = async (userId: number) => {
+    try {
+      await deleteDashboardUser(userId);
+      await loadUsers();
+    } catch (e) {
+      console.error('Delete user:', e);
+    }
   };
 
   const resetAddForm = () => {
@@ -93,7 +158,7 @@ export function UsersView() {
               <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Имя, ID..." className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" />
             </div>
-            <ReportButton filename="users" data={DEMO_USERS.map(u => ({ id: u.id, name: u.user.name, role: u.user.role }))} />
+            <ReportButton filename="users" data={users.map(u => ({ id: u.employee_id, name: u.full_name, role: u.role }))} />
             <button
               onClick={() => setShowAddForm(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -115,14 +180,14 @@ export function UsersView() {
                 type="text"
                 value={newId}
                 onChange={(e) => setNewId(e.target.value)}
-                placeholder="ID"
+                placeholder="ID (например D003)"
                 className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Имя"
+                placeholder="ФИО"
                 className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <select
@@ -175,10 +240,11 @@ export function UsersView() {
                 Отмена
               </button>
               <button
-                disabled={!newId.trim() || !newName.trim() || !newPassword.trim()}
+                onClick={handleCreate}
+                disabled={!newId.trim() || !newName.trim() || !newPassword.trim() || saving}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Создать
+                {saving ? 'Создаю...' : 'Создать'}
               </button>
             </div>
           </div>
@@ -196,23 +262,23 @@ export function UsersView() {
           </thead>
           <tbody>
             {filtered.map((entry) => {
-              const isBlocked = blockedIds.has(entry.id);
-              const isEditing = editingUserId === entry.id;
+              const isBlocked = !entry.is_active;
+              const isEditing = editingUserId === entry.employee_id;
               return (
                 <tr
                   key={entry.id}
                   className={`border-b border-border transition-colors ${isBlocked ? "opacity-50" : "hover:bg-muted/30"}`}
                 >
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.id}</td>
-                  <td className="px-3 py-3 font-medium text-foreground">{entry.user.name}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
+                  <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
                   <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.user.role]}`}>
-                      {ROLE_LABELS[entry.user.role]}
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role]}`}>
+                      {ROLE_LABELS[entry.role]}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     <button
-                      onClick={() => toggleBlock(entry.id)}
+                      onClick={() => handleToggleBlock(entry)}
                       className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg transition-colors ${
                         isBlocked
                           ? "bg-red-500/15 text-red-500 hover:bg-red-500/25"
@@ -236,10 +302,7 @@ export function UsersView() {
                             autoFocus
                           />
                           <button
-                            onClick={() => {
-                              setEditingUserId(null);
-                              setEditPassword("");
-                            }}
+                            onClick={() => handleChangePassword(entry.id)}
                             className="w-7 h-7 rounded-lg bg-green-500/15 text-green-500 hover:bg-green-500/25 flex items-center justify-center transition-colors"
                           >
                             <Icon name="Check" className="w-3.5 h-3.5" />
@@ -258,7 +321,7 @@ export function UsersView() {
                         <>
                           <button
                             onClick={() => {
-                              setEditingUserId(entry.id);
+                              setEditingUserId(entry.employee_id);
                               setEditPassword("");
                             }}
                             className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
@@ -267,6 +330,7 @@ export function UsersView() {
                             <Icon name="Key" className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            onClick={() => handleDelete(entry.id)}
                             className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
                             title="Удалить"
                           >

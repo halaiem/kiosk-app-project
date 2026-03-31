@@ -17,12 +17,11 @@ const DEFAULT_TABS: Record<string, DashboardTab> = {
 };
 
 export default function Dashboard() {
-  const { user, error, login, logout, getRoleName } = useDashboardAuth();
-  const data = useDashboardData();
+  const { user, error, loading, login, logout, getRoleName } = useDashboardAuth();
+  const data = useDashboardData(user);
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
-  // Apply dashboard theme to <html> element
   useEffect(() => {
     const root = document.documentElement;
     if (settings.dashboardTheme === 'light') {
@@ -33,17 +32,19 @@ export default function Dashboard() {
     return () => { root.classList.add('dark'); };
   }, [settings.dashboardTheme]);
 
-  const handleLogin = (id: string, password: string) => {
-    const success = login(id, password);
-    if (success) {
-      const found = ['dispatcher', 'technician', 'admin'].find((r) => id.startsWith(r[0].toUpperCase()));
-      if (found) setActiveTab(DEFAULT_TABS[found]);
+  useEffect(() => {
+    if (user?.role) {
+      setActiveTab(DEFAULT_TABS[user.role] || 'overview');
     }
+  }, [user?.role]);
+
+  const handleLogin = async (id: string, password: string) => {
+    const success = await login(id, password);
     return success;
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setActiveTab('overview');
   };
 
@@ -56,6 +57,14 @@ export default function Dashboard() {
     notifications: data.notifications.filter((n) => !n.read).length,
     alerts: data.alerts.filter((a) => !a.resolved).length,
   }), [data.messages, data.notifications, data.alerts]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#152d52" }}>
+        <div className="text-white/60 text-sm">Загрузка...</div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <DashboardLogin onLogin={handleLogin} error={error} />;

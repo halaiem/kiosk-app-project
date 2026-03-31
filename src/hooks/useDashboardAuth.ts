@@ -1,50 +1,54 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import {
+  dashboardLogin,
+  dashboardLogout,
+  dashboardMe,
+  getStoredDashboardUser,
+  getStoredDashboardToken,
+} from '@/api/dashboardApi';
 import type { DashboardUser, UserRole } from '@/types/dashboard';
 
-const DEMO_USERS: Array<{ id: string; password: string; user: DashboardUser }> = [
-  {
-    id: 'D001',
-    password: 'disp123',
-    user: { id: 'D001', name: 'Смирнова Елена', role: 'dispatcher', isActive: true },
-  },
-  {
-    id: 'D002',
-    password: 'disp123',
-    user: { id: 'D002', name: 'Козлов Артём', role: 'dispatcher', isActive: true },
-  },
-  {
-    id: 'T001',
-    password: 'tech123',
-    user: { id: 'T001', name: 'Васильев Олег', role: 'technician', isActive: true },
-  },
-  {
-    id: 'T002',
-    password: 'tech123',
-    user: { id: 'T002', name: 'Морозова Анна', role: 'technician', isActive: true },
-  },
-  {
-    id: 'A001',
-    password: 'admin123',
-    user: { id: 'A001', name: 'Петров Максим', role: 'admin', isActive: true },
-  },
-];
+function mapApiUser(raw: Record<string, unknown>): DashboardUser {
+  return {
+    id: String(raw.employee_id || raw.id),
+    name: String(raw.full_name || raw.name || ''),
+    role: (raw.role as UserRole) || 'dispatcher',
+    isActive: raw.is_active !== false,
+    lastLogin: raw.last_login_at ? new Date(raw.last_login_at as string) : undefined,
+  };
+}
 
 export function useDashboardAuth() {
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((id: string, password: string) => {
-    setError('');
-    const found = DEMO_USERS.find((u) => u.id === id && u.password === password);
-    if (!found) {
-      setError('Неверный ID или пароль');
-      return false;
-    }
-    setUser({ ...found.user, lastLogin: new Date() });
-    return true;
+  useEffect(() => {
+    const token = getStoredDashboardToken();
+    if (!token) { setLoading(false); return; }
+    const cached = getStoredDashboardUser();
+    if (cached) setUser(mapApiUser(cached));
+    dashboardMe()
+      .then((u) => { if (u) setUser(mapApiUser(u)); else setUser(null); })
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const logout = useCallback(() => {
+  const login = useCallback(async (id: string, password: string): Promise<boolean> => {
+    setError('');
+    try {
+      const data = await dashboardLogin(id, password);
+      setUser(mapApiUser(data.user));
+      return true;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Ошибка входа';
+      setError(msg);
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await dashboardLogout();
     setUser(null);
     setError('');
   }, []);
@@ -58,7 +62,5 @@ export function useDashboardAuth() {
     return names[role];
   }, []);
 
-  return { user, error, login, logout, getRoleName };
+  return { user, error, loading, login, logout, getRoleName };
 }
-
-export { DEMO_USERS };

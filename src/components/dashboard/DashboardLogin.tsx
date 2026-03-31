@@ -2,17 +2,23 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 
 interface DashboardLoginProps {
-  onLogin: (id: string, password: string) => boolean;
+  onLogin: (id: string, password: string) => Promise<boolean>;
   error: string;
 }
 
 export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) {
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(id, password);
+    setSubmitting(true);
+    try {
+      await onLogin(id, password);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -38,7 +44,8 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 placeholder="Введите ID"
-                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                disabled={submitting}
+                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
               />
             </div>
 
@@ -49,7 +56,8 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Введите пароль"
-                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+                disabled={submitting}
+                className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors disabled:opacity-50"
               />
             </div>
 
@@ -62,9 +70,10 @@ export default function DashboardLogin({ onLogin, error }: DashboardLoginProps) 
 
             <button
               type="submit"
-              className="w-full h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all"
+              disabled={submitting}
+              className="w-full h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              Войти
+              {submitting ? 'Вход...' : 'Войти'}
             </button>
           </form>
 
