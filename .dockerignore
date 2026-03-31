@@ -1,0 +1,10 @@
+node_modules
+.git
+.gitignore
+*.md
+builds
+vite-dev.log
+.env
+server/.env
+server/backups
+db_migrations

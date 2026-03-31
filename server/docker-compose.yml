@@ -1,29 +1,111 @@
 version: "3.8"
 
 services:
+  # === PostgreSQL + TimescaleDB ===
   db:
-    image: postgres:15
+    image: timescale/timescaledb:latest-pg16
     restart: always
     environment:
       POSTGRES_DB: tramdisp
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./init-timescale.sql:/docker-entrypoint-initdb.d/02-timescale.sql
+    shm_size: "256mb"
+    command:
+      - "postgres"
+      - "-c" 
+      - "shared_buffers=2GB"
+      - "-c"
+      - "effective_cache_size=4GB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "wal_buffers=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "random_page_cost=1.1"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # === Redis (кэш позиций, сессии, pub/sub) ===
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # === Backend API (FastAPI) ===
   api:
     build:
       context: ..
       dockerfile: server/Dockerfile
     restart: always
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-changeme}@db:5432/tramdisp
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/tramdisp
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      ENVIRONMENT: production
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # === Frontend (Nginx + React SPA) ===
+  frontend:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile.frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      - api
+
+  # === Certbot (SSL сертификаты) ===
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   pgdata:
+  redisdata:
+  certbot-conf:
+  certbot-www:

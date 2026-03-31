@@ -1,183 +1,179 @@
-# Деплой ТрамДиспетч на свой сервер
+# Деплой ТрамДиспетч на VPS
 
-## Что в папке server/
-```
-server/
-  main.py              — FastAPI обёртка (ваш API сервер)
-  requirements.txt     — Python зависимости
-  .env.example         — шаблон переменных окружения
-  init-db.sql          — создание таблиц в БД
-  Dockerfile           — контейнер для API
-  docker-compose.yml   — запуск API + PostgreSQL
-  nginx.conf           — конфиг Nginx
-  DEPLOY-GUIDE.md      — эта инструкция
-```
+## Требования к серверу
 
----
+| Параметр | Значение |
+|---|---|
+| ОС | Ubuntu 22.04 LTS |
+| CPU | 4 ядра |
+| RAM | 8 ГБ |
+| Диск | 160 ГБ NVMe SSD |
+| Сеть | 200+ Мбит |
 
-## Способ 1 — Docker (рекомендуется)
-
-### Шаг 1: Склонируй репозиторий
-```bash
-git clone https://github.com/ВАШ-АККАУНТ/ВАШ-РЕПО.git
-cd ВАШ-РЕПО
-```
-
-### Шаг 2: Настрой переменные
-```bash
-cp server/.env.example server/.env
-nano server/.env
-```
-Укажи пароль БД:
-```
-DB_PASSWORD=твой_сильный_пароль
-```
-
-### Шаг 3: Запусти
-```bash
-cd server
-docker-compose up -d
-```
-Готово! API работает на порту 8000.
-
-### Шаг 4: Создай таблицы
-```bash
-docker exec -i server-db-1 psql -U postgres -d tramdisp < init-db.sql
-```
-
-### Шаг 5: Проверь
-```bash
-curl http://localhost:8000/api/health
-# Ответ: {"status":"ok","service":"tramdisp-api"}
-```
+Рассчитано на **150 транспортов**, **150 пользователей**.
 
 ---
 
-## Способ 2 — Без Docker
+## Быстрый старт (автоматический)
 
-### Шаг 1: Установи зависимости
 ```bash
-sudo apt update
-sudo apt install python3.11 python3-pip postgresql nginx
+# 1. Подключись к серверу
+ssh root@твой-сервер
+
+# 2. Скачай проект
+git clone https://github.com/твой-репо/tramdisp.git /opt/tramdisp
+
+# 3. Запусти установку
+cd /opt/tramdisp
+sudo bash server/setup.sh
 ```
 
-### Шаг 2: Создай БД
+Скрипт сам установит Docker, настроит файрвол, получит SSL-сертификат и запустит всё.
+
+---
+
+## Ручной деплой
+
+### 1. Установи Docker
+
 ```bash
-sudo -u postgres createdb tramdisp
-sudo -u postgres psql -d tramdisp -f server/init-db.sql
+curl -fsSL https://get.docker.com | sh
+apt-get install -y docker-compose-plugin
 ```
 
-### Шаг 3: Настрой Python
-```bash
-cd server
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+### 2. Настрой .env
 
-### Шаг 4: Создай .env
 ```bash
+cd /opt/tramdisp/server
 cp .env.example .env
 nano .env
 ```
-```
-DATABASE_URL=postgresql://postgres:ПАРОЛЬ@localhost:5432/tramdisp
-```
 
-### Шаг 5: Запусти API
+Заполни: `DB_PASSWORD`, `SECRET_KEY`, `DOMAIN`, `EMAIL`.
+
+### 3. Замени домен в nginx.conf
+
 ```bash
-source venv/bin/activate
-uvicorn main:app --host 0.0.0.0 --port 8000
+sed -i 's/${DOMAIN}/твой-домен.ru/g' nginx.conf
 ```
 
-### Шаг 6: Автозапуск (systemd)
+### 4. Получи SSL-сертификат
+
 ```bash
-sudo nano /etc/systemd/system/tramdisp-api.service
+docker run --rm -p 80:80 \
+    -v tramdisp_certbot-conf:/etc/letsencrypt \
+    certbot/certbot certonly \
+    --standalone \
+    --email твой@email.ru \
+    --agree-tos -d твой-домен.ru
 ```
-```ini
-[Unit]
-Description=TramDisp API
-After=network.target postgresql.service
 
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/путь/к/проекту/server
-Environment=PATH=/путь/к/проекту/server/venv/bin
-ExecStart=/путь/к/проекту/server/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
+### 5. Запусти
 
-[Install]
-WantedBy=multi-user.target
-```
 ```bash
-sudo systemctl enable tramdisp-api
-sudo systemctl start tramdisp-api
+docker compose up -d
 ```
 
 ---
 
-## Фронтенд (React)
+## Управление
 
-### Сборка
 ```bash
-npm install
-npm run build
-```
+cd /opt/tramdisp/server
 
-### Деплой
-```bash
-sudo mkdir -p /var/www/tramdisp
-sudo cp -r dist/* /var/www/tramdisp/
-```
+# Статус всех сервисов
+docker compose ps
 
-### Nginx
-```bash
-sudo cp server/nginx.conf /etc/nginx/sites-available/tramdisp
-sudo ln -s /etc/nginx/sites-available/tramdisp /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+# Логи (все)
+docker compose logs -f
+
+# Логи конкретного сервиса
+docker compose logs -f api
+docker compose logs -f db
+
+# Перезапуск
+docker compose restart
+
+# Обновление (после git pull)
+docker compose build --no-cache
+docker compose up -d
+
+# Остановка
+docker compose down
 ```
 
 ---
 
-## ВАЖНО: Замена URL в коде фронтенда
+## Бэкапы
 
-Фронтенд сейчас вызывает API по адресам из `func2url.json`:
-```
-driver-auth     → https://functions.poehali.dev/...
-driver-manage   → https://functions.poehali.dev/...
-driver-messages → https://functions.poehali.dev/...
+### Ручной бэкап
+```bash
+bash /opt/tramdisp/server/backup.sh
 ```
 
-На своём сервере замени на:
-```
-driver-auth     → /api/driver-auth
-driver-manage   → /api/driver-manage
-driver-messages → /api/driver-messages
+### Автоматический (cron — каждый день в 3:00)
+```bash
+crontab -e
+# Добавь строку:
+0 3 * * * /bin/bash /opt/tramdisp/server/backup.sh >> /var/log/tramdisp-backup.log 2>&1
 ```
 
-Найди в коде файл, где читается `func2url.json`, и замени URL на относительные пути `/api/...`
+### Восстановление из бэкапа
+```bash
+docker compose exec -T db pg_restore -U postgres -d tramdisp --clean < backups/tramdisp_ДАТА.dump
+```
 
 ---
 
-## SSL (HTTPS)
+## Архитектура на сервере
+
+```
+                    Интернет
+                       │
+                   ┌───┴───┐
+                   │ Nginx │ :80/:443
+                   │ (SSL) │
+                   └───┬───┘
+                 ┌─────┴─────┐
+                 │           │
+          ┌──────┴──┐  ┌────┴─────┐
+          │ React   │  │ FastAPI  │ :8000
+          │ (SPA)   │  │ (API)   │
+          │ static  │  └────┬────┘
+          └─────────┘   ┌───┴───┬──────────┐
+                        │       │          │
+                   ┌────┴──┐ ┌─┴────┐ ┌───┴───┐
+                   │ PG +  │ │Redis │ │  S3   │
+                   │Timesc.│ │      │ │(файлы)│
+                   └───────┘ └──────┘ └───────┘
+```
+
+---
+
+## Мониторинг
 
 ```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d ваш-домен.ru
+# Использование ресурсов контейнерами
+docker stats
+
+# Размер БД
+docker compose exec db psql -U postgres -d tramdisp \
+    -c "SELECT pg_size_pretty(pg_database_size('tramdisp'));"
+
+# Размер таблицы телеметрии
+docker compose exec db psql -U postgres -d tramdisp \
+    -c "SELECT hypertable_size('vehicle_telemetry');"
+
+# Количество чанков TimescaleDB
+docker compose exec db psql -U postgres -d tramdisp \
+    -c "SELECT * FROM timescaledb_information.chunks ORDER BY range_start DESC LIMIT 10;"
 ```
 
 ---
 
-## Supabase вместо локальной БД
+## Масштабирование (когда > 500 транспортов)
 
-1. Зарегистрируйся на supabase.com
-2. Создай проект
-3. Зайди в SQL Editor → вставь содержимое `init-db.sql` → Run
-4. Скопируй DATABASE_URL из Settings → Database → Connection string
-5. Вставь в `.env`:
-```
-DATABASE_URL=postgresql://postgres:ПАРОЛЬ@db.xxxx.supabase.co:5432/postgres
-```
-6. В `docker-compose.yml` удали сервис `db` — он больше не нужен
+1. **Вертикально**: увеличь RAM до 16 ГБ, CPU до 8 ядер
+2. **Redis**: вынеси на отдельный сервер
+3. **Read replicas**: настрой PostgreSQL streaming replication
+4. **API**: увеличь workers в Dockerfile (--workers 8)
