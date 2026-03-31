@@ -3,7 +3,7 @@ import Icon from "@/components/ui/icon";
 import { Toggle } from "./Toggle";
 
 export function SystemSettingsView() {
-  const [appName, setAppName] = useState("ТрамДиспетч");
+  const [appName, setAppName] = useState("ИРИДА");
   const [editSystem, setEditSystem] = useState(false);
   const [minPassword, setMinPassword] = useState(8);
   const [sessionTimeout, setSessionTimeout] = useState(30);

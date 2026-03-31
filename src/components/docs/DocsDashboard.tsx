@@ -4,7 +4,7 @@ export default function DocsDashboard() {
   const tzBlocks = [
     {
       title: '1. Dashboard Overview',
-      content: `Единая панель управления транспортной системой ТрамДиспетч.
+      content: `Единая панель управления транспортной системой ИРИДА.
 URL: /dashboard
 3 роли, 1 точка входа, авторизация по ID + пароль.
 
@@ -74,7 +74,7 @@ AuditLog: { id, userId, userName, action, target, timestamp, details }`,
     {
       title: '7a. Добавить новую вкладку в Dashboard',
       badge: 'Cursor / Claude',
-      code: `Ты опытный React-разработчик. Добавь новую вкладку в Dashboard ТрамДиспетч.
+      code: `Ты опытный React-разработчик. Добавь новую вкладку в Dashboard ИРИДА.
 
 Стек: React 18, TypeScript, Tailwind CSS, shadcn/ui.
 Иконки: только через <Icon name="..." size={N} />.
@@ -92,7 +92,7 @@ AuditLog: { id, userId, userName, action, target, timestamp, details }`,
     {
       title: '7b. Backend авторизация для Dashboard',
       badge: 'Python',
-      code: `Создай backend-функцию авторизации для Dashboard ТрамДиспетч.
+      code: `Создай backend-функцию авторизации для Dashboard ИРИДА.
 
 Требования:
 - POST /dashboard-auth, body: { id: string, password: string }

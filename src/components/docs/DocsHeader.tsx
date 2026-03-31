@@ -25,7 +25,7 @@ export default function DocsHeader({ active, onSelect }: DocsHeaderProps) {
           </div>
           <div>
             <div className="font-bold text-foreground">Документация</div>
-            <div className="text-[11px] text-muted-foreground">ТрамДиспетч · Кабина водителя</div>
+            <div className="text-[11px] text-muted-foreground">ИРИДА · Кабина водителя</div>
           </div>
         </div>
         <a href="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
