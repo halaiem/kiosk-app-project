@@ -167,13 +167,6 @@ export default function MainPage({
           <div className="status-dot status-online" />
           <span className="text-xs text-success font-medium">GPS активен</span>
         </div>
-        <div className="flex-1" />
-        {/* Carrier logo */}
-        <button onClick={onLogoTap}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border text-muted-foreground text-xs ripple active:scale-95 transition-all">
-          <Icon name="Building2" size={13} />
-          <span>ТрансПарк</span>
-        </button>
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
