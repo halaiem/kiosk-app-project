@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 
 const STOPS = [
@@ -14,6 +14,11 @@ const STOPS = [
 const AVG_MINUTES_BETWEEN_STOPS = [
   0, 3, 2, 2, 4, 3, 2, 3, 2, 4, 3, 2, 3, 2, 3, 2, 4, 3, 2, 3
 ];
+
+/** Visible stops count on screen */
+const VISIBLE_STOPS = 7;
+/** Auto-return timeout after last touch (ms) */
+const AUTO_RETURN_TIMEOUT = 5000;
 
 function useETA(currentStopIndex: number, deviation: number) {
   return useMemo(() => {
@@ -52,15 +57,68 @@ interface Props {
 
 export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoReturnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [userScrolling, setUserScrolling] = useState(false);
   const etas = useETA(currentStopIndex, deviation);
 
-  useEffect(() => {
+  /** Scroll current stop to center of container */
+  const scrollToCurrentStop = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!scrollRef.current) return;
     const active = scrollRef.current.querySelector('[data-active="true"]') as HTMLElement;
     if (active) {
-      active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      const container = scrollRef.current;
+      const containerWidth = container.offsetWidth;
+      const activeLeft = active.offsetLeft;
+      const activeWidth = active.offsetWidth;
+      const scrollTarget = activeLeft - (containerWidth / 2) + (activeWidth / 2);
+      container.scrollTo({ left: scrollTarget, behavior });
     }
-  }, [currentStopIndex]);
+  }, []);
+
+  /** Start auto-return timer — after 5s without touch, scroll back to current stop */
+  const startAutoReturnTimer = useCallback(() => {
+    if (autoReturnTimer.current) {
+      clearTimeout(autoReturnTimer.current);
+    }
+    autoReturnTimer.current = setTimeout(() => {
+      setUserScrolling(false);
+      scrollToCurrentStop('smooth');
+    }, AUTO_RETURN_TIMEOUT);
+  }, [scrollToCurrentStop]);
+
+  /** Handle touch/pointer interactions on the scroll container */
+  const handleTouchStart = useCallback(() => {
+    setUserScrolling(true);
+    if (autoReturnTimer.current) {
+      clearTimeout(autoReturnTimer.current);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    startAutoReturnTimer();
+  }, [startAutoReturnTimer]);
+
+  /** Scroll to current stop when it changes */
+  useEffect(() => {
+    scrollToCurrentStop('smooth');
+  }, [currentStopIndex, scrollToCurrentStop]);
+
+  /** Initial scroll to center current stop */
+  useEffect(() => {
+    // Small delay to ensure layout is complete
+    const t = setTimeout(() => scrollToCurrentStop('auto'), 100);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Clean up timer on unmount */
+  useEffect(() => {
+    return () => {
+      if (autoReturnTimer.current) {
+        clearTimeout(autoReturnTimer.current);
+      }
+    };
+  }, []);
 
   if (vertical) {
     return (
@@ -141,36 +199,61 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
     );
   }
 
+  /* ═══ HORIZONTAL MODE (tablet inline) ═══ */
+  /* Each stop takes ~1/7 of container width so 7 are visible.
+     Current stop is scaled +15%, next stops +8%. */
+  const stopWidthPercent = 100 / VISIBLE_STOPS; // ~14.28%
+
   return (
     <div className="w-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 mb-1.5">
+      <div className="flex items-center gap-2 px-3 mb-2">
         <Icon name="MapPin" size={14} className="text-primary flex-shrink-0" />
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Маршрут №5 — остановки</span>
         <span className="ml-auto text-xs text-muted-foreground">{currentStopIndex + 1}/{STOPS.length}</span>
       </div>
-      <div ref={scrollRef} className="flex items-center gap-0 overflow-x-auto pb-1 px-3 scrollbar-hide"
-        style={{ scrollbarWidth: 'none' }}>
+      <div
+        ref={scrollRef}
+        className="flex items-end gap-0 overflow-x-auto pb-2 pt-1 px-3 scrollbar-hide"
+        style={{ scrollbarWidth: 'none' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onPointerDown={handleTouchStart}
+        onPointerUp={handleTouchEnd}
+        onMouseDown={handleTouchStart}
+        onMouseUp={handleTouchEnd}
+      >
         {STOPS.map((stop, i) => {
           const isPassed = i < currentStopIndex;
           const isCurrent = i === currentStopIndex;
           const isNext = i === currentStopIndex + 1;
           const eta = etas[i];
 
+          // Scale: current +15%, next +8%, others normal
+          const scale = isCurrent ? 1.15 : isNext ? 1.08 : 1;
+
           return (
-            <div key={i} className="flex items-center flex-shrink-0" data-active={isCurrent ? 'true' : undefined}>
+            <div
+              key={i}
+              className="flex items-center flex-shrink-0"
+              data-active={isCurrent ? 'true' : undefined}
+              style={{ width: `calc(${stopWidthPercent}% - 4px)` }}
+            >
               {i > 0 && (
-                <div className={`h-0.5 w-4 flex-shrink-0 transition-all ${isPassed || isCurrent ? 'bg-primary' : 'bg-border'}`} />
+                <div className={`h-0.5 w-3 flex-shrink-0 transition-all ${isPassed || isCurrent ? 'bg-primary' : 'bg-border'}`} />
               )}
-              <div className={`flex flex-col items-center gap-1 cursor-default transition-all duration-300 ${isCurrent ? 'scale-110' : ''}`}>
+              <div
+                className="flex flex-col items-center gap-1 cursor-default transition-all duration-300 flex-1 min-w-0"
+                style={{ transform: `scale(${scale})`, transformOrigin: 'bottom center' }}
+              >
                 <div className={`relative flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-300
-                  ${isCurrent ? 'w-5 h-5 bg-green-500 shadow-lg shadow-green-500/40' : isNext ? 'w-3.5 h-3.5 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
+                  ${isCurrent ? 'w-6 h-6 bg-green-500 shadow-lg shadow-green-500/40' : isNext ? 'w-4 h-4 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
                   {isCurrent && (
                     <div className="absolute inset-0 rounded-full bg-green-500/30 animate-ping" />
                   )}
                   {isPassed && <Icon name="Check" size={8} className="text-primary-foreground" />}
                 </div>
-                <div className={`text-center leading-tight transition-all duration-300 max-w-[72px]
-                  ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-[10px]' : isNext ? 'text-foreground text-[9px] font-medium' : isPassed ? 'text-muted-foreground text-[9px]' : 'text-muted-foreground/60 text-[9px]'}`}
+                <div className={`text-center leading-tight transition-all duration-300 w-full px-0.5
+                  ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-[11px]' : isNext ? 'text-foreground text-[10px] font-medium' : isPassed ? 'text-muted-foreground text-[9px]' : 'text-muted-foreground/60 text-[9px]'}`}
                   style={{ writingMode: 'horizontal-tb' }}>
                   <span className="line-clamp-2 text-center">{stop}</span>
                   {isCurrent && <span className="block text-[8px] text-green-500/80">● текущая</span>}
