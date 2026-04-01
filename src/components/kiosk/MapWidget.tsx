@@ -175,27 +175,29 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
 
   const mapHud = (
     <>
-      {/* HUD overlay */}
+      {/* Количество транспорта (вместо GPS и номера маршрута) */}
       <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5 pointer-events-none">
-        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span>GPS активен</span>
-        </div>
-        <div className="bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-white text-xs">
-          Маршрут №5 · СПб
+        <div className="bg-black/70 backdrop-blur-sm px-2.5 py-1.5 text-white text-xs flex items-center gap-1.5" style={{ borderRadius: '0.10rem' }}>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+            <rect x="3" y="5" width="14" height="10" rx="2" fill="#60a5fa"/>
+            <rect x="5" y="7" width="4" height="4" rx="1" fill="white" opacity="0.7"/>
+            <rect x="11" y="7" width="4" height="4" rx="1" fill="white" opacity="0.7"/>
+          </svg>
+          <span className="font-bold text-white tabular-nums">{vehicles.length}</span>
+          <span className="text-gray-300">ТС на маршруте</span>
         </div>
       </div>
 
-      <div className="absolute top-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm rounded-xl p-2.5 text-center min-w-[64px] pointer-events-none">
+      <div className="absolute top-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm p-2.5 text-center min-w-[64px] pointer-events-none" style={{ borderRadius: '0.10rem' }}>
         <div className="text-2xl font-bold text-white tabular-nums leading-none">{Math.round(speed)}</div>
         <div className="text-[10px] text-gray-400 mt-0.5">км/ч</div>
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm rounded-lg px-2.5 py-2 space-y-1 pointer-events-none">
+      <div className="absolute bottom-3 right-3 z-[1000] bg-black/70 backdrop-blur-sm px-2.5 py-2 space-y-1 pointer-events-none" style={{ borderRadius: '0.10rem' }}>
         {vehicles.map((v) => (
           <div key={v.id} className="flex items-center gap-1.5">
-            <div className="w-2.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: v.color }} />
+            <div className="w-2.5 h-1.5 shrink-0" style={{ backgroundColor: v.color, borderRadius: '0.10rem' }} />
             <span className="text-[10px] text-gray-300">{v.label}{v.isOwn ? ' (вы)' : ''}</span>
           </div>
         ))}

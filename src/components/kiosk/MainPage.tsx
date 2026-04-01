@@ -66,7 +66,7 @@ export default function MainPage({
 
       {/* ═══ TOP BAR ═══ */}
       <div className="flex items-center gap-2 flex-shrink-0 px-[15px] py-[15px]"
-        style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
+        style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))', borderRadius: '0.10rem' }}>
 
         {/* LEFT: Menu + route info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -87,7 +87,7 @@ export default function MainPage({
           </div>
 
           {/* Route + stops */}
-          <div className="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/10 min-w-0">
+          <div className="flex items-center gap-3 px-4 py-1.5 bg-white/10 min-w-0" style={{ borderRadius: '0.10rem' }}>
             <div className="flex flex-col items-center justify-center flex-shrink-0">
               <span className="text-white/50 text-[9px] leading-none">маршрут</span>
               <span className="text-white font-black text-2xl leading-none tabular-nums">№{driver.routeNumber}</span>
@@ -103,7 +103,7 @@ export default function MainPage({
           </div>
 
           {/* Vehicle number */}
-          <div className="flex flex-col items-center justify-center px-3 py-1.5 rounded-xl bg-white/10 flex-shrink-0">
+          <div className="flex flex-col items-center justify-center px-3 py-1.5 bg-white/10 flex-shrink-0" style={{ borderRadius: '0.10rem' }}>
             <span className="text-white/50 text-[9px] leading-none">борт</span>
             <span className="text-white font-bold text-sm leading-tight tabular-nums">{driver.vehicleNumber}</span>
           </div>
@@ -113,7 +113,7 @@ export default function MainPage({
         <div className="flex items-center gap-2 flex-shrink-0">
 
           {/* Connection */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl flex-shrink-0 ${connection === 'online' ? 'bg-white/10' : 'bg-yellow-500/20 border border-yellow-500/30'}`}>
+          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 flex-shrink-0 ${connection === 'online' ? 'bg-white/10' : 'bg-yellow-500/20 border border-yellow-500/30'}`} style={{ borderRadius: '0.10rem' }}>
             <div className={`status-dot ${connection === 'online' ? 'status-online' : 'status-offline'}`} />
             <span className="text-white text-xs">{connection === 'online' ? 'Онлайн' : 'Оффлайн'}</span>
             {connection === 'offline' && pendingCount > 0 && (
@@ -125,7 +125,8 @@ export default function MainPage({
 
           {/* Theme toggle */}
           <button onClick={onToggleTheme}
-            className="flex flex-col items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 ripple active:scale-95 transition-all flex-shrink-0"
+            className="flex flex-col items-center justify-center w-10 h-10 bg-white/10 hover:bg-white/20 ripple active:scale-95 transition-all flex-shrink-0"
+            style={{ borderRadius: '0.10rem' }}
             title={theme === 'light' ? 'Светлая → Тёмная' : theme === 'dark' ? 'Тёмная → Авто' : 'Авто → Светлая'}>
             <Icon
               name={theme === 'light' ? 'Sun' : theme === 'dark' ? 'Moon' : 'Clock'}
@@ -147,14 +148,16 @@ export default function MainPage({
 
           {/* Break */}
           <button onClick={onBreak}
-            className="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 flex items-center justify-center ripple active:scale-95 transition-all"
+            className="w-10 h-10 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 flex items-center justify-center ripple active:scale-95 transition-all"
+            style={{ borderRadius: '0.10rem' }}
             title="Перерыв">
             <Icon name="Coffee" size={17} />
           </button>
 
           {/* End shift */}
           <button onClick={onEndShift}
-            className="w-10 h-10 rounded-xl bg-white text-[#152d52] flex items-center justify-center ripple active:scale-95 transition-all border border-white/80 shadow"
+            className="w-10 h-10 bg-white text-[#152d52] flex items-center justify-center ripple active:scale-95 transition-all border border-white/80 shadow"
+            style={{ borderRadius: '0.10rem' }}
             title="Завершить смену">
             <Icon name="LogOut" size={18} />
           </button>
@@ -163,48 +166,62 @@ export default function MainPage({
 
       {/* ═══ STATUS BAR (под header) ═══ */}
       <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-card border-b border-border">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
-          <Icon name="Timer" size={13} className="text-primary" />
-          <span className="text-xs font-bold text-foreground tabular-nums">{interval} мин</span>
-          <span className="text-[9px] text-muted-foreground">интервал</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
-          <Icon name="Clock" size={13} className="text-primary" />
-          <span className={`text-xs font-bold tabular-nums ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
-            {devSign}{deviation} мин
-          </span>
-          <span className="text-[9px] text-muted-foreground">от графика</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
+        {/* Connection status */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border" style={{ borderRadius: '0.10rem' }}>
           <div className="status-dot status-online" />
           <span className="text-xs text-success font-medium">GPS активен</span>
         </div>
         <div className="flex-1" />
-        {/* Carrier logo */}
+        {/* Carrier logo — логотип, 10 нажатий = выход из киоск-режима */}
         <button onClick={onLogoTap}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border text-muted-foreground text-xs ripple active:scale-95 transition-all">
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-muted border border-border text-muted-foreground text-xs ripple active:scale-95 transition-all"
+          style={{ borderRadius: '0.10rem' }}>
           <Icon name="Building2" size={13} />
-          <span>ТрансПарк</span>
+          <span>ИРИДА</span>
         </button>
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
+      {/* Вся группа (карта + виджеты) уменьшена на 20% по высоте через scale + origin */}
+      <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2" style={{ transform: 'scaleY(0.80)', transformOrigin: 'top center', height: '125%' }}>
 
-        {/* MAP */}
-        <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
-          <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
-          <button
-            onClick={() => onSetMapFullscreen(true)}
-            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
-            title="Карта на весь экран"
-          >
-            <Icon name="Maximize2" size={15} className="text-foreground" />
-          </button>
+        {/* MAP + SIDE WIDGETS ROW */}
+        <div className="relative flex-1 min-h-0 flex flex-row gap-2">
+
+          {/* MAP */}
+          <div className="relative flex-1 min-h-0 overflow-hidden elevation-2" style={{ borderRadius: '0.10rem', isolation: 'isolate' }}>
+            <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
+            <button
+              onClick={() => onSetMapFullscreen(true)}
+              className="absolute top-2 right-2 z-10 w-8 h-8 bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
+              style={{ borderRadius: '0.10rem' }}
+              title="Карта на весь экран"
+            >
+              <Icon name="Maximize2" size={15} className="text-foreground" />
+            </button>
+          </div>
+
+          {/* RIGHT SIDE: Interval + Deviation widgets, same height as map */}
+          <div className="flex flex-col gap-2 flex-shrink-0 w-[110px]">
+            {/* Interval widget */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-3 py-2 bg-muted border border-border elevation-1" style={{ borderRadius: '0.10rem' }}>
+              <Icon name="Timer" size={20} className="text-primary" />
+              <span className="text-lg font-black text-foreground tabular-nums leading-none">{interval} мин</span>
+              <span className="text-[10px] text-muted-foreground text-center leading-tight">интервал</span>
+            </div>
+            {/* Deviation widget */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 px-3 py-2 bg-muted border border-border elevation-1" style={{ borderRadius: '0.10rem' }}>
+              <Icon name="Clock" size={20} className="text-primary" />
+              <span className={`text-lg font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-green-500' : Math.abs(deviation) <= 3 ? 'text-yellow-500' : 'text-red-500'}`}>
+                {devSign}{deviation} мин
+              </span>
+              <span className="text-[10px] text-muted-foreground text-center leading-tight">от графика</span>
+            </div>
+          </div>
         </div>
 
         {/* STOPS + MESSENGER */}
-        <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
+        <div className="flex-shrink-0 kiosk-surface overflow-hidden elevation-2" style={{ borderRadius: '0.10rem' }}>
           <div className="flex items-center border-b border-border">
             <div className="flex-1 py-2.5 min-w-0">
               <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
@@ -212,7 +229,8 @@ export default function MainPage({
             <div className="flex-shrink-0 pr-3">
               <button
                 onClick={() => onSetStopsFullscreen(true)}
-                className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                className="w-7 h-7 hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                style={{ borderRadius: '0.10rem' }}
                 title="Открыть на весь экран"
               >
                 <Icon name="Maximize2" size={14} className="text-muted-foreground" />
@@ -224,14 +242,15 @@ export default function MainPage({
               <Icon name="MessageSquare" size={14} className="text-primary" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
               {unreadCount > 0 && (
-                <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
+                <div className="px-2 py-0.5 bg-destructive/15 text-destructive text-[10px] font-bold" style={{ borderRadius: '0.10rem' }}>
                   {unreadCount} новых
                 </div>
               )}
               <div className="ml-auto">
                 <button
                   onClick={() => onSetMessengerFullscreen(true)}
-                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                  className="w-7 h-7 hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                  style={{ borderRadius: '0.10rem' }}
                   title="Открыть на весь экран"
                 >
                   <Icon name="Maximize2" size={14} className="text-muted-foreground" />
@@ -254,13 +273,14 @@ export default function MainPage({
             <Icon name="MessageSquare" size={18} className="text-white" />
             <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Диспетчерская связь</span>
             {unreadCount > 0 && (
-              <div className="px-2.5 py-1 rounded-full bg-destructive/80 text-white text-xs font-bold">
+              <div className="px-2.5 py-1 bg-destructive/80 text-white text-xs font-bold" style={{ borderRadius: '0.10rem' }}>
                 {unreadCount} новых
               </div>
             )}
             <button
               onClick={() => onSetMessengerFullscreen(false)}
-              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              className="w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              style={{ borderRadius: '0.10rem' }}
               title="Закрыть"
             >
               <Icon name="X" size={20} className="text-white" />
@@ -283,7 +303,8 @@ export default function MainPage({
             <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Маршрут — остановки</span>
             <button
               onClick={() => onSetStopsFullscreen(false)}
-              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              className="w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              style={{ borderRadius: '0.10rem' }}
               title="Закрыть"
             >
               <Icon name="X" size={20} className="text-white" />
@@ -306,7 +327,8 @@ export default function MainPage({
             <span className="text-sm font-semibold text-white uppercase tracking-wider flex-1">Карта маршрута</span>
             <button
               onClick={() => onSetMapFullscreen(false)}
-              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              className="w-10 h-10 bg-white/10 hover:bg-white/20 flex items-center justify-center active:scale-95 transition-all"
+              style={{ borderRadius: '0.10rem' }}
               title="Закрыть"
             >
               <Icon name="X" size={20} className="text-white" />

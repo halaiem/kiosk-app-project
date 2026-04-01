@@ -55,20 +55,22 @@ export default function Index() {
 
   useEffect(() => {
     if (state.screen !== 'main') return;
+    // Первое уведомление через 20–35 сек на планшете, 8–15 сек на обычном экране
     const tablet = isTablet();
     const delay = tablet
-      ? 20000 + Math.random() * 15000
-      : 8000 + Math.random() * 7000;
+      ? 20000 + Math.random() * 15000   // 20–35 сек
+      : 8000 + Math.random() * 7000;    // 8–15 сек
     const t = setTimeout(() => triggerRandomAlert(), delay);
     return () => clearTimeout(t);
   }, [state.screen, triggerRandomAlert]);
 
   useEffect(() => {
     if (!dispatcherAlert) return;
+    // Повторные уведомления: на планшете раз в 100–180 сек, на обычном экране 40–70 сек
     const tablet = isTablet();
     const interval = tablet
-      ? 100000 + Math.random() * 80000
-      : 40000 + Math.random() * 30000;
+      ? 100000 + Math.random() * 80000  // 100–180 сек
+      : 40000 + Math.random() * 30000;  // 40–70 сек
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
   }, [dispatcherAlert?.id]);
@@ -80,15 +82,21 @@ export default function Index() {
     if (!latest.read && !seenMessages.has(latest.id)) {
       setSeenMessages(prev => new Set([...prev, latest.id]));
       setToasts(prev => [...prev.slice(-2), latest.id]);
+      // На планшете показываем тост 30–35 сек (в 6–7 раз дольше), на обычном экране — 5 сек
+      const toastDuration = isTablet()
+        ? 30000 + Math.random() * 5000
+        : 5000;
       setTimeout(() => {
         setToasts(prev => prev.filter(id => id !== latest.id));
-      }, 5000);
+      }, toastDuration);
     }
   }, [state.messages[0]?.id]);
 
   const handleLogoTap = () => {
     state.handleLogoTap();
-    if (state.logoTapCount >= 4) {
+    // Открываем выход из киоск-режима после 10 нажатий (logoTapCount обновляется после вызова handleLogoTap,
+    // поэтому проверяем >= 9, т.к. стейт ещё не обновился в текущем рендере)
+    if (state.logoTapCount >= 9) {
       setKioskUnlockOpen(true);
     }
   };
