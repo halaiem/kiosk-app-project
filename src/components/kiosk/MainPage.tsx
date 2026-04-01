@@ -234,7 +234,7 @@ export default function MainPage({
                 </button>
               </div>
             </div>
-            <div className="h-[240px] overflow-hidden">
+            <div className="h-[240px] tablet:h-[312px] overflow-hidden">
               <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
             </div>
           </div>
