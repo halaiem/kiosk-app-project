@@ -199,13 +199,13 @@ export default function MainPage({
 
         </div>
 
-        {/* STOPS + MESSENGER */}
+        {/* STOPS — horizontal strip above messenger */}
         <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
-          <div className="flex items-center border-b border-border">
-            <div className="flex-1 py-4 min-w-0">
+          <div className="flex items-center">
+            <div className="flex-1 min-w-0">
               <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
             </div>
-            <div className="flex-shrink-0 pr-3">
+            <div className="flex-shrink-0 pr-2">
               <button
                 onClick={() => onSetStopsFullscreen(true)}
                 className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
@@ -215,28 +215,30 @@ export default function MainPage({
               </button>
             </div>
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
-              <Icon name="MessageSquare" size={14} className="text-primary" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
-              {unreadCount > 0 && (
-                <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
-                  {unreadCount} новых
-                </div>
-              )}
-              <div className="ml-auto">
-                <button
-                  onClick={() => onSetMessengerFullscreen(true)}
-                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
-                  title="Открыть на весь экран"
-                >
-                  <Icon name="Maximize2" size={14} className="text-muted-foreground" />
-                </button>
+        </div>
+
+        {/* MESSENGER — below stops */}
+        <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
+            <Icon name="MessageSquare" size={14} className="text-primary" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
+            {unreadCount > 0 && (
+              <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
+                {unreadCount} новых
               </div>
+            )}
+            <div className="ml-auto">
+              <button
+                onClick={() => onSetMessengerFullscreen(true)}
+                className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                title="Открыть на весь экран"
+              >
+                <Icon name="Maximize2" size={14} className="text-muted-foreground" />
+              </button>
             </div>
-            <div className="h-[240px] tablet:h-[360px] overflow-hidden">
-              <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
-            </div>
+          </div>
+          <div className="h-[240px] tablet:h-[360px] overflow-hidden">
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
           </div>
         </div>
       </div>

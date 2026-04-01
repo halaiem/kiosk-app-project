@@ -362,6 +362,15 @@ body,
   animation: pulse-ring 1.5s ease-out infinite;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Scrollbar custom */
 ::-webkit-scrollbar {
   width: 4px;

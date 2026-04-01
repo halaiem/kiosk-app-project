@@ -15,10 +15,25 @@ const AVG_MINUTES_BETWEEN_STOPS = [
   0, 3, 2, 2, 4, 3, 2, 3, 2, 4, 3, 2, 3, 2, 3, 2, 4, 3, 2, 3
 ];
 
-/** Visible stops count on screen */
-const VISIBLE_STOPS = 7;
 /** Auto-return timeout after last touch (ms) */
 const AUTO_RETURN_TIMEOUT = 5000;
+
+/** Get visible stops count based on screen width */
+function useVisibleStops() {
+  const [count, setCount] = useState(5);
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      if (w < 768) setCount(3);       // phone
+      else if (w < 1024) setCount(5);  // tablet
+      else setCount(7);                // desktop
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return count;
+}
 
 function useETA(currentStopIndex: number, deviation: number) {
   return useMemo(() => {
@@ -60,12 +75,22 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
   const autoReturnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userScrolling, setUserScrolling] = useState(false);
   const etas = useETA(currentStopIndex, deviation);
+  const visibleStops = useVisibleStops();
 
-  /** Scroll current stop to center of container */
+  /** Scroll current stop to center of container (horizontal) */
   const scrollToCurrentStop = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!scrollRef.current) return;
     const active = scrollRef.current.querySelector('[data-active="true"]') as HTMLElement;
-    if (active) {
+    if (!active) return;
+
+    if (vertical) {
+      const container = scrollRef.current;
+      const containerHeight = container.offsetHeight;
+      const activeTop = active.offsetTop;
+      const activeHeight = active.offsetHeight;
+      const scrollTarget = activeTop - (containerHeight / 2) + (activeHeight / 2);
+      container.scrollTo({ top: scrollTarget, behavior });
+    } else {
       const container = scrollRef.current;
       const containerWidth = container.offsetWidth;
       const activeLeft = active.offsetLeft;
@@ -73,7 +98,7 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
       const scrollTarget = activeLeft - (containerWidth / 2) + (activeWidth / 2);
       container.scrollTo({ left: scrollTarget, behavior });
     }
-  }, []);
+  }, [vertical]);
 
   /** Start auto-return timer — after 5s without touch, scroll back to current stop */
   const startAutoReturnTimer = useCallback(() => {
@@ -105,7 +130,6 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
 
   /** Initial scroll to center current stop */
   useEffect(() => {
-    // Small delay to ensure layout is complete
     const t = setTimeout(() => scrollToCurrentStop('auto'), 100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,6 +144,7 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
     };
   }, []);
 
+  /* ═══ VERTICAL MODE (fullscreen list) ═══ */
   if (vertical) {
     return (
       <div className="w-full h-full flex flex-col">
@@ -135,7 +160,15 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
           )}
           <span className="ml-auto text-sm text-muted-foreground tabular-nums">{currentStopIndex + 1}/{STOPS.length}</span>
         </div>
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4" style={{ scrollbarWidth: 'thin' }}>
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto px-4 pb-4"
+          style={{ scrollbarWidth: 'thin' }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onPointerDown={handleTouchStart}
+          onPointerUp={handleTouchEnd}
+        >
           {STOPS.map((stop, i) => {
             const isPassed = i < currentStopIndex;
             const isCurrent = i === currentStopIndex;
@@ -199,22 +232,32 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
     );
   }
 
-  /* ═══ HORIZONTAL MODE (tablet inline) ═══ */
-  /* Each stop takes ~1/7 of container width so 7 are visible.
-     Current stop is scaled +15%, next stops +8%. */
-  const stopWidthPercent = 100 / VISIBLE_STOPS; // ~14.28%
+  /* ═══ HORIZONTAL MODE (inline above messenger) ═══ */
+  /* Each stop takes 1/visibleStops of container width.
+     Phone: 3 visible, Tablet: 5 visible, Desktop: 7 visible.
+     Current stop always centered. Auto-return after 5s idle. */
+  const stopWidthPercent = 100 / visibleStops;
 
   return (
     <div className="w-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 mb-2">
+      {/* Header row */}
+      <div className="flex items-center gap-2 px-3 py-2">
         <Icon name="MapPin" size={14} className="text-primary flex-shrink-0" />
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Маршрут №5 — остановки</span>
-        <span className="ml-auto text-xs text-muted-foreground">{currentStopIndex + 1}/{STOPS.length}</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Остановки</span>
+        {deviation !== 0 && (
+          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold tabular-nums
+            ${Math.abs(deviation) <= 1 ? 'bg-green-500/10 text-green-600 dark:text-green-400' : Math.abs(deviation) <= 3 ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+            <Icon name={deviation < 0 ? 'TrendingDown' : 'TrendingUp'} size={12} />
+            {deviation > 0 ? '+' : ''}{deviation} мин
+          </div>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{currentStopIndex + 1}/{STOPS.length}</span>
       </div>
+
+      {/* Horizontal scrollable stops — all items on one line */}
       <div
         ref={scrollRef}
-        className="flex items-end gap-0 overflow-x-auto pb-2 pt-1 px-3 scrollbar-hide"
-        style={{ scrollbarWidth: 'none' }}
+        className="flex items-center overflow-x-auto pb-2 px-1 scrollbar-hide"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onPointerDown={handleTouchStart}
@@ -222,43 +265,75 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
         onMouseDown={handleTouchStart}
         onMouseUp={handleTouchEnd}
       >
+
         {STOPS.map((stop, i) => {
           const isPassed = i < currentStopIndex;
           const isCurrent = i === currentStopIndex;
           const isNext = i === currentStopIndex + 1;
           const eta = etas[i];
 
-          // Scale: current +15%, next +8%, others normal
-          const scale = isCurrent ? 1.15 : isNext ? 1.08 : 1;
-
           return (
             <div
               key={i}
               className="flex items-center flex-shrink-0"
               data-active={isCurrent ? 'true' : undefined}
-              style={{ width: `calc(${stopWidthPercent}% - 4px)` }}
+              style={{ width: `${stopWidthPercent}%` }}
             >
+              {/* Connector line */}
               {i > 0 && (
-                <div className={`h-0.5 w-3 flex-shrink-0 transition-all ${isPassed || isCurrent ? 'bg-primary' : 'bg-border'}`} />
+                <div className={`h-[2px] w-3 flex-shrink-0 transition-colors duration-300 ${isPassed || isCurrent ? 'bg-primary' : 'bg-border'}`} />
               )}
-              <div
-                className="flex flex-col items-center gap-1 cursor-default transition-all duration-300 flex-1 min-w-0"
-                style={{ transform: `scale(${scale})`, transformOrigin: 'bottom center' }}
-              >
+
+              {/* Stop item — dot + label stacked vertically, centered */}
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0 py-1 px-0.5">
+                {/* Dot */}
                 <div className={`relative flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-300
-                  ${isCurrent ? 'w-6 h-6 bg-green-500 shadow-lg shadow-green-500/40' : isNext ? 'w-4 h-4 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
+                  ${isCurrent
+                    ? 'w-7 h-7 bg-green-500 shadow-lg shadow-green-500/40'
+                    : isNext
+                      ? 'w-5 h-5 bg-primary/30 border-2 border-primary'
+                      : isPassed
+                        ? 'w-4 h-4 bg-primary/60'
+                        : 'w-4 h-4 bg-muted-foreground/30'
+                  }`}
+                >
                   {isCurrent && (
                     <div className="absolute inset-0 rounded-full bg-green-500/30 animate-ping" />
                   )}
                   {isPassed && <Icon name="Check" size={8} className="text-primary-foreground" />}
+                  {isCurrent && <Icon name="Navigation" size={12} className="text-white" />}
                 </div>
-                <div className={`text-center leading-tight transition-all duration-300 w-full px-0.5
-                  ${isCurrent ? 'text-green-600 dark:text-green-400 font-semibold text-[11px]' : isNext ? 'text-foreground text-[10px] font-medium' : isPassed ? 'text-muted-foreground text-[9px]' : 'text-muted-foreground/60 text-[9px]'}`}
-                  style={{ writingMode: 'horizontal-tb' }}>
-                  <span className="line-clamp-2 text-center">{stop}</span>
-                  {isCurrent && <span className="block text-[8px] text-green-500/80">● текущая</span>}
-                  {isNext && eta && <span className="block text-[8px] text-primary tabular-nums">≈ {eta}</span>}
-                </div>
+
+                {/* Stop name */}
+                <span className={`text-center leading-tight transition-all duration-300 w-full px-0.5 line-clamp-2
+                  ${isCurrent
+                    ? 'text-green-600 dark:text-green-400 font-bold text-[11px]'
+                    : isNext
+                      ? 'text-foreground text-[10px] font-semibold'
+                      : isPassed
+                        ? 'text-muted-foreground/70 text-[9px]'
+                        : 'text-muted-foreground/50 text-[9px]'
+                  }`}
+                >
+                  {stop}
+                </span>
+
+                {/* ETA / status label */}
+                {isCurrent && (
+                  <span className="text-[9px] text-green-500 font-semibold tabular-nums">
+                    {eta}
+                  </span>
+                )}
+                {isNext && eta && (
+                  <span className="text-[9px] text-primary font-medium tabular-nums">
+                    {eta}
+                  </span>
+                )}
+                {!isPassed && !isCurrent && !isNext && eta && (
+                  <span className="text-[8px] text-muted-foreground/40 tabular-nums">
+                    {eta}
+                  </span>
+                )}
               </div>
             </div>
           );
