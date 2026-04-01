@@ -66,40 +66,23 @@ const EQUIPMENT: DocFile[] = [
 ];
 
 export function ProfileSection({ driver }: { driver: Driver | null }) {
-  const [activeTab, setActiveTab] = useState<'info' | 'docs' | 'equip'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'docs' | 'equip' | null>(null);
   const [viewDoc, setViewDoc] = useState<DocFile | null>(null);
 
-  return (
-    <div className="space-y-3">
-      {viewDoc && createPortal(<DocViewer doc={viewDoc} onClose={() => setViewDoc(null)} />, document.body)}
-
-      {/* Horizontal tabs */}
-      <div className="flex gap-1 p-1 rounded-xl bg-sidebar-accent/60">
-        {([
-          { key: 'info' as const, label: 'Данные', icon: 'User' },
-          { key: 'docs' as const, label: 'Документация', icon: 'FileText' },
-          { key: 'equip' as const, label: 'Оборудование', icon: 'Cpu' },
-        ]).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ripple"
-            style={
-              activeTab === tab.key
-                ? { backgroundColor: '#faaf57', color: '#1a1a1a', boxShadow: '0 2px 8px rgba(250,175,87,0.45)' }
-                : { backgroundColor: 'transparent', color: 'var(--sidebar-foreground)', opacity: 0.7 }
-            }
-          >
-            <Icon name={tab.icon} size={13} />
-            {tab.label}
+  const tabContent = activeTab && (
+    <div className="fixed top-0 left-80 right-0 bottom-0 z-[45] bg-background/95 backdrop-blur-sm overflow-y-auto" onClick={() => setActiveTab(null)}>
+      <div className="max-w-2xl mx-auto p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-foreground">
+            {activeTab === 'info' ? 'Данные водителя' : activeTab === 'docs' ? 'Документы' : 'Оборудование'}
+          </h2>
+          <button onClick={() => setActiveTab(null)} className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/70 transition-colors">
+            <Icon name="X" size={18} className="text-muted-foreground" />
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Tab content inline in sidebar */}
-      <div className="mt-1">
         {activeTab === 'info' && driver && (
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
             {[
               { label: 'ФИО', value: driver.name, icon: 'User' },
               { label: 'ID водителя', value: driver.id, icon: 'IdCard' },
@@ -107,36 +90,31 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
               { label: 'ТС', value: driver.vehicleNumber, icon: 'Tram' },
               { label: 'Смена', value: `с ${driver.shiftStart}`, icon: 'Clock' },
             ].map(item => (
-              <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/50 border border-border/40">
-                <Icon name={item.icon} size={18} className="shrink-0" style={{ color: '#faaf57' }} />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-muted-foreground leading-tight">{item.label}</div>
-                  <div className="font-semibold text-foreground text-sm truncate">{item.value}</div>
+              <div key={item.label} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name={item.icon} size={22} className="text-primary" />
+                <div>
+                  <div className="text-xs text-muted-foreground">{item.label}</div>
+                  <div className="font-semibold text-foreground text-base">{item.value}</div>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {activeTab === 'info' && !driver && (
-          <div className="text-center py-6 text-muted-foreground text-sm">Нет данных водителя</div>
-        )}
-
         {activeTab === 'docs' && (
           <div className="space-y-2">
             {DOCUMENTS.map(doc => (
-              <div key={doc.name} className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/50 border border-border/40">
-                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={18} className="shrink-0" style={{ color: '#faaf57' }} />
+              <div key={doc.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={22} className="text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-foreground leading-snug line-clamp-2">{doc.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
+                  <div className="text-sm font-medium text-foreground truncate">{doc.name}</div>
+                  <div className="text-xs text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
                 </div>
                 <button
                   onClick={() => setViewDoc(doc)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ripple shrink-0 transition-all"
-                  style={{ backgroundColor: 'rgba(250,175,87,0.15)', color: '#faaf57' }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
                 >
-                  <Icon name="Eye" size={12} />
+                  <Icon name="Eye" size={14} />
                   Открыть
                 </button>
               </div>
@@ -147,18 +125,17 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
         {activeTab === 'equip' && (
           <div className="space-y-2">
             {EQUIPMENT.map(eq => (
-              <div key={eq.name} className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/50 border border-border/40">
-                <Icon name="Cpu" size={18} className="shrink-0" style={{ color: '#faaf57' }} />
+              <div key={eq.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
+                <Icon name="Cpu" size={22} className="text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-foreground leading-snug line-clamp-2">{eq.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{eq.type.toUpperCase()} · {eq.size}</div>
+                  <div className="text-sm font-medium text-foreground truncate">{eq.name}</div>
+                  <div className="text-xs text-muted-foreground">{eq.type.toUpperCase()} · {eq.size}</div>
                 </div>
                 <button
                   onClick={() => setViewDoc(eq)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ripple shrink-0 transition-all"
-                  style={{ backgroundColor: 'rgba(250,175,87,0.15)', color: '#faaf57' }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
                 >
-                  <Icon name="Eye" size={12} />
+                  <Icon name="Eye" size={14} />
                   Открыть
                 </button>
               </div>
@@ -166,6 +143,28 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
           </div>
         )}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {viewDoc && <DocViewer doc={viewDoc} onClose={() => setViewDoc(null)} />}
+
+      <div className="flex gap-2">
+        {([
+          { key: 'info' as const, label: 'Данные', icon: 'User' },
+          { key: 'docs' as const, label: 'Документы', icon: 'FileText' },
+          { key: 'equip' as const, label: 'Оборудование', icon: 'Cpu' },
+        ]).map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(activeTab === tab.key ? null : tab.key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all ripple ${activeTab === tab.key ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-sidebar-accent text-sidebar-foreground'}`}>
+            <Icon name={tab.icon} size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {tabContent && createPortal(tabContent, document.body)}
     </div>
   );
 }
