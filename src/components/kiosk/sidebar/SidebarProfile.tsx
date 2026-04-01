@@ -147,21 +147,38 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="flex gap-0">
       {viewDoc && <DocViewer doc={viewDoc} onClose={() => setViewDoc(null)} />}
 
-      <div className="flex gap-2">
+      {/* Вертикальные табы */}
+      <div className="flex flex-col gap-1.5 w-full">
         {([
           { key: 'info' as const, label: 'Данные', icon: 'User' },
-          { key: 'docs' as const, label: 'Документы', icon: 'FileText' },
+          { key: 'docs' as const, label: 'Документация', icon: 'FileText' },
           { key: 'equip' as const, label: 'Оборудование', icon: 'Cpu' },
-        ]).map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(activeTab === tab.key ? null : tab.key)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all ripple ${activeTab === tab.key ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-sidebar-accent text-sidebar-foreground'}`}>
-            <Icon name={tab.icon} size={14} />
-            {tab.label}
-          </button>
-        ))}
+        ]).map(tab => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(isActive ? null : tab.key)}
+              style={isActive ? { backgroundColor: '#faaf57', color: '#1a1a1a' } : { backgroundColor: '#ffffff', color: '#374151' }}
+              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ripple w-full text-left border ${
+                isActive
+                  ? 'border-[#faaf57] shadow-md'
+                  : 'border-gray-200 hover:border-[#faaf57]/50 hover:bg-orange-50'
+              }`}
+            >
+              <Icon name={tab.icon} size={16} />
+              {tab.label}
+              {isActive && (
+                <span className="ml-auto">
+                  <Icon name="ChevronRight" size={14} />
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {tabContent && createPortal(tabContent, document.body)}
