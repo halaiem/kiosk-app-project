@@ -128,6 +128,7 @@ export async function createDriver(driver: {
   vehicleNumber: string;
   routeNumber: string;
   shiftStart: string;
+  phone?: string;
 }) {
   const res = await fetch(URLS.manage, {
     method: 'POST',

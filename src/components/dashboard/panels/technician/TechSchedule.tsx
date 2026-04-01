@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { ScheduleEntry } from "@/types/dashboard";
 import { Modal } from "./TechRoutes";
+import { createSchedule } from "@/api/dashboardApi";
 
 const SCHEDULE_STATUS_STYLES: Record<ScheduleEntry["status"], string> = {
   planned: "bg-blue-500/15 text-blue-500",
@@ -18,10 +19,19 @@ const SCHEDULE_STATUS_LABELS: Record<ScheduleEntry["status"], string> = {
   cancelled: "Отменено",
 };
 
-export function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
+export function ScheduleView({ schedule, onReload }: { schedule: ScheduleEntry[]; onReload?: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [detailEntry, setDetailEntry] = useState<ScheduleEntry | null>(null);
+  const [fDate, setFDate] = useState(new Date().toISOString().slice(0, 10));
+  const [fRoute, setFRoute] = useState("");
+  const [fDriver, setFDriver] = useState("");
+  const [fVehicle, setFVehicle] = useState("");
+  const [fStart, setFStart] = useState("06:00");
+  const [fEnd, setFEnd] = useState("14:00");
+  const [fStatus, setFStatus] = useState<ScheduleEntry["status"]>("planned");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
 
@@ -193,40 +203,39 @@ export function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Новая смена</h3>
+              <h3 className="text-base font-semibold text-foreground">Новый наряд / смена</h3>
               <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
                 <Icon name="X" className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Дата</label>
-                <input type="date" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Дата *</label>
+                <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут *</label>
+                <input type="text" value={fRoute} onChange={e => setFRoute(e.target.value)} placeholder="5" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Водитель</label>
-                <input type="text" placeholder="ФИО" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Водитель *</label>
+                <input type="text" value={fDriver} onChange={e => setFDriver(e.target.value)} placeholder="ФИО водителя" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер ТС</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер</label>
+                <input type="text" value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="ТМ-3407" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Начало смены</label>
-                <input type="time" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="time" value={fStart} onChange={e => setFStart(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Конец смены</label>
-                <input type="time" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="time" value={fEnd} onChange={e => setFEnd(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
+                <select value={fStatus} onChange={e => setFStatus(e.target.value as ScheduleEntry["status"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="planned">Запланировано</option>
                   <option value="active">Активно</option>
                   <option value="completed">Завершено</option>
@@ -234,9 +243,32 @@ export function ScheduleView({ schedule }: { schedule: ScheduleEntry[] }) {
                 </select>
               </div>
             </div>
+            {formError && <p className="text-xs text-destructive mt-3">{formError}</p>}
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
+              <button
+                disabled={!fDate || !fRoute.trim() || !fDriver.trim() || saving}
+                onClick={async () => {
+                  setSaving(true); setFormError("");
+                  try {
+                    await createSchedule({
+                      routeNumber: fRoute.trim(),
+                      driverName: fDriver.trim(),
+                      vehicleNumber: fVehicle.trim(),
+                      shiftStart: `${fDate}T${fStart}:00`,
+                      shiftEnd: `${fDate}T${fEnd}:00`,
+                      status: fStatus,
+                    });
+                    setFRoute(""); setFDriver(""); setFVehicle(""); setFStart("06:00"); setFEnd("14:00"); setFStatus("planned");
+                    setShowForm(false);
+                    onReload?.();
+                  } catch (e) { setFormError(e instanceof Error ? e.message : "Ошибка"); }
+                  finally { setSaving(false); }
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Создаю..." : "Создать наряд"}
+              </button>
             </div>
           </div>
         </div>

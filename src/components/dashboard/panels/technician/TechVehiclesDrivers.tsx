@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { VehicleInfo, DriverInfo, VehicleStatus, DriverStatus } from "@/types/dashboard";
 import { formatDate, formatTime, Modal } from "./TechRoutes";
+import { createDriver as apiCreateDriver } from "@/api/driverApi";
+import { createVehicle as apiCreateVehicle } from "@/api/dashboardApi";
 
 const VEHICLE_TYPE_ICONS: Record<VehicleInfo["type"], string> = {
   tram: "TramFront",
@@ -44,10 +46,32 @@ const DRIVER_STATUS_LABELS: Record<DriverStatus, string> = {
   sick: "Больничный",
 };
 
-export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
+function generatePin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+/* ──────────── VehiclesView ──────────── */
+
+interface VehiclesViewProps {
+  vehicles: VehicleInfo[];
+  onReload?: () => void;
+}
+
+export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleInfo["type"]>("all");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const [fNumber, setFNumber] = useState("");
+  const [fType, setFType] = useState<VehicleInfo["type"] | "">("");
+  const [fRoute, setFRoute] = useState("");
+  const [fMileage, setFMileage] = useState("");
+  const [fLastMaint, setFLastMaint] = useState("");
+  const [fNextMaint, setFNextMaint] = useState("");
+  const [fStatus, setFStatus] = useState<VehicleStatus | "">("");
+
   const isOverdue = (date: Date) => new Date(date).getTime() < Date.now();
 
   const filteredVehicles = useMemo(() => {
@@ -59,6 +83,35 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
     }
     return list;
   }, [vehicles, search, typeFilter]);
+
+  const resetForm = () => {
+    setFNumber(""); setFType(""); setFRoute(""); setFMileage("");
+    setFLastMaint(""); setFNextMaint(""); setFStatus(""); setError("");
+    setShowForm(false);
+  };
+
+  const handleCreate = useCallback(async () => {
+    if (!fNumber.trim() || !fType) { setError("Заполните бортовой номер и тип"); return; }
+    setSaving(true); setError("");
+    try {
+      await apiCreateVehicle({
+        number: fNumber.trim(),
+        label: fNumber.trim(),
+        type: fType,
+        status: fStatus || "active",
+        mileage: Number(fMileage) || 0,
+        lastMaintenance: fLastMaint || undefined,
+        nextMaintenance: fNextMaint || undefined,
+        routeNumber: fRoute.trim() || undefined,
+      });
+      resetForm();
+      onReload?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка создания");
+    } finally {
+      setSaving(false);
+    }
+  }, [fNumber, fType, fRoute, fMileage, fLastMaint, fNextMaint, fStatus, onReload]);
 
   return (
     <div className="space-y-4">
@@ -79,95 +132,79 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
           Добавить ТС
         </button>
       </div>
+
       <div className="grid grid-cols-2 desktop:grid-cols-3 gap-4">
-      {filteredVehicles.length === 0 ? (
-        <div className="col-span-full flex items-center justify-center py-16 bg-card border border-border rounded-2xl">
-          <div className="text-center">
-            <Icon name="Bus" className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Нет транспорта</p>
-          </div>
-        </div>
-      ) : (
-        filteredVehicles.map((v) => (
-          <div key={v.id} className="bg-card border border-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                  <Icon name={VEHICLE_TYPE_ICONS[v.type]} className="w-5 h-5 text-foreground" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-foreground">#{v.number}</p>
-                  <p className="text-[11px] text-muted-foreground">{VEHICLE_TYPE_LABELS[v.type]}</p>
-                </div>
-              </div>
-              <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${VEHICLE_STATUS_STYLES[v.status]}`}>
-                {VEHICLE_STATUS_LABELS[v.status]}
-              </span>
-            </div>
-            <div className="space-y-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="Route" className="w-3 h-3" />
-                  Маршрут
-                </span>
-                <span className="text-foreground font-medium">{v.routeNumber || "---"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="User" className="w-3 h-3" />
-                  Водитель
-                </span>
-                <span className="text-foreground font-medium truncate ml-2 max-w-[120px]">{v.driverName || "---"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="Gauge" className="w-3 h-3" />
-                  Пробег
-                </span>
-                <span className="text-foreground font-medium">{v.mileage.toLocaleString()} км</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="Wrench" className="w-3 h-3" />
-                  Последнее ТО
-                </span>
-                <span className="text-foreground font-medium">{formatDate(v.lastMaintenance)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon name="CalendarClock" className="w-3 h-3" />
-                  Следующее ТО
-                </span>
-                <span className={`font-medium ${isOverdue(v.nextMaintenance) ? "text-red-500" : "text-foreground"}`}>
-                  {formatDate(v.nextMaintenance)}
-                  {isOverdue(v.nextMaintenance) && (
-                    <Icon name="AlertTriangle" className="w-3 h-3 inline ml-1 text-red-500" />
-                  )}
-                </span>
-              </div>
+        {filteredVehicles.length === 0 ? (
+          <div className="col-span-full flex items-center justify-center py-16 bg-card border border-border rounded-2xl">
+            <div className="text-center">
+              <Icon name="Bus" className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Нет транспорта</p>
             </div>
           </div>
-        ))
-      )}
+        ) : (
+          filteredVehicles.map((v) => (
+            <div key={v.id} className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Icon name={VEHICLE_TYPE_ICONS[v.type]} className="w-5 h-5 text-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-foreground">#{v.number}</p>
+                    <p className="text-[11px] text-muted-foreground">{VEHICLE_TYPE_LABELS[v.type]}</p>
+                  </div>
+                </div>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${VEHICLE_STATUS_STYLES[v.status]}`}>
+                  {VEHICLE_STATUS_LABELS[v.status]}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Icon name="Route" className="w-3 h-3" />Маршрут</span>
+                  <span className="text-foreground font-medium">{v.routeNumber || "---"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Icon name="User" className="w-3 h-3" />Водитель</span>
+                  <span className="text-foreground font-medium truncate ml-2 max-w-[120px]">{v.driverName || "---"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Icon name="Gauge" className="w-3 h-3" />Пробег</span>
+                  <span className="text-foreground font-medium">{v.mileage.toLocaleString()} км</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Icon name="Wrench" className="w-3 h-3" />Последнее ТО</span>
+                  <span className="text-foreground font-medium">{formatDate(v.lastMaintenance)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><Icon name="CalendarClock" className="w-3 h-3" />Следующее ТО</span>
+                  <span className={`font-medium ${isOverdue(v.nextMaintenance) ? "text-red-500" : "text-foreground"}`}>
+                    {formatDate(v.nextMaintenance)}
+                    {isOverdue(v.nextMaintenance) && <Icon name="AlertTriangle" className="w-3 h-3 inline ml-1 text-red-500" />}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={resetForm}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-semibold text-foreground">Новое транспортное средство</h3>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+              <button onClick={resetForm} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
                 <Icon name="X" className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер *</label>
+                <input type="text" value={fNumber} onChange={e => setFNumber(e.target.value)} placeholder="ТМ-5001" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип *</label>
+                <select value={fType} onChange={e => setFType(e.target.value as VehicleInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">— выберите —</option>
                   <option value="tram">Трамвай</option>
                   <option value="trolleybus">Троллейбус</option>
@@ -176,28 +213,24 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут</label>
-                <input type="text" placeholder="Номер маршрута" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Водитель</label>
-                <input type="text" placeholder="ФИО" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="text" value={fRoute} onChange={e => setFRoute(e.target.value)} placeholder="5" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Пробег км</label>
-                <input type="number" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="number" value={fMileage} onChange={e => setFMileage(e.target.value)} placeholder="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Дата посл. ТО</label>
-                <input type="date" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="date" value={fLastMaint} onChange={e => setFLastMaint(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Дата след. ТО</label>
-                <input type="date" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="date" value={fNextMaint} onChange={e => setFNextMaint(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
+                <select value={fStatus} onChange={e => setFStatus(e.target.value as VehicleStatus)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— активен —</option>
                   <option value="active">Активен</option>
                   <option value="maintenance">ТО</option>
                   <option value="idle">Простой</option>
@@ -205,9 +238,12 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
                 </select>
               </div>
             </div>
+            {error && <p className="text-xs text-destructive mt-3">{error}</p>}
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
+              <button onClick={resetForm} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+              <button onClick={handleCreate} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {saving ? "Создаю..." : "Создать"}
+              </button>
             </div>
           </div>
         </div>
@@ -216,34 +252,40 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleInfo[] }) {
   );
 }
 
+/* ──────────── DriversView ──────────── */
+
 type SortKey = "name" | "status" | "rating";
 
-function generatePin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+interface DriversViewProps {
+  drivers: DriverInfo[];
+  onReload?: () => void;
 }
 
-export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
+export function DriversView({ drivers, onReload }: DriversViewProps) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [showForm, setShowForm] = useState(false);
   const [detailDriver, setDetailDriver] = useState<DriverInfo | null>(null);
-  const [newPin, setNewPin] = useState(() => generatePin());
-  // Mock PINs per driver (in real app from backend)
-  const driverPins = useMemo(() => {
-    const map: Record<string, string> = {};
-    drivers.forEach((d, i) => { map[d.id] = String(1000 + i * 137 % 9000).padStart(4, "0"); });
-    return map;
-  }, [drivers]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [createdPin, setCreatedPin] = useState<string | null>(null);
+
+  const [fName, setFName] = useState("");
+  const [fPin, setFPin] = useState(() => generatePin());
+  const [fPhone, setFPhone] = useState("");
+  const [fVehicleType, setFVehicleType] = useState<VehicleInfo["type"] | "">("");
+  const [fVehicleNumber, setFVehicleNumber] = useState("");
+  const [fRoute, setFRoute] = useState("");
+  const [fShiftStart, setFShiftStart] = useState("08:00");
 
   const filtered = useMemo(() => {
     let list = [...drivers];
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(
-        (d) =>
-          d.name.toLowerCase().includes(q) ||
-          d.tabNumber.toLowerCase().includes(q) ||
-          d.vehicleNumber.toLowerCase().includes(q)
+      list = list.filter(d =>
+        d.name.toLowerCase().includes(q) ||
+        d.tabNumber.toLowerCase().includes(q) ||
+        d.vehicleNumber.toLowerCase().includes(q)
       );
     }
     const statusOrder: Record<DriverStatus, number> = { on_shift: 0, break: 1, off_shift: 2, sick: 3 };
@@ -254,6 +296,34 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
     });
     return list;
   }, [drivers, search, sortBy]);
+
+  const resetForm = () => {
+    setFName(""); setFPin(generatePin()); setFPhone("");
+    setFVehicleType(""); setFVehicleNumber(""); setFRoute("");
+    setFShiftStart("08:00"); setError(""); setShowForm(false); setCreatedPin(null);
+  };
+
+  const handleCreate = useCallback(async () => {
+    if (!fName.trim() || !fPin.trim()) { setError("Заполните ФИО и PIN"); return; }
+    setSaving(true); setError("");
+    try {
+      await apiCreateDriver({
+        fullName: fName.trim(),
+        pin: fPin.trim(),
+        vehicleType: fVehicleType || "tram",
+        vehicleNumber: fVehicleNumber.trim(),
+        routeNumber: fRoute.trim(),
+        shiftStart: fShiftStart,
+        phone: fPhone.trim() || undefined,
+      });
+      setCreatedPin(fPin);
+      onReload?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка создания");
+    } finally {
+      setSaving(false);
+    }
+  }, [fName, fPin, fPhone, fVehicleType, fVehicleNumber, fRoute, fShiftStart, onReload]);
 
   const sortButtons: { key: SortKey; label: string }[] = [
     { key: "name", label: "Имя" },
@@ -277,15 +347,7 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
         <div className="flex items-center gap-1 ml-auto">
           <span className="text-xs text-muted-foreground mr-1">Сортировка:</span>
           {sortButtons.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSortBy(s.key)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                sortBy === s.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
+            <button key={s.key} onClick={() => setSortBy(s.key)} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${sortBy === s.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
               {s.label}
             </button>
           ))}
@@ -316,7 +378,7 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                <td colSpan={10} className="text-center py-12 text-muted-foreground">
                   <Icon name="UserX" className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p>Не найдено</p>
                 </td>
@@ -334,15 +396,12 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
                   <td className="px-3 py-3 text-muted-foreground text-xs">{d.vehicleNumber || "---"}</td>
                   <td className="px-3 py-3 text-muted-foreground text-xs">{d.routeNumber || "---"}</td>
                   <td className="px-3 py-3 text-xs">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-muted-foreground">{d.shiftStart ? `↑ ${formatTime(d.shiftStart)}` : "---"}</span>
-                      <span className="text-muted-foreground">{d.shiftEnd ? `↓ ${formatTime(d.shiftEnd)}` : d.status === "on_shift" ? <span className="text-green-500">активна</span> : "---"}</span>
-                    </div>
+                    <span className="text-muted-foreground">{d.shiftStart ? `↑ ${formatTime(d.shiftStart)}` : "---"}</span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground select-all">{driverPins[d.id]}</span>
+                    <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground">••••</span>
                   </td>
-                  <td className="px-3 py-3 text-muted-foreground text-xs font-mono">{d.phone}</td>
+                  <td className="px-3 py-3 text-muted-foreground text-xs font-mono">{d.phone || "---"}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-0.5">
                       {Array.from({ length: 5 }, (_, i) => (
@@ -363,6 +422,7 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
         </table>
       </div>
 
+      {/* Детальная карточка водителя */}
       {detailDriver && (
         <Modal title={`Водитель — ${detailDriver.name}`} onClose={() => setDetailDriver(null)}>
           <div className="px-5 py-4 space-y-3">
@@ -373,8 +433,7 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
                 { label: "Бортовой номер", value: detailDriver.vehicleNumber || "—" },
                 { label: "Маршрут", value: detailDriver.routeNumber ? `№${detailDriver.routeNumber}` : "—" },
                 { label: "Начало смены", value: detailDriver.shiftStart ? formatTime(detailDriver.shiftStart) : "—" },
-                { label: "Конец смены", value: detailDriver.shiftEnd ? formatTime(detailDriver.shiftEnd) : detailDriver.status === "on_shift" ? "Активна" : "—" },
-                { label: "Телефон", value: detailDriver.phone },
+                { label: "Телефон", value: detailDriver.phone || "—" },
                 { label: "Рейтинг", value: `${detailDriver.rating.toFixed(1)} / 5.0` },
               ].map(({ label, value, colored }) => (
                 <div key={label} className="bg-muted/40 rounded-xl p-3">
@@ -387,88 +446,108 @@ export function DriversView({ drivers }: { drivers: DriverInfo[] }) {
                 </div>
               ))}
             </div>
-            <div className="bg-muted/40 rounded-xl p-3">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">PIN для входа в планшет</p>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-2xl font-bold tracking-[0.4em] text-foreground select-all">{driverPins[detailDriver.id]}</span>
-                <span className="text-xs text-muted-foreground">Используется для авторизации на устройстве</span>
-              </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+              <p className="text-[10px] text-amber-600 uppercase tracking-wide mb-1 font-semibold">PIN для входа в планшет</p>
+              <p className="text-xs text-muted-foreground">PIN хранится в зашифрованном виде. Передайте водителю PIN при создании или сбросьте через техника.</p>
             </div>
           </div>
         </Modal>
       )}
 
+      {/* Форма создания водителя */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !createdPin && resetForm()}>
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Новый водитель</h3>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
-                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Табельный номер</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-muted-foreground mb-1">ФИО полностью</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Телефон</label>
-                <input type="text" placeholder="+7 (9XX) XXX-XX-XX" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
-                  <option value="on_shift">На смене</option>
-                  <option value="off_shift">Свободен</option>
-                  <option value="break">Перерыв</option>
-                  <option value="sick">Больничный</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер ТС</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Начало смены</label>
-                <input type="time" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Рейтинг</label>
-                <input type="number" min={1} max={5} step={0.1} placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-muted-foreground mb-1">PIN для входа в планшет</label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-9 px-3 rounded-lg border border-primary/40 bg-primary/5 flex items-center gap-3">
-                    <Icon name="KeyRound" className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="font-mono text-xl font-bold tracking-[0.4em] text-foreground select-all">{newPin}</span>
+            {createdPin ? (
+              <>
+                <div className="flex flex-col items-center text-center gap-4 py-2">
+                  <div className="w-14 h-14 rounded-full bg-green-500/15 flex items-center justify-center">
+                    <Icon name="UserCheck" className="w-7 h-7 text-green-500" />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setNewPin(generatePin())}
-                    className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors"
-                  >
-                    <Icon name="RefreshCw" className="w-3.5 h-3.5" />
-                    Новый
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">Водитель создан!</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Передайте PIN водителю для авторизации на планшете</p>
+                  </div>
+                  <div className="w-full bg-primary/5 border border-primary/20 rounded-xl p-4">
+                    <p className="text-[10px] text-primary uppercase tracking-wide mb-2 font-semibold">PIN-код для входа</p>
+                    <p className="font-mono text-4xl font-bold tracking-[0.5em] text-foreground select-all">{createdPin}</p>
+                  </div>
+                  <button onClick={resetForm} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                    Готово
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Водитель вводит этот PIN при авторизации на устройстве</p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={() => { setShowForm(false); setNewPin(generatePin()); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-base font-semibold text-foreground">Новый водитель</h3>
+                  <button onClick={resetForm} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+                    <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">ФИО полностью *</label>
+                    <input type="text" value={fName} onChange={e => setFName(e.target.value)} placeholder="Оссама Иванов Петрович" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Телефон</label>
+                    <input type="text" value={fPhone} onChange={e => setFPhone(e.target.value)} placeholder="+7 (9XX) XXX-XX-XX" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Тип ТС</label>
+                    <select value={fVehicleType} onChange={e => setFVehicleType(e.target.value as VehicleInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                      <option value="">— выберите —</option>
+                      <option value="tram">Трамвай</option>
+                      <option value="trolleybus">Троллейбус</option>
+                      <option value="bus">Автобус</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер</label>
+                    <input type="text" value={fVehicleNumber} onChange={e => setFVehicleNumber(e.target.value)} placeholder="ТМ-3450" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут</label>
+                    <input type="text" value={fRoute} onChange={e => setFRoute(e.target.value)} placeholder="5" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Начало смены</label>
+                    <input type="time" value={fShiftStart} onChange={e => setFShiftStart(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">PIN для входа в планшет *</label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-10 px-3 rounded-lg border border-primary/40 bg-primary/5 flex items-center gap-3">
+                        <Icon name="KeyRound" className="w-4 h-4 text-primary flex-shrink-0" />
+                        <input
+                          type="text"
+                          value={fPin}
+                          onChange={e => setFPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="1234"
+                          className="flex-1 bg-transparent font-mono text-xl font-bold tracking-[0.4em] text-foreground focus:outline-none"
+                        />
+                      </div>
+                      <button type="button" onClick={() => setFPin(generatePin())} className="h-10 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors">
+                        <Icon name="RefreshCw" className="w-3.5 h-3.5" />
+                        Новый
+                      </button>
+                      <button type="button" onClick={() => navigator.clipboard.writeText(fPin)} className="h-10 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors">
+                        <Icon name="Copy" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">Водитель вводит этот PIN при авторизации на планшете</p>
+                  </div>
+                </div>
+                {error && <p className="text-xs text-destructive mt-3">{error}</p>}
+                <div className="flex justify-end gap-2 mt-5">
+                  <button onClick={resetForm} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+                  <button onClick={handleCreate} disabled={saving || !fName.trim() || !fPin.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    {saving ? "Создаю..." : "Создать водителя"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

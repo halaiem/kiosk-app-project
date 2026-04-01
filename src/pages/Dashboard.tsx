@@ -119,6 +119,7 @@ export default function Dashboard() {
             drivers={data.drivers}
             schedule={data.schedule}
             onUpdateDocumentStatus={data.updateDocumentStatus}
+            onReload={data.reload}
           />
         )}
         {user.role === 'admin' && (

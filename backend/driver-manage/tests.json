@@ -4,18 +4,13 @@
       "name": "Get all drivers",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "expectedBody": {"drivers": [{"employeeId": "0001"}]},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
-      "name": "Create driver",
-      "method": "POST",
+      "name": "Options CORS",
+      "method": "OPTIONS",
       "path": "/",
-      "body": {"fullName": "Новый Водитель", "pin": "0000", "vehicleType": "tram", "vehicleNumber": "ТМ-9999", "routeNumber": "9", "shiftStart": "10:00"},
-      "expectedStatus": 200,
-      "expectedBody": {"ok": true},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }

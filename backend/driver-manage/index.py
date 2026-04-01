@@ -22,7 +22,7 @@ def handler(event: dict, context) -> dict:
             cur.execute("""
                 SELECT d.id, d.full_name, d.pin, d.employee_id, d.vehicle_type, d.vehicle_number, d.route_number,
                        d.shift_start, d.is_active, d.created_at,
-                       s.is_online, s.last_seen
+                       s.is_online, s.last_seen, d.phone, d.shift_status, d.rating
                 FROM drivers d
                 LEFT JOIN driver_sessions s ON s.driver_id = d.id AND s.is_online = true
                 ORDER BY d.full_name
@@ -35,7 +35,8 @@ def handler(event: dict, context) -> dict:
                     'vehicleType': r[4], 'vehicleNumber': r[5], 'routeNumber': r[6],
                     'shiftStart': str(r[7]) if r[7] else None,
                     'isActive': r[8], 'createdAt': str(r[9]),
-                    'isOnline': bool(r[10]), 'lastSeen': str(r[11]) if r[11] else None
+                    'isOnline': bool(r[10]), 'lastSeen': str(r[11]) if r[11] else None,
+                    'phone': r[12], 'shiftStatus': r[13] or 'off_shift', 'rating': float(r[14]) if r[14] else 4.5
                 })
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'drivers': drivers})}
 
@@ -67,14 +68,16 @@ def handler(event: dict, context) -> dict:
             if cur.fetchone():
                 employee_id = str(next_id).zfill(4)
 
+            phone = body.get('phone', '').strip() or None
+
             cur.execute(
-                "INSERT INTO drivers (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-                (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start)
+                "INSERT INTO drivers (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start, phone) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                (full_name, pin, employee_id, vehicle_type, vehicle_number, route_number, shift_start, phone)
             )
             driver_id = cur.fetchone()[0]
             conn.commit()
 
-            return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'id': driver_id, 'ok': True})}
+            return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'id': driver_id, 'employeeId': employee_id, 'ok': True})}
 
         # PUT — обновить водителя
         if method == 'PUT':

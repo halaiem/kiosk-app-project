@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { DocumentInfo, DocumentStatus } from "@/types/dashboard";
 import { formatDate, Modal } from "./TechRoutes";
+import { createDocument } from "@/api/dashboardApi";
 
 const DOC_TYPE_ICONS: Record<DocumentInfo["type"], string> = {
   route_sheet: "FileSpreadsheet",
@@ -39,14 +40,23 @@ type DocFilter = "all" | DocumentStatus;
 export function DocumentsView({
   documents,
   onUpdateDocumentStatus,
+  onReload,
 }: {
   documents: DocumentInfo[];
   onUpdateDocumentStatus: (id: string, status: DocumentInfo["status"]) => void;
+  onReload?: () => void;
 }) {
   const [filter, setFilter] = useState<DocFilter>("all");
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [viewDoc, setViewDoc] = useState<DocumentInfo | null>(null);
+  const [fTitle, setFTitle] = useState("");
+  const [fType, setFType] = useState<DocumentInfo["type"] | "">("");
+  const [fAuthor, setFAuthor] = useState("");
+  const [fAssigned, setFAssigned] = useState("");
+  const [fStatus, setFStatus] = useState<DocumentInfo["status"] | "">("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const downloadDoc = useCallback((doc: DocumentInfo) => {
     const content = [
@@ -260,12 +270,12 @@ export function DocumentsView({
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Название</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Название *</label>
+                <input type="text" value={fTitle} onChange={e => setFTitle(e.target.value)} placeholder="Маршрутный лист №5 — Оссама" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип *</label>
+                <select value={fType} onChange={e => setFType(e.target.value as DocumentInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">— выберите —</option>
                   <option value="route_sheet">Маршрутный лист</option>
                   <option value="maintenance_report">Акт ТО</option>
@@ -276,25 +286,41 @@ export function DocumentsView({
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Автор</label>
-                <input type="text" placeholder="..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="text" value={fAuthor} onChange={e => setFAuthor(e.target.value)} placeholder="Ваше ФИО" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Назначен</label>
-                <input type="text" placeholder="ФИО водителя или подразделение" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Назначен водителю</label>
+                <input type="text" value={fAssigned} onChange={e => setFAssigned(e.target.value)} placeholder="ФИО водителя" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
+                <select value={fStatus} onChange={e => setFStatus(e.target.value as DocumentInfo["status"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">— черновик —</option>
                   <option value="draft">Черновик</option>
                   <option value="review">На проверке</option>
                   <option value="approved">Утверждён</option>
                 </select>
               </div>
             </div>
+            {formError && <p className="text-xs text-destructive mt-3">{formError}</p>}
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
+              <button
+                disabled={!fTitle.trim() || !fType || saving}
+                onClick={async () => {
+                  setSaving(true); setFormError("");
+                  try {
+                    await createDocument({ title: fTitle.trim(), docType: fType, author: fAuthor.trim() || "Техник", assignedTo: fAssigned.trim() || undefined, status: fStatus || "draft" });
+                    setFTitle(""); setFType(""); setFAuthor(""); setFAssigned(""); setFStatus("");
+                    setShowForm(false);
+                    onReload?.();
+                  } catch (e) { setFormError(e instanceof Error ? e.message : "Ошибка"); }
+                  finally { setSaving(false); }
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Создаю..." : "Создать"}
+              </button>
             </div>
           </div>
         </div>

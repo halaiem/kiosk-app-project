@@ -44,11 +44,19 @@ const FALLBACK_NOTIFICATIONS: Notification[] = [
 ];
 
 function mapDriver(d: Record<string, unknown>): DriverInfo {
+  const rawStatus = (d.shiftStatus || d.status || '') as string;
+  const validStatuses = ['on_shift', 'off_shift', 'break', 'sick'];
+  let status: DriverInfo['status'] = 'off_shift';
+  if (d.isOnline) {
+    status = validStatuses.includes(rawStatus) ? rawStatus as DriverInfo['status'] : 'on_shift';
+  } else if (validStatuses.includes(rawStatus)) {
+    status = rawStatus as DriverInfo['status'];
+  }
   return {
     id: String(d.id),
     name: String(d.name || d.fullName || ''),
     tabNumber: String(d.tabNumber || d.employeeId || ''),
-    status: (d.isOnline ? (d.status === 'break' ? 'break' : 'on_shift') : 'off_shift') as DriverInfo['status'],
+    status,
     vehicleNumber: String(d.vehicleNumber || ''),
     routeNumber: String(d.routeNumber || ''),
     shiftStart: d.shiftStart ? new Date(d.shiftStart as string) : undefined,

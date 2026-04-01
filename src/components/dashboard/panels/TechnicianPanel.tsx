@@ -19,6 +19,7 @@ interface TechnicianPanelProps {
   drivers: DriverInfo[];
   schedule: ScheduleEntry[];
   onUpdateDocumentStatus: (id: string, status: DocumentInfo["status"]) => void;
+  onReload?: () => void;
 }
 
 export default function TechnicianPanel({
@@ -29,11 +30,12 @@ export default function TechnicianPanel({
   drivers,
   schedule,
   onUpdateDocumentStatus,
+  onReload,
 }: TechnicianPanelProps) {
   if (tab === "routes") return <RoutesView routes={routes} />;
-  if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} />;
-  if (tab === "vehicles") return <VehiclesView vehicles={vehicles} />;
-  if (tab === "drivers") return <DriversView drivers={drivers} />;
-  if (tab === "schedule") return <ScheduleView schedule={schedule} />;
+  if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} onReload={onReload} />;
+  if (tab === "vehicles") return <VehiclesView vehicles={vehicles} onReload={onReload} />;
+  if (tab === "drivers") return <DriversView drivers={drivers} onReload={onReload} />;
+  if (tab === "schedule") return <ScheduleView schedule={schedule} onReload={onReload} />;
   return null;
 }
