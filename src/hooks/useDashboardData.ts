@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   DispatchMessage, Notification, Alert, RouteInfo, VehicleInfo,
   DriverInfo, ScheduleEntry, DocumentInfo, ServerInfo, AuditLog, DashboardStats, DashboardUser,
+  IssueReport,
 } from '@/types/dashboard';
 import type { MapVehicleInfo } from '@/components/dashboard/MapVehicleCard';
 import {
@@ -9,6 +10,7 @@ import {
   fetchSchedule, fetchDocuments, fetchMessages, fetchAlerts, fetchAuditLogs,
   sendDispatcherMsg, resolveAlert as apiResolveAlert, updateDocumentStatus as apiUpdateDocumentStatus,
 } from '@/api/dashboardApi';
+import { fetchIssueReports, resolveIssueReport as apiResolveIssue } from '@/api/diagnosticsApi';
 
 const ROUTES = ['5','3','7','9','11','12','14','1','18','22'];
 const STATUSES: MapVehicleInfo['status'][] = ['ok','ok','ok','ok','ok','ok','ok','warning','critical','ok'];
@@ -182,6 +184,7 @@ export function useDashboardData(user?: DashboardUser | null) {
   const [documents, setDocuments] = useState<DocumentInfo[]>([]);
   const [servers] = useState<ServerInfo[]>(FALLBACK_SERVERS);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [issueReports, setIssueReports] = useState<IssueReport[]>([]);
 
   const loadAll = useCallback(async () => {
     if (!user) return;
@@ -252,6 +255,15 @@ export function useDashboardData(user?: DashboardUser | null) {
           setLogs((arr as Record<string, unknown>[]).map(mapLog));
         } catch { /* ignore */ }
       }
+
+      // Load issue reports for dispatcher/technician
+      if (user.role === 'dispatcher' || user.role === 'technician') {
+        try {
+          const issuesData = await fetchIssueReports();
+          const arr = Array.isArray(issuesData) ? issuesData : [];
+          setIssueReports(arr as IssueReport[]);
+        } catch { /* ignore */ }
+      }
     } catch (e) {
       console.error('Dashboard data load error:', e);
     }
@@ -312,6 +324,15 @@ export function useDashboardData(user?: DashboardUser | null) {
     }
   }, []);
 
+  const resolveIssue = useCallback(async (id: string, notes?: string) => {
+    try {
+      await apiResolveIssue(id, notes);
+      setIssueReports(prev => prev.map(r => r.id === id ? { ...r, reportStatus: 'resolved' as const, resolvedAt: new Date().toISOString(), resolutionNotes: notes || null } : r));
+    } catch (e) {
+      console.error('Resolve issue error:', e);
+    }
+  }, []);
+
   const mapVehicles = useMemo(() => {
     return drivers.filter(d => d.status === 'on_shift' || d.status === 'break').map((d, i) => ({
       id: d.id,
@@ -335,12 +356,14 @@ export function useDashboardData(user?: DashboardUser | null) {
     documents,
     servers,
     logs,
+    issueReports,
     mapVehicles,
     sendMessage,
     markMessageRead,
     resolveAlert,
     markNotificationRead,
     updateDocumentStatus,
+    resolveIssue,
     reload: loadAll,
   };
 }

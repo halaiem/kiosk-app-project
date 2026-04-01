@@ -54,3 +54,21 @@ export interface TelemetryPoint {
   timestamp: Date;
   synced: boolean;
 }
+
+export interface VehicleDiagnosticCheck {
+  id: string;
+  checkCode: string;
+  checkName: string;
+  category: string;
+  severity: 'ok' | 'info' | 'warning' | 'critical';
+  shortDescription: string;
+  fullDescription: string;
+  detectedAt: string;
+}
+
+export interface VehicleDiagnosticSummary {
+  ok: number;
+  warning: number;
+  critical: number;
+  total: number;
+}

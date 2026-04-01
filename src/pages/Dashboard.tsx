@@ -56,7 +56,8 @@ export default function Dashboard() {
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
     notifications: data.notifications.filter((n) => !n.read).length,
     alerts: data.alerts.filter((a) => !a.resolved).length,
-  }), [data.messages, data.notifications, data.alerts]);
+    vehicle_issues: data.issueReports.filter((r) => r.reportStatus === 'new').length,
+  }), [data.messages, data.notifications, data.alerts, data.issueReports]);
 
   if (loading) {
     return (
@@ -102,10 +103,12 @@ export default function Dashboard() {
             alerts={data.alerts}
             drivers={data.drivers}
             stats={data.stats}
+            issueReports={data.issueReports}
             onSendMessage={data.sendMessage}
             onMarkMessageRead={data.markMessageRead}
             onResolveAlert={data.resolveAlert}
             onMarkNotificationRead={data.markNotificationRead}
+            onResolveIssue={data.resolveIssue}
             userName={user.name}
             onOpenMessages={() => setActiveTab('messages')}
           />

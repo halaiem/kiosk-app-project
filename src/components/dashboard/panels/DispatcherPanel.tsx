@@ -2,6 +2,7 @@ import CriticalAlertPopup from "@/components/dashboard/CriticalAlertPopup";
 import { OverviewView } from "./dispatcher/DispatcherOverview";
 import { MessagesView } from "./dispatcher/DispatcherMessages";
 import { NotificationsView, AlertsView } from "./dispatcher/DispatcherAlertsNotif";
+import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -9,6 +10,7 @@ import type {
   Alert,
   DriverInfo,
   DashboardStats,
+  IssueReport,
 } from "@/types/dashboard";
 
 interface DispatcherPanelProps {
@@ -18,10 +20,12 @@ interface DispatcherPanelProps {
   alerts: Alert[];
   drivers: DriverInfo[];
   stats: DashboardStats;
+  issueReports: IssueReport[];
   onSendMessage: (driverId: string, text: string) => void;
   onMarkMessageRead: (id: string) => void;
   onResolveAlert: (id: string, resolverName: string) => void;
   onMarkNotificationRead: (id: string) => void;
+  onResolveIssue: (id: string, notes?: string) => void;
   userName: string;
   onOpenMessages?: () => void;
 }
@@ -33,10 +37,12 @@ export default function DispatcherPanel({
   alerts,
   drivers,
   stats,
+  issueReports,
   onSendMessage,
   onMarkMessageRead,
   onResolveAlert,
   onMarkNotificationRead,
+  onResolveIssue,
   userName,
   onOpenMessages,
 }: DispatcherPanelProps) {
@@ -75,6 +81,9 @@ export default function DispatcherPanel({
   }
   if (tab === "alerts") {
     return (<>{criticalPopup}<AlertsView alerts={alerts} onResolveAlert={onResolveAlert} userName={userName} /></>);
+  }
+  if (tab === "vehicle_issues") {
+    return (<>{criticalPopup}<VehicleIssuesView issues={issueReports} onResolve={onResolveIssue} /></>);
   }
   return null;
 }

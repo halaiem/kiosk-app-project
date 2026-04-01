@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import MapWidget from './MapWidget';
 import RouteStops from './RouteStops';
 import Messenger from './Messenger';
+import VehicleStatusWidget from './VehicleStatusWidget';
 import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
 
 const FIRST_STOP = 'Депо Северное';
@@ -195,6 +196,8 @@ export default function MainPage({
               </span>
               <span className="text-[10px] text-muted-foreground leading-none text-center">от графика</span>
             </div>
+            {/* Статус транспортного средства */}
+            <VehicleStatusWidget isDark={isDark} />
           </div>
 
         </div>

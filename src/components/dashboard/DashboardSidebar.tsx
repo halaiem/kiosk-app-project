@@ -33,6 +33,7 @@ const DISPATCHER_NAV: NavItem[] = [
   { tab: "messages", icon: "MessageSquare", label: "Сообщения" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
+  { tab: "vehicle_issues", icon: "Truck", label: "Проблемы ТС" },
 ];
 
 const TECHNICIAN_NAV: NavItem[] = [
@@ -41,6 +42,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "vehicles", icon: "Bus", label: "Транспорт" },
   { tab: "drivers", icon: "Users", label: "Водители" },
   { tab: "schedule", icon: "Calendar", label: "Расписание" },
+  { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -48,6 +50,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
+  { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
 ];
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {

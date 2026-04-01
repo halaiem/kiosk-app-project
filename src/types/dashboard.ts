@@ -9,9 +9,9 @@ export interface DashboardUser {
   isActive: boolean;
 }
 
-export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts';
-export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule';
-export type AdminTab = 'users' | 'settings' | 'servers' | 'logs';
+export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues';
+export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'diagnostics';
+export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis';
 export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab;
 
 export type AlertLevel = 'info' | 'warning' | 'critical';
@@ -146,4 +146,76 @@ export interface DashboardStats {
   unresolvedAlerts: number;
   avgDelay: number;
   onTimePercent: number;
+}
+
+// Vehicle Diagnostics types
+export type DiagnosticSeverity = 'ok' | 'info' | 'warning' | 'critical';
+export type DiagnosticCategory = 'engine' | 'brakes' | 'electrical' | 'transmission' | 'tires' | 'body' | 'cooling' | 'emission' | 'steering' | 'general';
+export type IssueReportStatus = 'new' | 'seen_dispatcher' | 'seen_technician' | 'in_progress' | 'resolved';
+
+export interface DiagnosticCheck {
+  id: string;
+  checkCode: string;
+  checkName: string;
+  category: DiagnosticCategory;
+  severity: DiagnosticSeverity;
+  shortDescription: string;
+  fullDescription: string;
+  detectedAt: string;
+}
+
+export interface DiagnosticSummary {
+  ok: number;
+  warning: number;
+  critical: number;
+  total: number;
+}
+
+export interface VehicleStatusData {
+  summary: DiagnosticSummary;
+  checks: DiagnosticCheck[];
+  vehicleNumber: string;
+}
+
+export interface IssueReport {
+  id: string;
+  vehicleNumber: string;
+  driverName: string;
+  routeNumber: string;
+  message: string;
+  severity: string;
+  reportStatus: IssueReportStatus;
+  dispatcherNotified: boolean;
+  technicianNotified: boolean;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+  resolvedByName: string | null;
+  diagnosticId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TechDiagnosticReport {
+  vehicleId: string;
+  vehicleNumber: string;
+  vehicleType: string;
+  driverName: string;
+  routeNumber: string;
+  totalChecks: number;
+  criticalCount: number;
+  warningCount: number;
+  lastCheckAt: string;
+  checks: DiagnosticCheck[];
+}
+
+export interface DiagnosticApiConfig {
+  id: string;
+  vehicleId: string;
+  vehicleNumber: string;
+  apiName: string;
+  apiType: string;
+  apiUrl: string;
+  pollInterval: number;
+  isActive: boolean;
+  createdAt: string;
 }
