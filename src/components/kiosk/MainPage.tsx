@@ -161,14 +161,6 @@ export default function MainPage({
         </div>
       </div>
 
-      {/* ═══ STATUS BAR (под header) ═══ */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-card border-b border-border">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
-          <div className="status-dot status-online" />
-          <span className="text-xs text-success font-medium">GPS активен</span>
-        </div>
-      </div>
-
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
