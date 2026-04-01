@@ -38,13 +38,6 @@ export default function Index() {
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
   const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
-  const [isTabletState, setIsTabletState] = useState(isTablet);
-
-  useEffect(() => {
-    const handleResize = () => setIsTabletState(isTablet());
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useAutoClose(messengerFullscreen, () => setMessengerFullscreen(false), 30000);
   useAutoClose(stopsFullscreen, () => setStopsFullscreen(false), 30000);
@@ -164,7 +157,6 @@ export default function Index() {
             onSetStopsFullscreen={setStopsFullscreen}
             onSetMapFullscreen={setMapFullscreen}
             pendingCount={state.pendingCount}
-            isTablet={isTabletState}
           />
 
           <SidebarMenu
