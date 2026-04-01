@@ -179,6 +179,12 @@ export async function updateVehicle(payload: Record<string, unknown>) {
   });
 }
 
+export async function deleteVehicle(vehicleId: string) {
+  return request(`${DATA_URL}?entity=vehicles&id=${encodeURIComponent(vehicleId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function createRoute(payload: Record<string, unknown>) {
   return request(`${DATA_URL}?entity=routes`, {
     method: 'POST',

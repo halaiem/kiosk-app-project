@@ -47,6 +47,7 @@ const TECHNICIAN_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { tab: "users", icon: "Users", label: "Пользователи" },
+  { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },

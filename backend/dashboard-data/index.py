@@ -300,7 +300,11 @@ def handle_vehicles(method, qs, event, cur, conn, user):
             SELECT v.id, v.label, v.transport_type, v.license_plate, v.model,
                    v.capacity, v.manufacture_year, v.transport_status,
                    v.mileage, v.last_maintenance_at, v.next_maintenance_at,
-                   r.route_number, d.full_name
+                   r.route_number, d.full_name,
+                   v.vin_number, v.board_number, v.gov_reg_number,
+                   v.manufacturer, v.reg_certificate_number, v.documents_info,
+                   v.fuel_type, v.color, v.passenger_capacity, v.is_accessible,
+                   v.insurance_number, v.insurance_expiry, v.tech_inspection_expiry
             FROM vehicles v
             LEFT JOIN routes r ON r.id = v.assigned_route_id
             LEFT JOIN drivers d ON d.id = v.assigned_driver_id
@@ -315,7 +319,12 @@ def handle_vehicles(method, qs, event, cur, conn, user):
                 'model': r[4], 'capacity': r[5], 'year': r[6],
                 'status': status_map.get(r[7], r[7]),
                 'mileage': r[8] or 0, 'lastMaintenance': r[9], 'nextMaintenance': r[10],
-                'routeNumber': r[11], 'driverName': r[12]
+                'routeNumber': r[11], 'driverName': r[12],
+                'vinNumber': r[13], 'boardNumber': r[14], 'govRegNumber': r[15],
+                'manufacturer': r[16], 'regCertificateNumber': r[17], 'documentsInfo': r[18],
+                'fuelType': r[19], 'vehicleColor': r[20], 'passengerCapacity': r[21],
+                'isAccessible': r[22], 'insuranceNumber': r[23],
+                'insuranceExpiry': r[24], 'techInspectionExpiry': r[25]
             })
         conn.commit()
         return resp(200, {'vehicles': vehicles})
@@ -325,9 +334,15 @@ def handle_vehicles(method, qs, event, cur, conn, user):
             return resp(403, {'error': 'Нет доступа'})
 
         body = json.loads(event.get('body') or '{}')
-        label = body.get('number', '').strip() or body.get('label', '').strip()
+        label = body.get('number', '').strip() or body.get('label', '').strip() or body.get('boardNumber', '').strip()
         if not label:
-            return resp(400, {'error': 'number/label обязателен'})
+            return resp(400, {'error': 'number/label/boardNumber обязателен'})
+
+        vin = body.get('vinNumber', '').strip() or None
+        if vin:
+            cur.execute("SELECT id FROM vehicles WHERE vin_number = %s", (vin,))
+            if cur.fetchone():
+                return resp(409, {'error': 'ТС с таким VIN-номером уже существует'})
 
         org_id = 1
         cur.execute("SELECT id FROM organizations LIMIT 1")
@@ -336,16 +351,88 @@ def handle_vehicles(method, qs, event, cur, conn, user):
             org_id = org_row[0]
 
         cur.execute(
-            """INSERT INTO vehicles (organization_id, label, transport_type, license_plate, model, capacity, manufacture_year, transport_status, mileage)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (org_id, label, body.get('type', 'bus'), body.get('licensePlate'),
+            """INSERT INTO vehicles (organization_id, label, transport_type, license_plate, model,
+                   capacity, manufacture_year, transport_status, mileage,
+                   vin_number, board_number, gov_reg_number, manufacturer,
+                   reg_certificate_number, documents_info, fuel_type, color,
+                   passenger_capacity, is_accessible, insurance_number,
+                   insurance_expiry, tech_inspection_expiry)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (org_id, label, body.get('type', 'bus'), body.get('licensePlate') or body.get('govRegNumber'),
              body.get('model'), body.get('capacity'), body.get('year'),
-             body.get('status', 'active'), body.get('mileage', 0))
+             body.get('status', 'active'), body.get('mileage', 0),
+             vin, body.get('boardNumber', '').strip() or label,
+             body.get('govRegNumber', '').strip() or None, body.get('manufacturer', '').strip() or None,
+             body.get('regCertificateNumber', '').strip() or None, body.get('documentsInfo', '').strip() or None,
+             body.get('fuelType', '').strip() or None, body.get('vehicleColor', '').strip() or None,
+             body.get('passengerCapacity') or None, body.get('isAccessible', False),
+             body.get('insuranceNumber', '').strip() or None,
+             body.get('insuranceExpiry') or None, body.get('techInspectionExpiry') or None)
         )
         vid = cur.fetchone()[0]
-        log_action(cur, user, 'create_vehicle', label, f'Тип: {body.get("type", "bus")}')
+        log_action(cur, user, 'create_vehicle', label, f'VIN: {vin or "—"}, Тип: {body.get("type", "bus")}')
         conn.commit()
         return resp(201, {'id': str(vid)})
+
+    if method == 'PUT':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+
+        body = json.loads(event.get('body') or '{}')
+        vid = body.get('id')
+        if not vid:
+            return resp(400, {'error': 'id обязателен'})
+
+        vin = body.get('vinNumber', '').strip() if 'vinNumber' in body else None
+        if vin:
+            cur.execute("SELECT id FROM vehicles WHERE vin_number = %s AND id != %s::uuid", (vin, vid))
+            if cur.fetchone():
+                return resp(409, {'error': 'ТС с таким VIN-номером уже существует'})
+
+        updates = []
+        params = []
+        field_map = {
+            'number': 'label', 'label': 'label', 'type': 'transport_type',
+            'licensePlate': 'license_plate', 'model': 'model', 'capacity': 'capacity',
+            'year': 'manufacture_year', 'status': 'transport_status', 'mileage': 'mileage',
+            'vinNumber': 'vin_number', 'boardNumber': 'board_number',
+            'govRegNumber': 'gov_reg_number', 'manufacturer': 'manufacturer',
+            'regCertificateNumber': 'reg_certificate_number', 'documentsInfo': 'documents_info',
+            'fuelType': 'fuel_type', 'vehicleColor': 'color',
+            'passengerCapacity': 'passenger_capacity', 'isAccessible': 'is_accessible',
+            'insuranceNumber': 'insurance_number', 'insuranceExpiry': 'insurance_expiry',
+            'techInspectionExpiry': 'tech_inspection_expiry',
+            'lastMaintenance': 'last_maintenance_at', 'nextMaintenance': 'next_maintenance_at',
+        }
+        for js_key, db_col in field_map.items():
+            if js_key in body:
+                updates.append(f"{db_col} = %s")
+                val = body[js_key]
+                if isinstance(val, str):
+                    val = val.strip() or None
+                params.append(val)
+
+        if not updates:
+            return resp(400, {'error': 'Нет полей для обновления'})
+
+        updates.append("updated_at = now()")
+        params.append(vid)
+        cur.execute(f"UPDATE vehicles SET {', '.join(updates)} WHERE id = %s::uuid", params)
+        log_action(cur, user, 'update_vehicle', str(vid), json.dumps(body, ensure_ascii=False))
+        conn.commit()
+        return resp(200, {'ok': True})
+
+    if method == 'DELETE':
+        if user['role'] != 'admin':
+            return resp(403, {'error': 'Удаление доступно только администратору'})
+
+        vid = qs.get('id')
+        if not vid:
+            return resp(400, {'error': 'id обязателен'})
+        cur.execute("UPDATE vehicles SET transport_status = 'decommissioned', updated_at = now() WHERE id = %s::uuid", (vid,))
+        log_action(cur, user, 'decommission_vehicle', vid, 'Списан')
+        conn.commit()
+        return resp(200, {'ok': True})
 
     return resp(405, {'error': 'Method not allowed'})
 

@@ -11,7 +11,7 @@ export interface DashboardUser {
 
 export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues';
 export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'diagnostics';
-export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis';
+export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles';
 export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab;
 
 export type AlertLevel = 'info' | 'warning' | 'critical';
@@ -81,6 +81,24 @@ export interface VehicleInfo {
   lastMaintenance: Date;
   nextMaintenance: Date;
   mileage: number;
+  // Extended fields
+  vinNumber?: string;
+  boardNumber?: string;
+  govRegNumber?: string;
+  model?: string;
+  manufacturer?: string;
+  regCertificateNumber?: string;
+  documentsInfo?: string;
+  year?: number;
+  fuelType?: string;
+  vehicleColor?: string;
+  passengerCapacity?: number;
+  isAccessible?: boolean;
+  insuranceNumber?: string;
+  insuranceExpiry?: string;
+  techInspectionExpiry?: string;
+  licensePlate?: string;
+  capacity?: number;
 }
 
 export interface DriverInfo {

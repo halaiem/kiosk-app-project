@@ -27,6 +27,8 @@ const API_TYPE_STYLES: Record<string, string> = {
 interface VehicleOption {
   id: string;
   number: string;
+  vinNumber?: string;
+  boardNumber?: string;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -64,9 +66,11 @@ export function DiagnosticApisView() {
       ]);
       setApis(apisData as DiagnosticApiConfig[]);
       setVehicles(
-        (vehiclesData as { id: string; number: string }[]).map((v) => ({
+        (vehiclesData as { id: string; number: string; vinNumber?: string; boardNumber?: string }[]).map((v) => ({
           id: v.id,
           number: v.number,
+          vinNumber: v.vinNumber,
+          boardNumber: v.boardNumber,
         }))
       );
     } catch (e) {
@@ -314,10 +318,10 @@ export function DiagnosticApisView() {
                   onChange={(e) => setFVehicleId(e.target.value)}
                   className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="">Выберите ТС</option>
+                  <option value="">Выберите ТС по VIN</option>
                   {vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      #{v.number}
+                      {v.vinNumber ? `${v.vinNumber} — #${v.boardNumber ?? v.number}` : `#${v.boardNumber ?? v.number}`}
                     </option>
                   ))}
                 </select>
