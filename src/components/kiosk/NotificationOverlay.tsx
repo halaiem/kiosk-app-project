@@ -9,7 +9,7 @@ interface ToastProps {
 
 export function MessageToast({ message, onClose }: ToastProps) {
   useEffect(() => {
-    const timer = setTimeout(onClose, 5000);
+    const timer = setTimeout(onClose, 35000 + Math.random() * 20000);
     return () => clearTimeout(timer);
   }, [onClose]);
 

@@ -57,7 +57,7 @@ export default function Index() {
     if (state.screen !== 'main') return;
     const tablet = isTablet();
     const delay = tablet
-      ? 20000 + Math.random() * 15000
+      ? 30000 + Math.random() * 15000
       : 8000 + Math.random() * 7000;
     const t = setTimeout(() => triggerRandomAlert(), delay);
     return () => clearTimeout(t);
@@ -67,7 +67,7 @@ export default function Index() {
     if (!dispatcherAlert) return;
     const tablet = isTablet();
     const interval = tablet
-      ? 100000 + Math.random() * 80000
+      ? 120000 + Math.random() * 60000
       : 40000 + Math.random() * 30000;
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
@@ -82,7 +82,7 @@ export default function Index() {
       setToasts(prev => [...prev.slice(-2), latest.id]);
       setTimeout(() => {
         setToasts(prev => prev.filter(id => id !== latest.id));
-      }, 5000);
+      }, 55000);
     }
   }, [state.messages[0]?.id]);
 
