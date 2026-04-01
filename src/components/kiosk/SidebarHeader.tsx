@@ -57,7 +57,7 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
       </div>
 
       {driver && (
-        <div className="flex items-center gap-2 p-2.5" style={{ borderRadius: '0.10rem' }}>
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sidebar-accent">
           <div className="w-8 h-8 rounded-full bg-primary/30 flex items-center justify-center flex-shrink-0">
             <Icon name="User" size={16} className="text-sidebar-primary" />
           </div>

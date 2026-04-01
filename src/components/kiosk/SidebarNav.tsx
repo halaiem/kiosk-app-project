@@ -55,9 +55,8 @@ export default function SidebarNav({
           <button
             key={item.id}
             onClick={() => onSection(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-all ripple sidebar-nav-btn
-              ${activeSection === item.id ? 'sidebar-nav-btn--active' : ''}`}
-            style={{ borderRadius: '0.10rem' }}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all ripple
+              ${activeSection === item.id ? 'bg-sidebar-primary/20 text-sidebar-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent'}`}
           >
             <Icon name={item.icon} size={20} />
             <div className="flex-1">

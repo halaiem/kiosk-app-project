@@ -420,39 +420,3 @@ button,
   background-color: hsl(38 92% 50%);
   box-shadow: 0 0 6px hsl(38 92% 50%);
 }
-
-/* Sidebar nav buttons — white with #faaf57 hover */
-.sidebar-nav-btn {
-  background-color: #ffffff;
-  color: #152d52;
-  border-radius: 0.1rem !important;
-}
-.sidebar-nav-btn:hover {
-  background-color: #faaf57;
-  color: #152d52;
-}
-.sidebar-nav-btn--active {
-  background-color: #faaf57 !important;
-  color: #152d52 !important;
-}
-
-/* Global border-radius override for kiosk UI */
-.kiosk-bg *,
-.kiosk-surface * {
-  --tw-border-radius: 0.1rem;
-}
-/* Cards, modals, overlays in kiosk use sharp corners */
-.kiosk-bg .rounded-xl,
-.kiosk-bg .rounded-2xl,
-.kiosk-bg .rounded-lg,
-.kiosk-bg .rounded-md,
-.kiosk-bg .rounded {
-  border-radius: 0.1rem !important;
-}
-.kiosk-surface .rounded-xl,
-.kiosk-surface .rounded-2xl,
-.kiosk-surface .rounded-lg,
-.kiosk-surface .rounded-md,
-.kiosk-surface .rounded {
-  border-radius: 0.1rem !important;
-}
