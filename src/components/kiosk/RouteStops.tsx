@@ -144,8 +144,8 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
   return (
     <div className="w-full overflow-hidden">
       <div className="flex items-center gap-2 px-3 mb-1.5">
-        <Icon name="MapPin" size={14} className="text-primary flex-shrink-0" />
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Маршрут №5 — остановки</span>
+        <Icon name="MapPin" size={14} className="text-primary flex-shrink-0 tablet:hidden" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider tablet:hidden">Маршрут №5 — остановки</span>
         <span className="ml-auto text-xs text-muted-foreground">{currentStopIndex + 1}/{STOPS.length}</span>
       </div>
       <div ref={scrollRef} className="flex items-center gap-0 overflow-x-auto pb-1 px-3 scrollbar-hide"
@@ -161,7 +161,7 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
               {i > 0 && (
                 <div className={`h-0.5 w-4 flex-shrink-0 transition-all ${isPassed || isCurrent ? 'bg-primary' : 'bg-border'}`} />
               )}
-              <div className={`flex flex-col items-center gap-1 cursor-default transition-all duration-300 ${isCurrent ? 'scale-110' : ''}`}>
+              <div className={`flex flex-col items-center gap-1 cursor-default transition-all duration-300 tablet:py-1 ${isCurrent ? 'scale-110' : ''}`}>
                 <div className={`relative flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-300
                   ${isCurrent ? 'w-5 h-5 bg-green-500 shadow-lg shadow-green-500/40' : isNext ? 'w-3.5 h-3.5 bg-primary/30 border-2 border-primary' : isPassed ? 'w-3 h-3 bg-primary/60' : 'w-3 h-3 bg-muted-foreground/30'}`}>
                   {isCurrent && (
