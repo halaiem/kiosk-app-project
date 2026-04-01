@@ -9,6 +9,19 @@ import {
   generateMockDiagnostics,
 } from "@/api/diagnosticsApi";
 import { fetchVehicles } from "@/api/dashboardApi";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -45,6 +58,7 @@ export function DiagnosticApisView() {
 
   // Add form state
   const [fVehicleId, setFVehicleId] = useState("");
+  const [vehiclePopoverOpen, setVehiclePopoverOpen] = useState(false);
   const [fApiName, setFApiName] = useState("");
   const [fApiType, setFApiType] = useState("fema");
   const [fApiUrl, setFApiUrl] = useState("");
@@ -132,6 +146,7 @@ export function DiagnosticApisView() {
   const resetAddForm = () => {
     setShowAddForm(false);
     setFVehicleId("");
+    setVehiclePopoverOpen(false);
     setFApiName("");
     setFApiType("fema");
     setFApiUrl("");
@@ -313,18 +328,58 @@ export function DiagnosticApisView() {
                 <label className="block text-xs text-muted-foreground mb-1">
                   Транспортное средство *
                 </label>
-                <select
-                  value={fVehicleId}
-                  onChange={(e) => setFVehicleId(e.target.value)}
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Выберите ТС по VIN</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.vinNumber ? `${v.vinNumber} — #${v.boardNumber ?? v.number}` : `#${v.boardNumber ?? v.number}`}
-                    </option>
-                  ))}
-                </select>
+                <Popover open={vehiclePopoverOpen} onOpenChange={setVehiclePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <span className={fVehicleId ? "text-foreground truncate" : "text-muted-foreground"}>
+                        {fVehicleId
+                          ? (() => {
+                              const v = vehicles.find((v) => v.id === fVehicleId);
+                              if (!v) return "Выберите ТС по VIN";
+                              return v.vinNumber
+                                ? `${v.vinNumber} — #${v.boardNumber ?? v.number}`
+                                : `#${v.boardNumber ?? v.number}`;
+                            })()
+                          : "Выберите ТС по VIN"}
+                      </span>
+                      <Icon name="ChevronsUpDown" className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-2" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Поиск по VIN..." />
+                      <CommandList>
+                        <CommandEmpty>Ничего не найдено</CommandEmpty>
+                        <CommandGroup>
+                          {vehicles.map((v) => {
+                            const label = v.vinNumber
+                              ? `${v.vinNumber} — #${v.boardNumber ?? v.number}`
+                              : `#${v.boardNumber ?? v.number}`;
+                            return (
+                              <CommandItem
+                                key={v.id}
+                                value={`${v.vinNumber ?? ""} ${v.boardNumber ?? ""} ${v.number}`}
+                                onSelect={() => {
+                                  setFVehicleId(v.id);
+                                  setVehiclePopoverOpen(false);
+                                }}
+                                className="flex items-center justify-between"
+                              >
+                                <span className="truncate">{label}</span>
+                                {fVehicleId === v.id && (
+                                  <Icon name="Check" className="w-4 h-4 text-primary shrink-0 ml-2" />
+                                )}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">
