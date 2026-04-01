@@ -164,18 +164,6 @@ export default function MainPage({
       {/* ═══ STATUS BAR (под header) ═══ */}
       <div className="flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-card border-b border-border">
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
-          <Icon name="Timer" size={13} className="text-primary" />
-          <span className="text-xs font-bold text-foreground tabular-nums">{interval} мин</span>
-          <span className="text-[9px] text-muted-foreground">интервал</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
-          <Icon name="Clock" size={13} className="text-primary" />
-          <span className={`text-xs font-bold tabular-nums ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
-            {devSign}{deviation} мин
-          </span>
-          <span className="text-[9px] text-muted-foreground">от графика</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted border border-border">
           <div className="status-dot status-online" />
           <span className="text-xs text-success font-medium">GPS активен</span>
         </div>
@@ -191,16 +179,39 @@ export default function MainPage({
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
-        {/* MAP */}
-        <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
-          <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
-          <button
-            onClick={() => onSetMapFullscreen(true)}
-            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
-            title="Карта на весь экран"
-          >
-            <Icon name="Maximize2" size={15} className="text-foreground" />
-          </button>
+        {/* MAP + WIDGETS ROW */}
+        <div className="flex-1 min-h-0 flex gap-2">
+
+          {/* MAP */}
+          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
+            <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
+            <button
+              onClick={() => onSetMapFullscreen(true)}
+              className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
+              title="Карта на весь экран"
+            >
+              <Icon name="Maximize2" size={15} className="text-foreground" />
+            </button>
+          </div>
+
+          {/* SIDE WIDGETS COLUMN */}
+          <div className="flex flex-col gap-2 w-[110px] flex-shrink-0">
+            {/* Интервал */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3">
+              <Icon name="Timer" size={20} className="text-primary" />
+              <span className="text-xl font-black text-foreground tabular-nums leading-none">{interval} мин</span>
+              <span className="text-[10px] text-muted-foreground leading-none text-center">интервал</span>
+            </div>
+            {/* Отклонение от графика */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3">
+              <Icon name="Clock" size={20} className="text-primary" />
+              <span className={`text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+                {devSign}{deviation} мин
+              </span>
+              <span className="text-[10px] text-muted-foreground leading-none text-center">от графика</span>
+            </div>
+          </div>
+
         </div>
 
         {/* STOPS + MESSENGER */}
