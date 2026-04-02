@@ -491,6 +491,18 @@ export function DailyAssignmentView({
     [availableDrivers]
   );
 
+  const routeOptions = useMemo(
+    () =>
+      routes
+        .filter((r) => r.isActive)
+        .map((r) => ({
+          id: r.id,
+          label: `М${r.number}`,
+          sub: r.name,
+        })),
+    [routes]
+  );
+
   const activeVehicles = useMemo(
     () => vehicles.filter((v) => v.status === "active"),
     [vehicles]
@@ -1206,28 +1218,21 @@ export function DailyAssignmentView({
                 className="bg-card border border-border rounded-2xl p-4"
               >
                 <div className="flex items-start gap-3">
-                  <div className="shrink-0 w-28 pt-1.5">
-                    {row.routeNumber ? (
-                      <div>
-                        <span className="text-sm font-bold text-foreground">
-                          М{row.routeNumber}
-                        </span>
-                        {row.routeName && (
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {row.routeName}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <input
-                        value={row.routeNumber}
-                        onChange={(e) =>
-                          updateRow(row.key, { routeNumber: e.target.value })
-                        }
-                        placeholder="Маршрут"
-                        className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    )}
+                  <div className="shrink-0 w-36 pt-1.5">
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                      Маршрут
+                    </label>
+                    <SearchableSelect
+                      value={row.routeId || null}
+                      displayValue={row.routeNumber ? `М${row.routeNumber}${row.routeName ? ` — ${row.routeName}` : ""}` : ""}
+                      placeholder="Выбрать маршрут"
+                      options={routeOptions}
+                      onSelect={(id) => {
+                        const r = routes.find((rt) => rt.id === id);
+                        if (r) updateRow(row.key, { routeId: r.id, routeNumber: r.number, routeName: r.name });
+                      }}
+                      onClear={() => updateRow(row.key, { routeId: "", routeNumber: "", routeName: "" })}
+                    />
                   </div>
 
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
