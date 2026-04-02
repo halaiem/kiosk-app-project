@@ -352,6 +352,51 @@ export function DailyAssignmentView({
     setResults(null);
   }, []);
 
+  const previousDate = useMemo(() => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }, [date]);
+
+  const previousDayEntries = useMemo(
+    () =>
+      schedule.filter(
+        (s) => s.date === previousDate && s.status !== "cancelled"
+      ),
+    [schedule, previousDate]
+  );
+
+  const copyFromPreviousDay = useCallback(() => {
+    if (previousDayEntries.length === 0) return;
+
+    const extractTime = (v: string | undefined) => {
+      if (!v) return "";
+      if (v.includes("T")) return v.split("T")[1]?.slice(0, 5) ?? "";
+      if (v.includes(":")) return v.slice(0, 5);
+      return "";
+    };
+
+    const newRows: AssignmentRow[] = previousDayEntries.map((entry) => {
+      const route = routes.find((r) => r.id === entry.routeId);
+      return {
+        key: nextKey(),
+        routeId: entry.routeId ?? "",
+        routeNumber: entry.routeNumber ?? route?.number ?? "",
+        routeName: route?.name ?? "",
+        driverId: entry.driverId ?? null,
+        vehicleId: entry.vehicleId ?? "",
+        shiftStart: extractTime(entry.startTime) || "06:00",
+        shiftEnd: extractTime(entry.endTime) || "14:00",
+        shiftType: (entry.shiftType as "regular" | "additional") ?? "regular",
+        notes: "",
+        showNotes: false,
+      };
+    });
+
+    setRows(newRows);
+    setResults(null);
+  }, [previousDayEntries, routes]);
+
   const handleSubmit = useCallback(async () => {
     if (filledRows.length === 0) return;
     setSaving(true);
@@ -446,6 +491,25 @@ export function DailyAssignmentView({
               {existingForDate.length} назн.
             </span>
           )}
+          <button
+            onClick={copyFromPreviousDay}
+            disabled={previousDayEntries.length === 0}
+            title={
+              previousDayEntries.length > 0
+                ? `Копировать ${previousDayEntries.length} назн. с ${previousDate}`
+                : `Нет назначений на ${previousDate}`
+            }
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Icon name="Copy" className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Копировать с</span>{" "}
+            {previousDate.slice(5)}
+            {previousDayEntries.length > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500">
+                {previousDayEntries.length}
+              </span>
+            )}
+          </button>
           <button
             onClick={clearAll}
             className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
