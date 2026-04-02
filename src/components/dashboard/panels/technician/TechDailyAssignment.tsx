@@ -352,31 +352,42 @@ export function DailyAssignmentView({
     setResults(null);
   }, []);
 
-  const previousDate = useMemo(() => {
-    const d = new Date(date);
+  const [copyDatePickerOpen, setCopyDatePickerOpen] = useState(false);
+  const [copySourceDate, setCopySourceDate] = useState(() => {
+    const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
-  }, [date]);
+  });
 
-  const previousDayEntries = useMemo(
+  const sourceDateEntries = useMemo(
     () =>
       schedule.filter(
-        (s) => s.date === previousDate && s.status !== "cancelled"
+        (s) => s.date === copySourceDate && s.status !== "cancelled"
       ),
-    [schedule, previousDate]
+    [schedule, copySourceDate]
   );
 
-  const copyFromPreviousDay = useCallback(() => {
-    if (previousDayEntries.length === 0) return;
+  const datesWithSchedule = useMemo(() => {
+    const map: Record<string, number> = {};
+    schedule.forEach((s) => {
+      if (s.date && s.status !== "cancelled") {
+        map[s.date] = (map[s.date] || 0) + 1;
+      }
+    });
+    return map;
+  }, [schedule]);
 
-    const extractTime = (v: string | undefined) => {
-      if (!v) return "";
-      if (v.includes("T")) return v.split("T")[1]?.slice(0, 5) ?? "";
-      if (v.includes(":")) return v.slice(0, 5);
-      return "";
-    };
+  const extractTime = useCallback((v: string | undefined) => {
+    if (!v) return "";
+    if (v.includes("T")) return v.split("T")[1]?.slice(0, 5) ?? "";
+    if (v.includes(":")) return v.slice(0, 5);
+    return "";
+  }, []);
 
-    const newRows: AssignmentRow[] = previousDayEntries.map((entry) => {
+  const copyFromDate = useCallback(() => {
+    if (sourceDateEntries.length === 0) return;
+
+    const newRows: AssignmentRow[] = sourceDateEntries.map((entry) => {
       const route = routes.find((r) => r.id === entry.routeId);
       return {
         key: nextKey(),
@@ -395,7 +406,8 @@ export function DailyAssignmentView({
 
     setRows(newRows);
     setResults(null);
-  }, [previousDayEntries, routes]);
+    setCopyDatePickerOpen(false);
+  }, [sourceDateEntries, routes, extractTime]);
 
   const handleSubmit = useCallback(async () => {
     if (filledRows.length === 0) return;
@@ -491,25 +503,107 @@ export function DailyAssignmentView({
               {existingForDate.length} назн.
             </span>
           )}
-          <button
-            onClick={copyFromPreviousDay}
-            disabled={previousDayEntries.length === 0}
-            title={
-              previousDayEntries.length > 0
-                ? `Копировать ${previousDayEntries.length} назн. с ${previousDate}`
-                : `Нет назначений на ${previousDate}`
-            }
-            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Icon name="Copy" className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Копировать с</span>{" "}
-            {previousDate.slice(5)}
-            {previousDayEntries.length > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500">
-                {previousDayEntries.length}
-              </span>
+          <div className="relative">
+            <button
+              onClick={() => setCopyDatePickerOpen(!copyDatePickerOpen)}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
+            >
+              <Icon name="Copy" className="w-3.5 h-3.5" />
+              Копировать из...
+            </button>
+            {copyDatePickerOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setCopyDatePickerOpen(false)}
+                />
+                <div className="absolute z-20 top-full right-0 mt-1 w-72 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                  <div className="px-4 pt-3 pb-2">
+                    <p className="text-xs font-semibold text-foreground mb-2">
+                      Копировать наряд с другой даты
+                    </p>
+                    <input
+                      type="date"
+                      value={copySourceDate}
+                      max={date}
+                      onChange={(e) => setCopySourceDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  {sourceDateEntries.length > 0 ? (
+                    <div className="px-4 pb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon
+                          name="CheckCircle"
+                          className="w-3.5 h-3.5 text-green-500"
+                        />
+                        <span className="text-xs text-foreground">
+                          {sourceDateEntries.length} назначений за{" "}
+                          {copySourceDate}
+                        </span>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto space-y-1 mb-3">
+                        {sourceDateEntries.map((e) => (
+                          <div
+                            key={e.id}
+                            className="flex items-center gap-2 text-[11px] text-muted-foreground"
+                          >
+                            <span className="font-medium text-foreground">
+                              М{e.routeNumber}
+                            </span>
+                            <span className="truncate">{e.driverName}</span>
+                            <span className="ml-auto font-mono">
+                              {extractTime(e.startTime)}-
+                              {extractTime(e.endTime)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={copyFromDate}
+                        className="w-full flex items-center justify-center gap-2 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                      >
+                        <Icon name="Copy" className="w-3.5 h-3.5" />
+                        Копировать {sourceDateEntries.length} назн.
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="px-4 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Icon name="Info" className="w-3.5 h-3.5" />
+                      Нет назначений на эту дату
+                    </div>
+                  )}
+                  {Object.keys(datesWithSchedule).length > 0 && (
+                    <div className="border-t border-border px-4 py-2">
+                      <p className="text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">
+                        Даты с нарядами
+                      </p>
+                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                        {Object.entries(datesWithSchedule)
+                          .filter(([d]) => d !== date)
+                          .sort(([a], [b]) => b.localeCompare(a))
+                          .slice(0, 20)
+                          .map(([d, cnt]) => (
+                            <button
+                              key={d}
+                              onClick={() => setCopySourceDate(d)}
+                              className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                                d === copySourceDate
+                                  ? "border-primary bg-primary/10 text-primary font-medium"
+                                  : "border-border text-muted-foreground hover:border-ring hover:text-foreground"
+                              }`}
+                            >
+                              {d.slice(5)}{" "}
+                              <span className="opacity-60">({cnt})</span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-          </button>
+          </div>
           <button
             onClick={clearAll}
             className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
