@@ -3,7 +3,7 @@ import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { VehicleInfo, VehicleStatus } from "@/types/dashboard";
 import { formatDate } from "./TechRoutes";
-import { createVehicle as apiCreateVehicle, fetchVehicles } from "@/api/dashboardApi";
+import { createVehicle as apiCreateVehicle, updateVehicle as apiUpdateVehicle, fetchVehicles } from "@/api/dashboardApi";
 import {
   VEHICLE_TYPE_ICONS,
   VEHICLE_TYPE_LABELS,
@@ -131,6 +131,88 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
     }
   }, [fNumber, fType, fRoute, fMileage, fLastMaint, fNextMaint, fStatus, onReload]);
 
+  // ── Edit state ──────────────────────────────────────────────────
+  const [editingVehicle, setEditingVehicle] = useState<VehicleInfo | null>(null);
+  const [eVin, setEVin] = useState("");
+  const [eType, setEType] = useState<VehicleInfo["type"] | "">("");
+  const [eBoardNumber, setEBoardNumber] = useState("");
+  const [eGovReg, setEGovReg] = useState("");
+  const [eModel, setEModel] = useState("");
+  const [eManufacturer, setEManufacturer] = useState("");
+  const [eRegCert, setERegCert] = useState("");
+  const [eYear, setEYear] = useState("");
+  const [ePassengerCap, setEPassengerCap] = useState("");
+  const [eFuelType, setEFuelType] = useState("");
+  const [eColor, setEColor] = useState("");
+  const [eMileage, setEMileage] = useState("");
+  const [eInsuranceNumber, setEInsuranceNumber] = useState("");
+  const [eInsuranceExpiry, setEInsuranceExpiry] = useState("");
+  const [eTechInspExpiry, setETechInspExpiry] = useState("");
+  const [eIsAccessible, setEIsAccessible] = useState(false);
+  const [eDocsInfo, setEDocsInfo] = useState("");
+  const [eStatus, setEStatus] = useState<VehicleStatus | "">("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const openEdit = useCallback((v: VehicleInfo) => {
+    setEVin(v.vinNumber || "");
+    setEType(v.type);
+    setEBoardNumber(v.boardNumber || v.number || "");
+    setEGovReg(v.govRegNumber || "");
+    setEModel(v.model || "");
+    setEManufacturer(v.manufacturer || "");
+    setERegCert(v.regCertificateNumber || "");
+    setEYear(v.year != null ? String(v.year) : "");
+    setEPassengerCap(v.passengerCapacity != null ? String(v.passengerCapacity) : "");
+    setEFuelType(v.fuelType || "");
+    setEColor(v.vehicleColor || "");
+    setEMileage(String(v.mileage || 0));
+    setEInsuranceNumber(v.insuranceNumber || "");
+    setEInsuranceExpiry(v.insuranceExpiry || "");
+    setETechInspExpiry(v.techInspectionExpiry || "");
+    setEIsAccessible(v.isAccessible || false);
+    setEDocsInfo(v.documentsInfo || "");
+    setEStatus(v.status);
+    setEditError("");
+    setEditingVehicle(v);
+  }, []);
+
+  const handleUpdateVehicle = useCallback(async () => {
+    if (!editingVehicle) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      await apiUpdateVehicle({
+        id: editingVehicle.id,
+        vinNumber: eVin.trim() || null,
+        type: eType || undefined,
+        boardNumber: eBoardNumber.trim() || undefined,
+        number: eBoardNumber.trim() || undefined,
+        govRegNumber: eGovReg.trim() || null,
+        model: eModel.trim() || null,
+        manufacturer: eManufacturer.trim() || null,
+        regCertificateNumber: eRegCert.trim() || null,
+        year: eYear ? Number(eYear) : null,
+        passengerCapacity: ePassengerCap ? Number(ePassengerCap) : null,
+        fuelType: eFuelType.trim() || null,
+        vehicleColor: eColor.trim() || null,
+        mileage: Number(eMileage) || 0,
+        insuranceNumber: eInsuranceNumber.trim() || null,
+        insuranceExpiry: eInsuranceExpiry || null,
+        techInspectionExpiry: eTechInspExpiry || null,
+        isAccessible: eIsAccessible,
+        documentsInfo: eDocsInfo.trim() || null,
+        status: eStatus || undefined,
+      });
+      setEditingVehicle(null);
+      onReload?.();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingVehicle, eVin, eType, eBoardNumber, eGovReg, eModel, eManufacturer, eRegCert, eYear, ePassengerCap, eFuelType, eColor, eMileage, eInsuranceNumber, eInsuranceExpiry, eTechInspExpiry, eIsAccessible, eDocsInfo, eStatus, onReload]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -172,9 +254,18 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
                     <p className="text-[11px] text-muted-foreground">{VEHICLE_TYPE_LABELS[v.type]}</p>
                   </div>
                 </div>
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${VEHICLE_STATUS_STYLES[v.status]}`}>
-                  {VEHICLE_STATUS_LABELS[v.status]}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${VEHICLE_STATUS_STYLES[v.status]}`}>
+                    {VEHICLE_STATUS_LABELS[v.status]}
+                  </span>
+                  <button
+                    onClick={() => openEdit(v)}
+                    className="w-7 h-7 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
+                    title="Редактировать"
+                  >
+                    <Icon name="Pencil" className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
@@ -311,6 +402,115 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
               <button onClick={resetForm} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
               <button onClick={handleCreate} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
                 {saving ? "Создаю..." : "Создать"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingVehicle(null)}>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-semibold text-foreground">Редактирование ТС — #{editingVehicle.boardNumber || editingVehicle.number}</h3>
+              <button onClick={() => setEditingVehicle(null)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">VIN-номер</label>
+                <input type="text" value={eVin} onChange={e => setEVin(e.target.value)} placeholder="XTA..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип ТС *</label>
+                <select value={eType} onChange={e => setEType(e.target.value as VehicleInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="tram">Трамвай</option>
+                  <option value="trolleybus">Троллейбус</option>
+                  <option value="bus">Автобус</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер</label>
+                <input type="text" value={eBoardNumber} onChange={e => setEBoardNumber(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Гос. рег. номер</label>
+                <input type="text" value={eGovReg} onChange={e => setEGovReg(e.target.value)} placeholder="А000АА00" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Модель</label>
+                <input type="text" value={eModel} onChange={e => setEModel(e.target.value)} placeholder="71-623" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Производитель</label>
+                <input type="text" value={eManufacturer} onChange={e => setEManufacturer(e.target.value)} placeholder="УКВЗ" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Рег. свидетельство</label>
+                <input type="text" value={eRegCert} onChange={e => setERegCert(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Год выпуска</label>
+                <input type="number" value={eYear} onChange={e => setEYear(e.target.value)} placeholder="2020" min="1990" max="2030" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Вместимость (чел.)</label>
+                <input type="number" value={ePassengerCap} onChange={e => setEPassengerCap(e.target.value)} min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип топлива</label>
+                <input type="text" value={eFuelType} onChange={e => setEFuelType(e.target.value)} placeholder="Электро / Дизель" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Цвет</label>
+                <input type="text" value={eColor} onChange={e => setEColor(e.target.value)} placeholder="Красный" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Пробег (км)</label>
+                <input type="number" value={eMileage} onChange={e => setEMileage(e.target.value)} min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Номер страховки</label>
+                <input type="text" value={eInsuranceNumber} onChange={e => setEInsuranceNumber(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Страховка до</label>
+                <input type="date" value={eInsuranceExpiry} onChange={e => setEInsuranceExpiry(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тех. осмотр до</label>
+                <input type="date" value={eTechInspExpiry} onChange={e => setETechInspExpiry(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
+                <select value={eStatus} onChange={e => setEStatus(e.target.value as VehicleStatus)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="active">Активен</option>
+                  <option value="maintenance">ТО</option>
+                  <option value="idle">Простой</option>
+                  <option value="offline">Офлайн</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-2 cursor-pointer h-9">
+                  <input type="checkbox" checked={eIsAccessible} onChange={e => setEIsAccessible(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-ring" />
+                  <span className="text-sm text-foreground">Доступность</span>
+                </label>
+              </div>
+              <div className="col-span-3">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Информация о документах</label>
+                <textarea value={eDocsInfo} onChange={e => setEDocsInfo(e.target.value)} rows={2} placeholder="Дополнительная информация о документах ТС..." className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+            </div>
+            {editError && <p className="text-xs text-destructive mt-3">{editError}</p>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditingVehicle(null)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+              <button
+                disabled={editSaving}
+                onClick={handleUpdateVehicle}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {editSaving ? "Сохранение..." : "Сохранить"}
               </button>
             </div>
           </div>

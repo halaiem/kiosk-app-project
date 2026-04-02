@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import type { ScheduleEntry } from "@/types/dashboard";
 import { Modal } from "../TechRoutes";
+import { updateSchedule, deleteSchedule } from "@/api/dashboardApi";
 
 const SCHEDULE_STATUS_STYLES: Record<ScheduleEntry["status"], string> = {
   planned: "bg-blue-500/15 text-blue-500",
@@ -17,13 +18,90 @@ const SCHEDULE_STATUS_LABELS: Record<ScheduleEntry["status"], string> = {
   cancelled: "Отменено",
 };
 
+const SHIFT_TYPE_LABELS: Record<string, string> = {
+  regular: "Обычная",
+  additional: "Дополнительная",
+};
+
 interface ScheduleTableProps {
   schedule: ScheduleEntry[];
   search: string;
+  onReload?: () => void;
 }
 
-export default function ScheduleTable({ schedule, search }: ScheduleTableProps) {
+export default function ScheduleTable({ schedule, search, onReload }: ScheduleTableProps) {
   const [detailEntry, setDetailEntry] = useState<ScheduleEntry | null>(null);
+
+  // Edit state
+  const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
+  const [eDriverId, setEDriverId] = useState("");
+  const [eVehicleId, setEVehicleId] = useState("");
+  const [eRouteId, setERouteId] = useState("");
+  const [eShiftStart, setEShiftStart] = useState("");
+  const [eShiftEnd, setEShiftEnd] = useState("");
+  const [eStatus, setEStatus] = useState<ScheduleEntry["status"]>("planned");
+  const [eShiftType, setEShiftType] = useState("regular");
+  const [eNotes, setENotes] = useState("");
+  const [eDocumentId, setEDocumentId] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const openEdit = useCallback((entry: ScheduleEntry) => {
+    setEDriverId(entry.driverId != null ? String(entry.driverId) : "");
+    setEVehicleId(entry.vehicleId || "");
+    setERouteId(entry.routeId || "");
+    // Extract datetime parts
+    const startDt = entry.startTime || "";
+    const endDt = entry.endTime || "";
+    setEShiftStart(startDt);
+    setEShiftEnd(endDt);
+    setEStatus(entry.status);
+    setEShiftType(entry.shiftType || "regular");
+    setENotes(entry.notes || "");
+    setEDocumentId(entry.documentId != null ? String(entry.documentId) : "");
+    setEditError("");
+    setEditingEntry(entry);
+  }, []);
+
+  const handleUpdate = useCallback(async () => {
+    if (!editingEntry) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const payload: Record<string, unknown> = {
+        id: editingEntry.id,
+        status: eStatus,
+        shiftType: eShiftType,
+        notes: eNotes.trim() || null,
+      };
+      if (eDriverId) payload.driverId = Number(eDriverId);
+      if (eVehicleId) payload.vehicleId = eVehicleId;
+      if (eRouteId) payload.routeId = eRouteId;
+      if (eShiftStart) payload.shiftStart = eShiftStart;
+      if (eShiftEnd) payload.shiftEnd = eShiftEnd;
+      if (eDocumentId) payload.documentId = Number(eDocumentId);
+      await updateSchedule(payload);
+      setEditingEntry(null);
+      onReload?.();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingEntry, eDriverId, eVehicleId, eRouteId, eShiftStart, eShiftEnd, eStatus, eShiftType, eNotes, eDocumentId, onReload]);
+
+  const handleCancel = useCallback(async (id: string) => {
+    setCancellingId(id);
+    try {
+      await deleteSchedule(id);
+      onReload?.();
+    } catch (e) {
+      console.error("Cancel schedule:", e);
+    } finally {
+      setCancellingId(null);
+    }
+  }, [onReload]);
 
   const sorted = useMemo(() => {
     let list = [...schedule].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -45,12 +123,13 @@ export default function ScheduleTable({ schedule, search }: ScheduleTableProps) 
               <th className="text-left px-3 py-2.5 font-medium">Водитель</th>
               <th className="text-left px-3 py-2.5 font-medium">Транспорт</th>
               <th className="text-left px-3 py-2.5 font-medium">Статус</th>
+              <th className="px-3 py-2.5 font-medium text-right">Действия</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                <td colSpan={6} className="text-center py-12 text-muted-foreground">
                   <Icon name="CalendarX" className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p>Нет записей в расписании</p>
                 </td>
@@ -85,7 +164,25 @@ export default function ScheduleTable({ schedule, search }: ScheduleTableProps) 
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    <Icon name="ChevronRight" className="w-3.5 h-3.5 text-muted-foreground/40" />
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEdit(entry); }}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        title="Редактировать"
+                      >
+                        <Icon name="Pencil" className="w-3 h-3" />
+                      </button>
+                      {entry.status !== "cancelled" && entry.status !== "completed" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCancel(entry.id); }}
+                          disabled={cancellingId === entry.id}
+                          className="text-[11px] px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1 disabled:opacity-50"
+                          title="Отменить"
+                        >
+                          <Icon name="X" className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -142,6 +239,79 @@ export default function ScheduleTable({ schedule, search }: ScheduleTableProps) 
             </div>
           </div>
         </Modal>
+      )}
+
+      {editingEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingEntry(null)}>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-semibold text-foreground">Редактирование смены</h3>
+              <button onClick={() => setEditingEntry(null)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">ID водителя</label>
+                <input type="text" value={eDriverId} onChange={e => setEDriverId(e.target.value.replace(/\D/g, ""))} placeholder="Числовой ID" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                {editingEntry.driverName && <p className="text-[10px] text-muted-foreground mt-0.5">Текущий: {editingEntry.driverName}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">ID транспорта</label>
+                <input type="text" value={eVehicleId} onChange={e => setEVehicleId(e.target.value)} placeholder="UUID транспорта" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                {editingEntry.vehicleNumber && <p className="text-[10px] text-muted-foreground mt-0.5">Текущий: #{editingEntry.vehicleNumber}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">ID маршрута</label>
+                <input type="text" value={eRouteId} onChange={e => setERouteId(e.target.value)} placeholder="UUID маршрута" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                {editingEntry.routeNumber && <p className="text-[10px] text-muted-foreground mt-0.5">Текущий: М{editingEntry.routeNumber}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
+                <select value={eStatus} onChange={e => setEStatus(e.target.value as ScheduleEntry["status"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="planned">Запланировано</option>
+                  <option value="active">Активно</option>
+                  <option value="completed">Завершено</option>
+                  <option value="cancelled">Отменено</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Начало смены</label>
+                <input type="datetime-local" value={eShiftStart} onChange={e => setEShiftStart(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Конец смены</label>
+                <input type="datetime-local" value={eShiftEnd} onChange={e => setEShiftEnd(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип смены</label>
+                <select value={eShiftType} onChange={e => setEShiftType(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="regular">Обычная</option>
+                  <option value="additional">Дополнительная</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">ID документа</label>
+                <input type="text" value={eDocumentId} onChange={e => setEDocumentId(e.target.value.replace(/\D/g, ""))} placeholder="Числовой ID" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Примечания</label>
+                <textarea value={eNotes} onChange={e => setENotes(e.target.value)} rows={2} placeholder="Заметки к смене..." className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+            </div>
+            {editError && <p className="text-xs text-destructive mt-3">{editError}</p>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditingEntry(null)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+              <button
+                disabled={editSaving}
+                onClick={handleUpdate}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {editSaving ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -33,10 +33,10 @@ export default function TechnicianPanel({
   onUpdateDocumentStatus,
   onReload,
 }: TechnicianPanelProps) {
-  if (tab === "routes") return <RoutesView routes={routes} />;
+  if (tab === "routes") return <RoutesView routes={routes} onReload={onReload} />;
   if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} onReload={onReload} />;
   if (tab === "vehicles") return <VehiclesView vehicles={vehicles} onReload={onReload} />;
-  if (tab === "drivers") return <DriversView drivers={drivers} onReload={onReload} />;
+  if (tab === "drivers") return <DriversView drivers={drivers} onReload={onReload} schedules={schedule} vehicles={vehicles} routes={routes} documents={documents} />;
   if (tab === "schedule") return <ScheduleView schedule={schedule} onReload={onReload} />;
   if (tab === "diagnostics") return <TechDiagnosticsView onReload={onReload} />;
   return null;

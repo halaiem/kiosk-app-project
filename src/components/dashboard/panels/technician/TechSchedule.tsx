@@ -35,7 +35,7 @@ export function ScheduleView({ schedule, onReload }: { schedule: ScheduleEntry[]
 
       <ScheduleSummaryCards schedule={schedule} />
 
-      <ScheduleTable schedule={schedule} search={search} />
+      <ScheduleTable schedule={schedule} search={search} onReload={onReload} />
 
       {showForm && (
         <ScheduleFormModal onClose={() => setShowForm(false)} onReload={onReload} />

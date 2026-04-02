@@ -116,13 +116,16 @@ def handle_stats(cur, conn, user):
 
 def handle_drivers(method, qs, event, cur, conn, user):
     if method == 'GET':
-        cur.execute("""
+        include_all = qs.get('include_all') == 'true'
+        where_clause = "" if include_all else "WHERE d.is_active = true AND d.driver_status != 'fired'"
+        cur.execute(f"""
             SELECT d.id, d.full_name, d.employee_id, d.vehicle_type, d.vehicle_number,
                    d.route_number, d.shift_start, d.is_active, d.phone, d.shift_status, d.rating,
-                   ds.is_online, ds.last_seen, ds.latitude, ds.longitude, ds.speed
+                   ds.is_online, ds.last_seen, ds.latitude, ds.longitude, ds.speed,
+                   d.driver_status, d.status_changed_at, d.status_note, d.pin
             FROM drivers d
             LEFT JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true
-            WHERE d.is_active = true
+            {where_clause}
             ORDER BY d.id
         """)
         rows = cur.fetchall()
@@ -135,7 +138,9 @@ def handle_drivers(method, qs, event, cur, conn, user):
                 'isActive': r[7], 'phone': r[8],
                 'status': r[9] or 'off_shift', 'rating': float(r[10]) if r[10] else 4.5,
                 'isOnline': bool(r[11]), 'lastSeen': r[12],
-                'latitude': r[13], 'longitude': r[14], 'speed': r[15]
+                'latitude': r[13], 'longitude': r[14], 'speed': r[15],
+                'driverStatus': r[16] or 'active', 'statusChangedAt': r[17],
+                'statusNote': r[18], 'pin': r[19]
             })
         conn.commit()
         return resp(200, {'drivers': drivers})
@@ -169,10 +174,29 @@ def handle_drivers(method, qs, event, cur, conn, user):
         return resp(201, {'id': new_id, 'employeeId': emp_id})
 
     if method == 'PUT':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+
         body = json.loads(event.get('body') or '{}')
         did = body.get('id')
         if not did:
             return resp(400, {'error': 'id обязателен'})
+
+        # PIN change requires technician password verification
+        if 'pin' in body:
+            tech_password = body.get('techPassword', '')
+            if not tech_password:
+                return resp(400, {'error': 'Для изменения PIN требуется пароль техника'})
+            import hashlib
+            pwd_hash = hashlib.sha256(tech_password.encode()).hexdigest()
+            cur.execute("SELECT id FROM dashboard_users WHERE id = %s AND password_hash = %s", (user['id'], pwd_hash))
+            if not cur.fetchone():
+                return resp(403, {'error': 'Неверный пароль техника'})
+            # Check PIN uniqueness
+            new_pin = body['pin'].strip()
+            cur.execute("SELECT id FROM drivers WHERE pin = %s AND is_active = true AND id != %s", (new_pin, did))
+            if cur.fetchone():
+                return resp(409, {'error': 'Водитель с таким PIN уже существует'})
 
         updates = []
         params = []
@@ -180,19 +204,34 @@ def handle_drivers(method, qs, event, cur, conn, user):
             'fullName': 'full_name', 'pin': 'pin', 'vehicleType': 'vehicle_type',
             'vehicleNumber': 'vehicle_number', 'routeNumber': 'route_number',
             'shiftStart': 'shift_start', 'phone': 'phone', 'shiftStatus': 'shift_status',
-            'isActive': 'is_active'
+            'isActive': 'is_active', 'driverStatus': 'driver_status',
+            'statusNote': 'status_note', 'rating': 'rating', 'employeeId': 'employee_id'
         }
         for js_key, db_col in field_map.items():
             if js_key in body:
                 updates.append(f"{db_col} = %s")
                 params.append(body[js_key])
 
+        # Handle driver status changes
+        new_driver_status = body.get('driverStatus')
+        if new_driver_status:
+            updates.append("status_changed_at = now()")
+            if new_driver_status == 'fired':
+                if 'is_active' not in [u.split(' = ')[0] for u in updates]:
+                    updates.append("is_active = %s")
+                    params.append(False)
+                # Remove from active assignments
+                cur.execute(
+                    "UPDATE assignments SET assignment_status = 'cancelled', updated_at = now() WHERE driver_id = %s AND assignment_status IN ('scheduled', 'active')",
+                    (did,)
+                )
+
         if not updates:
             return resp(400, {'error': 'Нет полей для обновления'})
 
         params.append(did)
         cur.execute(f"UPDATE drivers SET {', '.join(updates)} WHERE id = %s", params)
-        log_action(cur, user, 'update_driver', str(did), json.dumps(body, ensure_ascii=False))
+        log_action(cur, user, 'update_driver', str(did), json.dumps({k: v for k, v in body.items() if k != 'techPassword'}, ensure_ascii=False))
         conn.commit()
         return resp(200, {'ok': True})
 
@@ -200,8 +239,9 @@ def handle_drivers(method, qs, event, cur, conn, user):
         did = qs.get('id')
         if not did:
             return resp(400, {'error': 'id обязателен'})
-        cur.execute("UPDATE drivers SET is_active = false WHERE id = %s", (did,))
-        log_action(cur, user, 'delete_driver', did, 'Деактивирован')
+        cur.execute("UPDATE drivers SET is_active = false, driver_status = 'fired', status_changed_at = now() WHERE id = %s", (did,))
+        cur.execute("UPDATE assignments SET assignment_status = 'cancelled', updated_at = now() WHERE driver_id = %s AND assignment_status IN ('scheduled', 'active')", (int(did),))
+        log_action(cur, user, 'delete_driver', did, 'Уволен/деактивирован')
         conn.commit()
         return resp(200, {'ok': True})
 
@@ -441,7 +481,9 @@ def handle_schedule(method, qs, event, cur, conn, user):
     if method == 'GET':
         cur.execute("""
             SELECT a.id, r.route_number, d.full_name, v.label,
-                   a.shift_start, a.shift_end, a.assignment_status, a.created_at
+                   a.shift_start, a.shift_end, a.assignment_status, a.created_at,
+                   a.driver_id, a.vehicle_id::text, a.route_id::text,
+                   a.document_id, a.shift_type, a.notes
             FROM assignments a
             LEFT JOIN routes r ON r.id = a.route_id
             LEFT JOIN vehicles v ON v.id = a.vehicle_id
@@ -454,7 +496,9 @@ def handle_schedule(method, qs, event, cur, conn, user):
             schedule.append({
                 'id': str(r[0]), 'routeNumber': r[1] or '', 'driverName': r[2] or '',
                 'vehicleNumber': r[3] or '', 'startTime': r[4], 'endTime': r[5],
-                'status': r[6] or 'scheduled', 'date': str(r[4].date()) if r[4] else ''
+                'status': r[6] or 'scheduled', 'date': str(r[4].date()) if r[4] else '',
+                'driverId': r[8], 'vehicleId': r[9], 'routeId': r[10],
+                'documentId': r[11], 'shiftType': r[12] or 'regular', 'notes': r[13]
             })
         conn.commit()
         return resp(200, {'schedule': schedule})
@@ -466,31 +510,91 @@ def handle_schedule(method, qs, event, cur, conn, user):
         body = json.loads(event.get('body') or '{}')
         vehicle_id = body.get('vehicleId')
         route_id = body.get('routeId')
+        driver_id = body.get('driverId')
         shift_start = body.get('shiftStart')
+        shift_end = body.get('shiftEnd')
         if not vehicle_id or not route_id or not shift_start:
             return resp(400, {'error': 'vehicleId, routeId, shiftStart обязательны'})
 
+        # Check driver availability status
+        if driver_id:
+            cur.execute("SELECT driver_status, full_name FROM drivers WHERE id = %s", (driver_id,))
+            dr_row = cur.fetchone()
+            if dr_row and dr_row[0] in ('vacation', 'sick_leave', 'fired'):
+                status_labels = {'vacation': 'в отпуске', 'sick_leave': 'на больничном', 'fired': 'уволен'}
+                return resp(400, {'error': f'Водитель {dr_row[1]} {status_labels.get(dr_row[0], "недоступен")}'})
+
+        # Validate no overlapping assignments for vehicle
+        overlap_check = """
+            SELECT id FROM assignments
+            WHERE assignment_status IN ('scheduled', 'active')
+            AND shift_start < %s AND (shift_end IS NULL OR shift_end > %s)
+        """
+        if shift_end:
+            cur.execute(overlap_check + " AND vehicle_id = %s", (shift_end, shift_start, vehicle_id))
+        else:
+            cur.execute(overlap_check + " AND vehicle_id = %s", (shift_start, shift_start, vehicle_id))
+        if cur.fetchone():
+            return resp(409, {'error': 'Транспортное средство уже занято в это время'})
+
+        # Validate no overlapping assignments for driver
+        if driver_id:
+            if shift_end:
+                cur.execute(overlap_check + " AND driver_id = %s", (shift_end, shift_start, driver_id))
+            else:
+                cur.execute(overlap_check + " AND driver_id = %s", (shift_start, shift_start, driver_id))
+            if cur.fetchone():
+                return resp(409, {'error': 'Водитель уже назначен на другую смену в это время'})
+
         cur.execute(
-            """INSERT INTO assignments (vehicle_id, route_id, driver_id, shift_start, shift_end, assignment_status)
-               VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-            (vehicle_id, route_id, body.get('driverId'), shift_start,
-             body.get('shiftEnd'), body.get('status', 'scheduled'))
+            """INSERT INTO assignments (vehicle_id, route_id, driver_id, shift_start, shift_end, assignment_status, document_id, shift_type, notes)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (vehicle_id, route_id, driver_id, shift_start, shift_end,
+             body.get('status', 'scheduled'), body.get('documentId'), body.get('shiftType', 'regular'), body.get('notes'))
         )
         aid = cur.fetchone()[0]
-        log_action(cur, user, 'create_assignment', str(aid), f'Маршрут={route_id}')
+        log_action(cur, user, 'create_assignment', str(aid), f'Маршрут={route_id}, Водитель={driver_id}')
         conn.commit()
         return resp(201, {'id': str(aid)})
 
     if method == 'PUT':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+
         body = json.loads(event.get('body') or '{}')
         aid = body.get('id')
         if not aid:
             return resp(400, {'error': 'id обязателен'})
-        status = body.get('status')
-        if status:
-            cur.execute("UPDATE assignments SET assignment_status = %s, updated_at = now() WHERE id = %s", (status, aid))
-            log_action(cur, user, 'update_assignment', str(aid), f'Статус → {status}')
+
+        updates = []
+        params = []
+        field_map = {
+            'status': 'assignment_status', 'vehicleId': 'vehicle_id', 'routeId': 'route_id',
+            'driverId': 'driver_id', 'shiftStart': 'shift_start', 'shiftEnd': 'shift_end',
+            'documentId': 'document_id', 'shiftType': 'shift_type', 'notes': 'notes'
+        }
+        for js_key, db_col in field_map.items():
+            if js_key in body:
+                updates.append(f"{db_col} = %s")
+                params.append(body[js_key])
+
+        if updates:
+            updates.append("updated_at = now()")
+            params.append(aid)
+            cur.execute(f"UPDATE assignments SET {', '.join(updates)} WHERE id = %s", params)
+            log_action(cur, user, 'update_assignment', str(aid), json.dumps(body, ensure_ascii=False))
             conn.commit()
+        return resp(200, {'ok': True})
+
+    if method == 'DELETE':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+        aid = qs.get('id')
+        if not aid:
+            return resp(400, {'error': 'id обязателен'})
+        cur.execute("UPDATE assignments SET assignment_status = 'cancelled', updated_at = now() WHERE id = %s", (aid,))
+        log_action(cur, user, 'delete_assignment', aid, 'Отменена')
+        conn.commit()
         return resp(200, {'ok': True})
 
     return resp(405, {'error': 'Method not allowed'})
@@ -538,12 +642,34 @@ def handle_documents(method, qs, event, cur, conn, user):
     if method == 'PUT':
         body = json.loads(event.get('body') or '{}')
         did = body.get('id')
-        status = body.get('status')
-        if not did or not status:
-            return resp(400, {'error': 'id и status обязательны'})
+        if not did:
+            return resp(400, {'error': 'id обязателен'})
 
-        cur.execute("UPDATE documents SET status = %s, updated_at = now() WHERE id = %s", (status, did))
-        log_action(cur, user, 'update_document', str(did), f'Статус → {status}')
+        updates = []
+        params = []
+        field_map = {
+            'title': 'title', 'type': 'doc_type', 'status': 'status',
+            'content': 'content', 'assignedToDriverId': 'assigned_to_driver_id'
+        }
+        for js_key, db_col in field_map.items():
+            if js_key in body:
+                updates.append(f"{db_col} = %s")
+                params.append(body[js_key])
+
+        if updates:
+            updates.append("updated_at = now()")
+            params.append(did)
+            cur.execute(f"UPDATE documents SET {', '.join(updates)} WHERE id = %s", params)
+            log_action(cur, user, 'update_document', str(did), json.dumps(body, ensure_ascii=False))
+            conn.commit()
+        return resp(200, {'ok': True})
+
+    if method == 'DELETE':
+        did = qs.get('id')
+        if not did:
+            return resp(400, {'error': 'id обязателен'})
+        cur.execute("DELETE FROM documents WHERE id = %s", (did,))
+        log_action(cur, user, 'delete_document', did, 'Удалён')
         conn.commit()
         return resp(200, {'ok': True})
 

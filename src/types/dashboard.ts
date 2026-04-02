@@ -17,6 +17,7 @@ export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab;
 export type AlertLevel = 'info' | 'warning' | 'critical';
 export type VehicleStatus = 'active' | 'maintenance' | 'idle' | 'offline';
 export type DriverStatus = 'on_shift' | 'off_shift' | 'break' | 'sick';
+export type DriverLifecycleStatus = 'active' | 'vacation' | 'sick_leave' | 'fired';
 export type ServerStatus = 'online' | 'warning' | 'offline';
 export type DocumentStatus = 'draft' | 'review' | 'approved' | 'expired';
 export type RouteStatus = 'active' | 'route_change' | 'temp_route' | 'route_extension' | 'suspended' | 'planned';
@@ -112,6 +113,12 @@ export interface DriverInfo {
   shiftEnd?: Date;
   phone: string;
   rating: number;
+  pin?: string;
+  vehicleType?: string;
+  driverStatus?: DriverLifecycleStatus;
+  statusChangedAt?: string;
+  statusNote?: string;
+  isActive?: boolean;
 }
 
 export interface ScheduleEntry {
@@ -123,6 +130,12 @@ export interface ScheduleEntry {
   endTime: string;
   date: string;
   status: 'planned' | 'active' | 'completed' | 'cancelled';
+  driverId?: number;
+  vehicleId?: string;
+  routeId?: string;
+  documentId?: number;
+  shiftType?: 'regular' | 'additional';
+  notes?: string;
 }
 
 export interface DocumentInfo {
@@ -134,6 +147,9 @@ export interface DocumentInfo {
   updatedAt: Date;
   author: string;
   assignedTo?: string;
+  assignedToId?: number;
+  authorId?: number;
+  content?: string;
 }
 
 export interface ServerInfo {

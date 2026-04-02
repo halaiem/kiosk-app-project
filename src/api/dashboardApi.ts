@@ -165,6 +165,45 @@ export async function updateDocumentStatus(docId: number, status: string) {
   });
 }
 
+export async function updateDocument(payload: Record<string, unknown>) {
+  return request(`${DATA_URL}?entity=documents`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteDocument(docId: number) {
+  return request(`${DATA_URL}?entity=documents&id=${docId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateDriver(payload: Record<string, unknown>) {
+  return request(`${DATA_URL}?entity=drivers`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteDriver(driverId: number) {
+  return request(`${DATA_URL}?entity=drivers&id=${driverId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateRoute(payload: Record<string, unknown>) {
+  return request(`${DATA_URL}?entity=routes`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteSchedule(scheduleId: string) {
+  return request(`${DATA_URL}?entity=schedule&id=${encodeURIComponent(scheduleId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function createVehicle(payload: Record<string, unknown>) {
   return request(`${DATA_URL}?entity=vehicles`, {
     method: 'POST',
@@ -232,4 +271,10 @@ export default {
   sendDispatcherMsg,
   resolveAlert,
   updateDocumentStatus,
+  updateDocument,
+  deleteDocument,
+  updateDriver,
+  deleteDriver,
+  updateRoute,
+  deleteSchedule,
 };

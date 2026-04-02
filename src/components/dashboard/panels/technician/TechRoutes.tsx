@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { RouteInfo, RouteStatus } from "@/types/dashboard";
+import { updateRoute } from "@/api/dashboardApi";
 
 export function formatDate(date: Date): string {
   const d = new Date(date);
@@ -79,11 +80,62 @@ function getRouteStatus(route: RouteInfo): RouteStatus {
   return route.routeStatus || (route.isActive ? 'active' : 'suspended');
 }
 
-export function RoutesView({ routes }: { routes: RouteInfo[] }) {
+export function RoutesView({ routes, onReload }: { routes: RouteInfo[]; onReload?: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [stopsRoute, setStopsRoute] = useState<RouteInfo | null>(null);
   const [statusFilter, setStatusFilter] = useState<RouteStatus | "all">("all");
+
+  // Edit state
+  const [editingRoute, setEditingRoute] = useState<RouteInfo | null>(null);
+  const [eNumber, setENumber] = useState("");
+  const [eName, setEName] = useState("");
+  const [eTransportType, setETransportType] = useState("");
+  const [eDistance, setEDistance] = useState("");
+  const [eAvgTime, setEAvgTime] = useState("");
+  const [eRouteStatus, setERouteStatus] = useState<RouteStatus>("active");
+  const [eIsActive, setEIsActive] = useState(true);
+  const [eColor, setEColor] = useState("#3b82f6");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const openEdit = useCallback((route: RouteInfo) => {
+    setENumber(route.number);
+    setEName(route.name);
+    setETransportType((route as unknown as Record<string, string>).transportType || "bus");
+    setEDistance(String(route.distance || 0));
+    setEAvgTime(String(route.avgTime || 0));
+    setERouteStatus(route.routeStatus || "active");
+    setEIsActive(route.isActive);
+    setEColor((route as unknown as Record<string, string>).color || "#3b82f6");
+    setEditError("");
+    setEditingRoute(route);
+  }, []);
+
+  const handleUpdateRoute = useCallback(async () => {
+    if (!editingRoute || !eNumber.trim() || !eName.trim()) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      await updateRoute({
+        id: editingRoute.id,
+        number: eNumber.trim(),
+        name: eName.trim(),
+        transportType: eTransportType || "bus",
+        distance: parseFloat(eDistance) || 0,
+        avgTime: parseInt(eAvgTime) || 0,
+        routeStatus: eRouteStatus,
+        isActive: eIsActive,
+        color: eColor,
+      });
+      setEditingRoute(null);
+      onReload?.();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingRoute, eNumber, eName, eTransportType, eDistance, eAvgTime, eRouteStatus, eIsActive, eColor, onReload]);
   const totalDistance = useMemo(() => routes.reduce((s, r) => s + r.distance, 0), [routes]);
   const totalStops = useMemo(() => routes.reduce((s, r) => s + r.stopsCount, 0), [routes]);
   const activeCount = useMemo(() => routes.filter((r) => r.isActive).length, [routes]);
@@ -189,13 +241,22 @@ export function RoutesView({ routes }: { routes: RouteInfo[] }) {
                   {route.assignedVehicles} ТС
                 </span>
               </div>
-              <button
-                onClick={() => setStopsRoute(route)}
-                className="mt-2 flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
-              >
-                <Icon name="List" className="w-3 h-3" />
-                Список остановок
-              </button>
+              <div className="mt-2 flex items-center gap-3">
+                <button
+                  onClick={() => setStopsRoute(route)}
+                  className="flex items-center gap-1.5 text-[11px] text-primary hover:underline font-medium"
+                >
+                  <Icon name="List" className="w-3 h-3" />
+                  Остановки
+                </button>
+                <button
+                  onClick={() => openEdit(route)}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                >
+                  <Icon name="Pencil" className="w-3 h-3" />
+                  Редактировать
+                </button>
+              </div>
             </div>
           </div>
           );
@@ -301,6 +362,77 @@ export function RoutesView({ routes }: { routes: RouteInfo[] }) {
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">Создать</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingRoute && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingRoute(null)}>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-semibold text-foreground">Редактирование маршрута</h3>
+              <button onClick={() => setEditingRoute(null)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Номер маршрута *</label>
+                <input type="text" value={eNumber} onChange={e => setENumber(e.target.value)} placeholder="5" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип транспорта</label>
+                <select value={eTransportType} onChange={e => setETransportType(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="bus">Автобус</option>
+                  <option value="tram">Трамвай</option>
+                  <option value="trolleybus">Троллейбус</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Название *</label>
+                <input type="text" value={eName} onChange={e => setEName(e.target.value)} placeholder="Название маршрута" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Длина (км)</label>
+                <input type="number" value={eDistance} onChange={e => setEDistance(e.target.value)} step="0.1" min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Среднее время (мин)</label>
+                <input type="number" value={eAvgTime} onChange={e => setEAvgTime(e.target.value)} min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус маршрута</label>
+                <select value={eRouteStatus} onChange={e => setERouteStatus(e.target.value as RouteStatus)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  {Object.entries(ROUTE_STATUS_CONFIG).map(([key, cfg]) => (
+                    <option key={key} value={key}>{cfg.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Цвет</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={eColor} onChange={e => setEColor(e.target.value)} className="w-9 h-9 rounded-lg border border-border bg-background cursor-pointer p-0.5" />
+                  <input type="text" value={eColor} onChange={e => setEColor(e.target.value)} className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+              </div>
+              <div className="col-span-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={eIsActive} onChange={e => setEIsActive(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-ring" />
+                  <span className="text-sm text-foreground">Маршрут активен</span>
+                </label>
+              </div>
+            </div>
+            {editError && <p className="text-xs text-destructive mt-3">{editError}</p>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditingRoute(null)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+              <button
+                disabled={!eNumber.trim() || !eName.trim() || editSaving}
+                onClick={handleUpdateRoute}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {editSaving ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
           </div>
         </div>

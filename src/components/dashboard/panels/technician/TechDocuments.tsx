@@ -3,7 +3,7 @@ import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { DocumentInfo, DocumentStatus } from "@/types/dashboard";
 import { formatDate, Modal } from "./TechRoutes";
-import { createDocument } from "@/api/dashboardApi";
+import { createDocument, updateDocument } from "@/api/dashboardApi";
 
 const DOC_TYPE_ICONS: Record<DocumentInfo["type"], string> = {
   route_sheet: "FileSpreadsheet",
@@ -57,6 +57,48 @@ export function DocumentsView({
   const [fStatus, setFStatus] = useState<DocumentInfo["status"] | "">("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Edit state
+  const [editingDoc, setEditingDoc] = useState<DocumentInfo | null>(null);
+  const [eTitle, setETitle] = useState("");
+  const [eType, setEType] = useState<DocumentInfo["type"] | "">("");
+  const [eStatus, setEStatus] = useState<DocumentInfo["status"] | "">("");
+  const [eContent, setEContent] = useState("");
+  const [eAssignedId, setEAssignedId] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const openEdit = useCallback((doc: DocumentInfo) => {
+    setETitle(doc.title);
+    setEType(doc.type);
+    setEStatus(doc.status);
+    setEContent(doc.content || "");
+    setEAssignedId(doc.assignedToId != null ? String(doc.assignedToId) : "");
+    setEditError("");
+    setEditingDoc(doc);
+  }, []);
+
+  const handleUpdateDoc = useCallback(async () => {
+    if (!editingDoc || !eTitle.trim() || !eType) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      await updateDocument({
+        id: editingDoc.id,
+        title: eTitle.trim(),
+        type: eType,
+        status: eStatus || "draft",
+        content: eContent.trim() || undefined,
+        assignedToDriverId: eAssignedId ? Number(eAssignedId) : null,
+      });
+      setEditingDoc(null);
+      onReload?.();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setEditSaving(false);
+    }
+  }, [editingDoc, eTitle, eType, eStatus, eContent, eAssignedId, onReload]);
 
   const downloadDoc = useCallback((doc: DocumentInfo) => {
     const content = [
@@ -187,6 +229,13 @@ export function DocumentsView({
                         title="Скачать"
                       >
                         <Icon name="Download" className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => openEdit(doc)}
+                        className="text-[11px] font-medium px-2 py-1 rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center gap-1"
+                        title="Редактировать"
+                      >
+                        <Icon name="Pencil" className="w-3 h-3" />
                       </button>
                       {doc.status === "draft" && (
                         <button
@@ -320,6 +369,64 @@ export function DocumentsView({
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {saving ? "Создаю..." : "Создать"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingDoc(null)}>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-semibold text-foreground">Редактирование документа</h3>
+              <button onClick={() => setEditingDoc(null)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Название *</label>
+                <input type="text" value={eTitle} onChange={e => setETitle(e.target.value)} placeholder="Название документа" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип *</label>
+                <select value={eType} onChange={e => setEType(e.target.value as DocumentInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">--- выберите ---</option>
+                  <option value="route_sheet">Маршрутный лист</option>
+                  <option value="maintenance_report">Акт ТО</option>
+                  <option value="schedule">Расписание</option>
+                  <option value="instruction">Инструкция</option>
+                  <option value="license">Лицензия</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
+                <select value={eStatus} onChange={e => setEStatus(e.target.value as DocumentInfo["status"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="draft">Черновик</option>
+                  <option value="review">На проверке</option>
+                  <option value="approved">Утверждён</option>
+                  <option value="expired">Истёк</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Содержание</label>
+                <textarea value={eContent} onChange={e => setEContent(e.target.value)} rows={4} placeholder="Текст документа..." className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">ID водителя (назначен)</label>
+                <input type="text" value={eAssignedId} onChange={e => setEAssignedId(e.target.value.replace(/\D/g, ""))} placeholder="Числовой ID водителя" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+            </div>
+            {editError && <p className="text-xs text-destructive mt-3">{editError}</p>}
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditingDoc(null)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
+              <button
+                disabled={!eTitle.trim() || !eType || editSaving}
+                onClick={handleUpdateDoc}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {editSaving ? "Сохранение..." : "Сохранить"}
               </button>
             </div>
           </div>
