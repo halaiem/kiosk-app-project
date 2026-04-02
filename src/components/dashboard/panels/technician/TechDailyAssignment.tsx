@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import type { RouteInfo, DriverInfo, VehicleInfo, ScheduleEntry } from "@/types/dashboard";
 import {
   createScheduleBatch,
+  deleteSchedule,
   fetchTemplates,
   createTemplate,
   updateTemplate,
@@ -411,6 +412,20 @@ export function DailyAssignmentView({
   }, [existingNonCancelled, routes]);
 
   const shouldAutoExpand = existingForDate.length > 0 && existingForDate.length <= 5;
+
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelLoadingId, setCancelLoadingId] = useState<string | null>(null);
+
+  const handleCancelEntry = useCallback(async (id: string) => {
+    setCancelLoadingId(id);
+    try {
+      await deleteSchedule(id);
+      onReload?.();
+    } finally {
+      setCancelLoadingId(null);
+      setCancelingId(null);
+    }
+  }, [onReload]);
 
   const availableDrivers = useMemo(
     () =>
@@ -1006,13 +1021,14 @@ export function DailyAssignmentView({
                     </th>
                     <th className="text-left px-3 py-2 font-medium">Время</th>
                     <th className="text-left px-3 py-2 font-medium">Статус</th>
+                    <th className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
                   {existingForDate.map((entry) => (
                     <tr
                       key={entry.id}
-                      className="border-b border-border last:border-b-0"
+                      className={`group border-b border-border last:border-b-0 transition-colors ${entry.status === "cancelled" ? "opacity-50" : ""}`}
                     >
                       <td className="px-5 py-2.5 text-foreground font-medium">
                         М{entry.routeNumber}
@@ -1032,6 +1048,39 @@ export function DailyAssignmentView({
                         >
                           {SCHEDULE_STATUS_LABELS[entry.status] ?? entry.status}
                         </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        {entry.status !== "cancelled" && (
+                          cancelingId === entry.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[11px] text-muted-foreground mr-1">Отменить?</span>
+                              <button
+                                onClick={() => handleCancelEntry(entry.id)}
+                                disabled={cancelLoadingId === entry.id}
+                                className="flex items-center gap-1 h-6 px-2 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[11px] font-medium transition-colors disabled:opacity-50"
+                              >
+                                {cancelLoadingId === entry.id ? (
+                                  <Icon name="Loader2" className="w-3 h-3 animate-spin" />
+                                ) : "Да"}
+                              </button>
+                              <button
+                                onClick={() => setCancelingId(null)}
+                                disabled={cancelLoadingId === entry.id}
+                                className="h-6 px-2 rounded bg-muted hover:bg-muted/70 text-[11px] text-muted-foreground transition-colors"
+                              >
+                                Нет
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setCancelingId(entry.id)}
+                              className="opacity-0 group-hover:opacity-100 flex items-center gap-1 h-6 px-2 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 text-[11px] transition-all"
+                            >
+                              <Icon name="X" className="w-3 h-3" />
+                              Отменить
+                            </button>
+                          )
+                        )}
                       </td>
                     </tr>
                   ))}
