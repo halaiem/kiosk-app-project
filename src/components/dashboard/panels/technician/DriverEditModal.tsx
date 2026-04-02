@@ -158,6 +158,7 @@ export default function DriverEditModal({
               <option value="tram">Трамвай</option>
               <option value="trolleybus">Троллейбус</option>
               <option value="bus">Автобус</option>
+              <option value="electrobus">Электробус</option>
             </select>
           </div>
           <div>

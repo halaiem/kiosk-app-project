@@ -75,7 +75,7 @@ export interface RouteInfo {
 export interface VehicleInfo {
   id: string;
   number: string;
-  type: 'tram' | 'trolleybus' | 'bus';
+  type: 'tram' | 'trolleybus' | 'bus' | 'electrobus';
   status: VehicleStatus;
   routeNumber: string;
   driverName: string;

@@ -2,9 +2,10 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { InterfaceSettingsView } from "./settings/InterfaceSettingsView";
 import { SystemSettingsView } from "./settings/SystemSettingsView";
+import { VehicleIconSettings } from "./settings/VehicleIconSettings";
 
 export function SettingsView() {
-  const [settingsTab, setSettingsTab] = useState<'system' | 'interface'>('interface');
+  const [settingsTab, setSettingsTab] = useState<'system' | 'interface' | 'vehicle_icons'>('interface');
 
   return (
     <div className="space-y-4">
@@ -12,6 +13,7 @@ export function SettingsView() {
         {([
           { key: 'interface', label: 'Настройки интерфейса', icon: 'Palette' },
           { key: 'system', label: 'Система и безопасность', icon: 'Shield' },
+          { key: 'vehicle_icons', label: 'Иконки транспорта', icon: 'Bus' },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -30,6 +32,7 @@ export function SettingsView() {
 
       {settingsTab === 'interface' && <InterfaceSettingsView />}
       {settingsTab === 'system' && <SystemSettingsView />}
+      {settingsTab === 'vehicle_icons' && <VehicleIconSettings />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { MapVehicleInfo } from "@/components/dashboard/MapVehicleCard";
 
-type VehicleType = "all" | "tram" | "trolleybus" | "bus";
+type VehicleType = "all" | "tram" | "trolleybus" | "bus" | "electrobus";
 type VehicleStatus = "all" | "ok" | "warning" | "critical";
 
 interface Props {
@@ -15,6 +15,7 @@ const TYPE_LABELS: Record<VehicleType, string> = {
   tram: "Трамвай",
   trolleybus: "Троллейбус",
   bus: "Автобус",
+  electrobus: "Электробус",
 };
 
 const STATUS_LABELS: Record<VehicleStatus, string> = {
@@ -121,7 +122,7 @@ export default function MapControls({ vehicles, onFilterChange }: Props) {
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Тип транспорта</p>
               <div className="space-y-1">
-                {(["all", "tram", "trolleybus", "bus"] as VehicleType[]).map((t) => (
+                {(["all", "tram", "trolleybus", "bus", "electrobus"] as VehicleType[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTypeFilter(t)}
@@ -129,7 +130,7 @@ export default function MapControls({ vehicles, onFilterChange }: Props) {
                       ${typeFilter === t ? "bg-primary/15 text-primary font-medium" : "hover:bg-muted text-foreground"}`}
                   >
                     <Icon
-                      name={t === "tram" ? "TramFront" : t === "trolleybus" ? "Zap" : t === "bus" ? "Bus" : "LayoutGrid"}
+                      name={t === "tram" ? "TramFront" : t === "trolleybus" ? "Zap" : t === "bus" ? "Bus" : t === "electrobus" ? "Zap" : "LayoutGrid"}
                       className="w-3.5 h-3.5"
                     />
                     {TYPE_LABELS[t]}

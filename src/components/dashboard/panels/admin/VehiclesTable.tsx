@@ -26,6 +26,7 @@ const typeFilters: { key: TypeFilter; label: string }[] = [
   { key: "tram", label: "Трамваи" },
   { key: "trolleybus", label: "Троллейбусы" },
   { key: "bus", label: "Автобусы" },
+  { key: "electrobus", label: "Электробусы" },
 ];
 
 export default function VehiclesTable({

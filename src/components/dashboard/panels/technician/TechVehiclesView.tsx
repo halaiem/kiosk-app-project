@@ -43,6 +43,7 @@ const TRANSPORT_TYPE_MAP: Record<string, VehicleInfo["type"]> = {
   trolleybus: "trolleybus",
   bus: "bus",
   minibus: "bus",
+  electrobus: "electrobus",
 };
 
 export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
@@ -217,9 +218,9 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <h2 className="text-base font-semibold text-foreground flex-1">Транспортные средства</h2>
-        {(["all", "tram", "trolleybus", "bus"] as const).map((t) => (
+        {(["all", "tram", "trolleybus", "bus", "electrobus"] as const).map((t) => (
           <button key={t} onClick={() => setTypeFilter(t)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
-            {t === "all" ? "Все" : t === "tram" ? "Трамваи" : t === "trolleybus" ? "Тролл." : "Автобусы"}
+            {t === "all" ? "Все" : t === "tram" ? "Трамваи" : t === "trolleybus" ? "Тролл." : t === "electrobus" ? "Электроб." : "Автобусы"}
           </button>
         ))}
         <div className="relative">

@@ -4,12 +4,14 @@ export const VEHICLE_TYPE_ICONS: Record<VehicleInfo["type"], string> = {
   tram: "TramFront",
   trolleybus: "Zap",
   bus: "Bus",
+  electrobus: "Zap",
 };
 
 export const VEHICLE_TYPE_LABELS: Record<VehicleInfo["type"], string> = {
   tram: "Трамвай",
   trolleybus: "Троллейбус",
   bus: "Автобус",
+  electrobus: "Электробус",
 };
 
 export const VEHICLE_STATUS_STYLES: Record<VehicleStatus, string> = {

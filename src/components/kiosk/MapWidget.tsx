@@ -31,12 +31,13 @@ interface VehicleState {
   progress: number;
   color: string;
   isOwn?: boolean;
+  type: 'tram' | 'trolleybus' | 'bus' | 'electrobus';
 }
 
 const VEHICLES: VehicleState[] = [
-  { id: 'v1', label: 'ТМ-3405', progress: 0.12, color: '#22c55e' },
-  { id: 'v2', label: 'ТМ-3407', progress: 0.38, color: '#3b82f6', isOwn: true },
-  { id: 'v3', label: 'ТМ-3410', progress: 0.65, color: '#f59e0b' },
+  { id: 'v1', label: 'ТМ-3405', progress: 0.12, color: '#22c55e', type: 'tram' },
+  { id: 'v2', label: 'ТМ-3407', progress: 0.38, color: '#3b82f6', isOwn: true, type: 'tram' },
+  { id: 'v3', label: 'ТМ-3410', progress: 0.65, color: '#f59e0b', type: 'bus' },
 ];
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
@@ -50,13 +51,56 @@ function getPosOnRoute(progress: number): [number, number] {
   return [lerp(aLat, bLat, segProgress), lerp(aLng, bLng, segProgress)];
 }
 
-function makeVehicleIcon(color: string, isOwn = false) {
-  const size = isOwn ? 20 : 14;
-  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-    ${isOwn ? `<circle cx="10" cy="10" r="9" fill="${color}" opacity="0.25"/>` : ''}
-    <rect x="3" y="5" width="14" height="10" rx="3" fill="${color}"/>
-    <rect x="5" y="7" width="4" height="4" rx="1" fill="white" opacity="0.6"/>
-    <rect x="11" y="7" width="4" height="4" rx="1" fill="white" opacity="0.6"/>
+function vehicleTypeSvgPath(type: VehicleState['type']): string {
+  switch (type) {
+    case 'tram':
+      // Tram: rectangle body with rounded top, two windows, rails below
+      return `<rect x="10" y="4" width="16" height="20" rx="4" ry="4" fill="white"/>
+        <rect x="12" y="8" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="19" y="8" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <line x1="8" y1="26" x2="28" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="2" x2="16" y2="4" stroke="white" stroke-width="1.5"/>
+        <line x1="20" y1="2" x2="20" y2="4" stroke="white" stroke-width="1.5"/>`;
+    case 'trolleybus':
+      // Trolleybus: bus body with antenna wires on top
+      return `<rect x="8" y="10" width="20" height="14" rx="3" fill="white"/>
+        <rect x="10" y="13" width="5" height="4" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="17" y="13" width="5" height="4" rx="1" fill="#f97316" opacity="0.5"/>
+        <line x1="14" y1="10" x2="10" y2="3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="10" x2="26" y2="3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
+        <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
+    case 'bus':
+      // Bus: simple bus rectangle with windows
+      return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>
+        <rect x="10" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="17" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="25" y="12" width="2" height="4" rx="1" fill="white" opacity="0.7"/>
+        <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
+        <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
+    case 'electrobus':
+      // Electrobus: bus shape with lightning bolt
+      return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>
+        <rect x="10" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="17" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <polygon points="19,3 16,9 19,9 17,14 22,7 19,7" fill="white"/>
+        <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
+        <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
+    default:
+      return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>`;
+  }
+}
+
+function makeVehicleIcon(type: VehicleState['type'], isOwn = false) {
+  const size = isOwn ? 36 : 28;
+  const vb = 36;
+  const cx = vb / 2;
+  const cy = vb / 2;
+  const r = vb / 2 - 1;
+  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="#f97316"/>
+    ${isOwn ? `<circle cx="${cx}" cy="${cy}" r="${r + 1}" fill="none" stroke="#f97316" stroke-width="2" stroke-opacity="0.4"/>` : ''}
+    ${vehicleTypeSvgPath(type)}
   </svg>`;
   return L.divIcon({
     html: svg,
@@ -128,7 +172,7 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
     VEHICLES.forEach((v) => {
       const pos = getPosOnRoute(v.progress);
       const marker = L.marker(pos, {
-        icon: makeVehicleIcon(v.color, v.isOwn),
+        icon: makeVehicleIcon(v.type, v.isOwn),
         zIndexOffset: v.isOwn ? 1000 : 500,
       }).addTo(map);
       if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
@@ -258,7 +302,7 @@ function FullscreenMap({ currentStopIndex, speed, vehicles, onClose }: {
     });
     vehicles.forEach((v) => {
       const pos = getPosOnRoute(v.progress);
-      const marker = L.marker(pos, { icon: makeVehicleIcon(v.color, v.isOwn), zIndexOffset: v.isOwn ? 1000 : 500 }).addTo(map);
+      const marker = L.marker(pos, { icon: makeVehicleIcon(v.type, v.isOwn), zIndexOffset: v.isOwn ? 1000 : 500 }).addTo(map);
       if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
       vehicleMarkersRef.current.set(v.id, marker);
     });

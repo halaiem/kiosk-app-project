@@ -6,12 +6,14 @@ export const VEHICLE_TYPE_LABELS: Record<VehicleInfo["type"], string> = {
   bus: "Автобус",
   tram: "Трамвай",
   trolleybus: "Троллейбус",
+  electrobus: "Электробус",
 };
 
 export const VEHICLE_TYPE_STYLES: Record<VehicleInfo["type"], string> = {
   bus: "bg-green-500/15 text-green-500",
   tram: "bg-blue-500/15 text-blue-500",
   trolleybus: "bg-purple-500/15 text-purple-500",
+  electrobus: "bg-teal-500/15 text-teal-500",
 };
 
 export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {

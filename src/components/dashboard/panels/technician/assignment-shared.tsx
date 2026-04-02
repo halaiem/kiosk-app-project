@@ -46,6 +46,7 @@ export const VEHICLE_TYPE_LABELS: Record<string, string> = {
   bus: "Автобус",
   tram: "Трамвай",
   trolleybus: "Троллейбус",
+  electrobus: "Электробус",
 };
 
 export const SCHEDULE_STATUS_STYLES: Record<string, string> = {

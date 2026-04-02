@@ -9,7 +9,7 @@ export interface Driver {
   id: string;
   name: string;
   routeNumber: string;
-  vehicleType: 'tram' | 'trolleybus';
+  vehicleType: 'tram' | 'trolleybus' | 'bus' | 'electrobus';
   vehicleNumber: string;
   shiftStart: string;
 }
