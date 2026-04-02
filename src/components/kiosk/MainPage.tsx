@@ -66,7 +66,7 @@ export default function MainPage({
     <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden">
 
       {/* ═══ TOP BAR ═══ */}
-      <div className="flex items-center gap-2 flex-shrink-0 px-[15px] py-[15px]"
+      <div className="flex items-center gap-2 flex-shrink-0 px-[15px] py-2.5"
         style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
 
         {/* LEFT: Menu + route info */}
