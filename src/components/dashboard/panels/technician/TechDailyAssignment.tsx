@@ -418,6 +418,9 @@ export function DailyAssignmentView({
   const [confirmAction, setConfirmAction] = useState<"cancel" | "restore" | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  const [rowConfirmKey, setRowConfirmKey] = useState<string | null>(null);
+  const [rowConfirmAction, setRowConfirmAction] = useState<"duplicate" | "delete" | null>(null);
+
   const handleCancelEntry = useCallback(async (id: string) => {
     setActionLoadingId(id);
     try {
@@ -1320,14 +1323,63 @@ export function DailyAssignmentView({
                       >
                         <Icon name="StickyNote" className="w-4 h-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.key)}
-                        className="shrink-0 w-9 h-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/5 flex items-center justify-center transition-colors"
-                        title="Удалить строку"
-                      >
-                        <Icon name="X" className="w-4 h-4" />
-                      </button>
+
+                      {rowConfirmKey === row.key ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {rowConfirmAction === "duplicate" ? "Дублировать?" : "Удалить?"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (rowConfirmAction === "duplicate") {
+                                const cur = rows.find((r) => r.key === row.key);
+                                if (cur) {
+                                  setRows((prev) => [...prev, { ...cur, key: nextKey(), showNotes: false }]);
+                                  setResults(null);
+                                }
+                              } else {
+                                removeRow(row.key);
+                              }
+                              setRowConfirmKey(null);
+                              setRowConfirmAction(null);
+                            }}
+                            className={`h-7 px-2 rounded text-[11px] font-medium transition-colors ${
+                              rowConfirmAction === "duplicate"
+                                ? "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
+                                : "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                            }`}
+                          >
+                            Да
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setRowConfirmKey(null); setRowConfirmAction(null); }}
+                            className="h-7 px-2 rounded bg-muted hover:bg-muted/70 text-[11px] text-muted-foreground transition-colors"
+                          >
+                            Нет
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => { setRowConfirmKey(row.key); setRowConfirmAction("duplicate"); }}
+                            className="shrink-0 w-9 h-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-blue-500 hover:border-blue-500/30 hover:bg-blue-500/5 flex items-center justify-center transition-colors"
+                            title="Дублировать строку"
+                          >
+                            <Icon name="Copy" className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setRowConfirmKey(row.key); setRowConfirmAction("delete"); }}
+                            className="shrink-0 w-9 h-9 rounded-lg border border-border bg-background text-muted-foreground hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/5 flex items-center justify-center transition-colors"
+                            title="Удалить строку"
+                          >
+                            <Icon name="X" className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
