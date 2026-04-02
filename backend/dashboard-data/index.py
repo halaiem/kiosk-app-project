@@ -73,7 +73,10 @@ def handler(event, context):
         if entity == 'logs':
             return handle_logs(cur, conn, user)
 
-        return resp(400, {'error': 'Укажите entity: stats, drivers, routes, vehicles, schedule, documents, messages, alerts, logs'})
+        if entity == 'templates':
+            return handle_templates(method, qs, event, cur, conn, user)
+
+        return resp(400, {'error': 'Укажите entity: stats, drivers, routes, vehicles, schedule, documents, messages, alerts, logs, templates'})
 
     finally:
         cur.close()
@@ -844,3 +847,82 @@ def handle_logs(cur, conn, user):
         })
     conn.commit()
     return resp(200, {'logs': logs})
+
+
+def handle_templates(method, params, event, cur, conn, user):
+    if method == 'GET':
+        cur.execute("""
+            SELECT t.id, t.name, t.description, t.rows, t.created_at, t.updated_at, du.full_name
+            FROM assignment_templates t
+            LEFT JOIN dashboard_users du ON du.id = t.created_by
+            ORDER BY t.updated_at DESC
+        """)
+        rows = cur.fetchall()
+        templates = []
+        for r in rows:
+            templates.append({
+                'id': r[0], 'name': r[1], 'description': r[2] or '',
+                'rows': r[3] if isinstance(r[3], list) else json.loads(r[3]) if r[3] else [],
+                'createdAt': r[4], 'updatedAt': r[5], 'createdBy': r[6] or ''
+            })
+        conn.commit()
+        return resp(200, {'templates': templates})
+
+    if method == 'POST':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+        body = json.loads(event.get('body') or '{}')
+        name = (body.get('name') or '').strip()
+        if not name:
+            return resp(400, {'error': 'Имя шаблона обязательно'})
+        tpl_rows = body.get('rows', [])
+        if not isinstance(tpl_rows, list) or len(tpl_rows) == 0:
+            return resp(400, {'error': 'Шаблон должен содержать хотя бы одну строку'})
+        description = (body.get('description') or '').strip()
+        cur.execute(
+            "INSERT INTO assignment_templates (name, description, rows, created_by) VALUES (%s, %s, %s, %s) RETURNING id",
+            (name, description, json.dumps(tpl_rows, ensure_ascii=False), user['id'])
+        )
+        tid = cur.fetchone()[0]
+        log_action(cur, user, 'create_template', str(tid), f'Шаблон: {name}')
+        conn.commit()
+        return resp(201, {'id': tid})
+
+    if method == 'PUT':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+        body = json.loads(event.get('body') or '{}')
+        tid = body.get('id')
+        if not tid:
+            return resp(400, {'error': 'id обязателен'})
+        updates = []
+        vals = []
+        if 'name' in body:
+            updates.append("name = %s")
+            vals.append(body['name'])
+        if 'description' in body:
+            updates.append("description = %s")
+            vals.append(body['description'])
+        if 'rows' in body:
+            updates.append("rows = %s")
+            vals.append(json.dumps(body['rows'], ensure_ascii=False))
+        if updates:
+            updates.append("updated_at = now()")
+            vals.append(tid)
+            cur.execute(f"UPDATE assignment_templates SET {', '.join(updates)} WHERE id = %s", vals)
+            log_action(cur, user, 'update_template', str(tid), json.dumps(body, ensure_ascii=False))
+            conn.commit()
+        return resp(200, {'ok': True})
+
+    if method == 'DELETE':
+        if user['role'] not in ('technician', 'admin'):
+            return resp(403, {'error': 'Нет доступа'})
+        tid = (params or {}).get('id')
+        if not tid:
+            return resp(400, {'error': 'id обязателен'})
+        cur.execute("DELETE FROM assignment_templates WHERE id = %s", (tid,))
+        log_action(cur, user, 'delete_template', str(tid))
+        conn.commit()
+        return resp(200, {'ok': True})
+
+    return resp(405, {'error': 'Method not allowed'})

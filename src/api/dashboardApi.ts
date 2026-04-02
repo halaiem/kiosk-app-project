@@ -252,6 +252,30 @@ export async function updateSchedule(payload: Record<string, unknown>) {
   });
 }
 
+export async function fetchTemplates() {
+  return request(`${DATA_URL}?entity=templates`);
+}
+
+export async function createTemplate(payload: { name: string; description?: string; rows: Record<string, unknown>[] }) {
+  return request(`${DATA_URL}?entity=templates`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTemplate(payload: Record<string, unknown>) {
+  return request(`${DATA_URL}?entity=templates`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTemplate(id: number) {
+  return request(`${DATA_URL}?entity=templates&id=${id}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function createDocument(payload: Record<string, unknown>) {
   return request(`${DATA_URL}?entity=documents`, {
     method: 'POST',
@@ -285,4 +309,8 @@ export default {
   updateRoute,
   deleteSchedule,
   createScheduleBatch,
+  fetchTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
 };

@@ -1,7 +1,13 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { RouteInfo, DriverInfo, VehicleInfo, ScheduleEntry } from "@/types/dashboard";
-import { createScheduleBatch } from "@/api/dashboardApi";
+import {
+  createScheduleBatch,
+  fetchTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+} from "@/api/dashboardApi";
 
 interface AssignmentRow {
   key: string;
@@ -29,6 +35,27 @@ interface BatchResultItem {
   label: string;
   ok: boolean;
   error?: string;
+}
+
+interface TemplateRow {
+  routeId: string;
+  routeNumber: string;
+  routeName: string;
+  driverId: number | null;
+  vehicleId: string;
+  shiftStart: string;
+  shiftEnd: string;
+  shiftType: "regular" | "additional";
+}
+
+interface Template {
+  id: number;
+  name: string;
+  description: string;
+  rows: TemplateRow[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
 }
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
@@ -189,6 +216,131 @@ export function DailyAssignmentView({
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<BatchResultItem[] | null>(null);
   const [existingExpanded, setExistingExpanded] = useState(false);
+
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [tplSaving, setTplSaving] = useState(false);
+  const [tplError, setTplError] = useState("");
+  const [tplOverwriteId, setTplOverwriteId] = useState<number | null>(null);
+
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const data = await fetchTemplates();
+      setTemplates(data.templates ?? []);
+    } catch {
+      setTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const rowsToTemplateRows = useCallback(
+    (r: AssignmentRow[]): TemplateRow[] =>
+      r
+        .filter((row) => row.routeId || row.driverId || row.vehicleId)
+        .map((row) => ({
+          routeId: row.routeId,
+          routeNumber: row.routeNumber,
+          routeName: row.routeName,
+          driverId: row.driverId,
+          vehicleId: row.vehicleId,
+          shiftStart: row.shiftStart,
+          shiftEnd: row.shiftEnd,
+          shiftType: row.shiftType,
+        })),
+    []
+  );
+
+  const handleSaveTemplate = useCallback(async () => {
+    if (!tplName.trim()) return;
+    setTplSaving(true);
+    setTplError("");
+    try {
+      const tplRows = rowsToTemplateRows(rows);
+      if (tplRows.length === 0) {
+        setTplError("Заполните хотя бы одну строку");
+        setTplSaving(false);
+        return;
+      }
+      if (tplOverwriteId) {
+        await updateTemplate({
+          id: tplOverwriteId,
+          name: tplName.trim(),
+          description: tplDesc.trim(),
+          rows: tplRows,
+        });
+      } else {
+        await createTemplate({
+          name: tplName.trim(),
+          description: tplDesc.trim(),
+          rows: tplRows,
+        });
+      }
+      await loadTemplates();
+      setSaveTemplateOpen(false);
+      setTplName("");
+      setTplDesc("");
+      setTplOverwriteId(null);
+    } catch (e) {
+      setTplError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setTplSaving(false);
+    }
+  }, [tplName, tplDesc, tplOverwriteId, rows, rowsToTemplateRows, loadTemplates]);
+
+  const handleLoadTemplate = useCallback(
+    (tpl: Template) => {
+      const newRows: AssignmentRow[] = tpl.rows.map((tr) => ({
+        key: nextKey(),
+        routeId: tr.routeId ?? "",
+        routeNumber: tr.routeNumber ?? "",
+        routeName: tr.routeName ?? "",
+        driverId: tr.driverId ?? null,
+        vehicleId: tr.vehicleId ?? "",
+        shiftStart: tr.shiftStart ?? "06:00",
+        shiftEnd: tr.shiftEnd ?? "14:00",
+        shiftType: tr.shiftType ?? "regular",
+        notes: "",
+        showNotes: false,
+      }));
+      setRows(newRows);
+      setResults(null);
+      setTemplatesPanelOpen(false);
+    },
+    []
+  );
+
+  const handleDeleteTemplate = useCallback(
+    async (id: number) => {
+      try {
+        await deleteTemplate(id);
+        await loadTemplates();
+      } catch {
+        //
+      }
+    },
+    [loadTemplates]
+  );
+
+  const openOverwrite = useCallback(
+    (tpl: Template) => {
+      setTplOverwriteId(tpl.id);
+      setTplName(tpl.name);
+      setTplDesc(tpl.description);
+      setSaveTemplateOpen(true);
+      setTemplatesPanelOpen(false);
+    },
+    []
+  );
 
   const existingForDate = useMemo(
     () => schedule.filter((s) => s.date === date),
@@ -604,6 +756,121 @@ export function DailyAssignmentView({
               </>
             )}
           </div>
+          <div className="relative">
+            <button
+              onClick={() => {
+                setTemplatesPanelOpen(!templatesPanelOpen);
+                setSaveTemplateOpen(false);
+              }}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
+            >
+              <Icon name="BookOpen" className="w-3.5 h-3.5" />
+              Шаблоны
+              {templates.length > 0 && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-500">
+                  {templates.length}
+                </span>
+              )}
+            </button>
+            {templatesPanelOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setTemplatesPanelOpen(false)}
+                />
+                <div className="absolute z-20 top-full right-0 mt-1 w-80 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                  <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                    <p className="text-xs font-semibold text-foreground">
+                      Шаблоны нарядов
+                    </p>
+                    <button
+                      onClick={() => {
+                        setTplOverwriteId(null);
+                        setTplName("");
+                        setTplDesc("");
+                        setTplError("");
+                        setSaveTemplateOpen(true);
+                        setTemplatesPanelOpen(false);
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Icon name="Plus" className="w-3 h-3" />
+                      Сохранить текущий
+                    </button>
+                  </div>
+                  {templatesLoading ? (
+                    <div className="px-4 pb-4 flex items-center justify-center gap-2 py-6">
+                      <Icon
+                        name="Loader2"
+                        className="w-4 h-4 animate-spin text-muted-foreground"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        Загрузка...
+                      </span>
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <div className="px-4 pb-4 text-center py-6">
+                      <Icon
+                        name="FileX"
+                        className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Нет сохранённых шаблонов
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto">
+                      {templates.map((tpl) => (
+                        <div
+                          key={tpl.id}
+                          className="px-4 py-2.5 border-t border-border hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {tpl.name}
+                              </p>
+                              {tpl.description && (
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {tpl.description}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {tpl.rows.length} строк · {tpl.createdBy}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => handleLoadTemplate(tpl)}
+                                title="Загрузить"
+                                className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-primary/10 text-primary transition-colors"
+                              >
+                                <Icon name="Download" className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => openOverwrite(tpl)}
+                                title="Перезаписать текущими данными"
+                                className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors"
+                              >
+                                <Icon name="RefreshCw" className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTemplate(tpl.id)}
+                                title="Удалить"
+                                className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-red-500/10 text-red-500/60 hover:text-red-500 transition-colors"
+                              >
+                                <Icon name="Trash2" className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={clearAll}
             className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
@@ -986,6 +1253,86 @@ export function DailyAssignmentView({
               </div>
             </div>
           )}
+        </div>
+      )}
+      {saveTemplateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setSaveTemplateOpen(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-foreground">
+                {tplOverwriteId ? "Обновить шаблон" : "Сохранить как шаблон"}
+              </h3>
+              <button
+                onClick={() => setSaveTemplateOpen(false)}
+                className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center"
+              >
+                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Название шаблона *
+                </label>
+                <input
+                  value={tplName}
+                  onChange={(e) => setTplName(e.target.value)}
+                  placeholder="Будний день, Выходной, Укороченный..."
+                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Описание
+                </label>
+                <textarea
+                  value={tplDesc}
+                  onChange={(e) => setTplDesc(e.target.value)}
+                  placeholder="Комментарий к шаблону (необязательно)"
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                />
+              </div>
+              <div className="bg-muted/30 rounded-lg px-3 py-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Будет сохранено:{" "}
+                  <span className="font-medium text-foreground">
+                    {rowsToTemplateRows(rows).length}
+                  </span>{" "}
+                  строк (маршруты, водители, ТС, время смен)
+                </p>
+              </div>
+              {tplError && (
+                <p className="text-xs text-red-500">{tplError}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setSaveTemplateOpen(false)}
+                className="flex-1 h-9 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={!tplName.trim() || tplSaving}
+                className="flex-1 flex items-center justify-center gap-2 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {tplSaving ? (
+                  <Icon name="Loader2" className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Icon name="Save" className="w-4 h-4" />
+                )}
+                {tplOverwriteId ? "Обновить" : "Сохранить"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
