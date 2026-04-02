@@ -197,7 +197,9 @@ export default function MainPage({
               <span className="text-[10px] text-muted-foreground leading-none text-center">от графика</span>
             </div>
             {/* Статус транспортного средства */}
-            <VehicleStatusWidget isDark={isDark} />
+            <div className="flex-1 flex flex-col min-h-0">
+              <VehicleStatusWidget isDark={isDark} />
+            </div>
           </div>
 
         </div>

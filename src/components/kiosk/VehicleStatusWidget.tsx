@@ -70,7 +70,7 @@ export default function VehicleStatusWidget({ isDark }: VehicleStatusWidgetProps
     <>
       <button
         onClick={() => !loading && !error && setModalOpen(true)}
-        className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3 active:scale-95 transition-all ripple"
+        className="flex-1 w-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3 active:scale-95 transition-all ripple"
         title="Диагностика ТС"
       >
         <div className="relative">
