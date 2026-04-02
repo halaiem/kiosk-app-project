@@ -4,7 +4,6 @@ import type { RouteInfo, DriverInfo, VehicleInfo, ScheduleEntry } from "@/types/
 import {
   createScheduleBatch,
   deleteSchedule,
-  updateSchedule,
   fetchTemplates,
   createTemplate,
   updateTemplate,
@@ -414,58 +413,19 @@ export function DailyAssignmentView({
 
   const shouldAutoExpand = existingForDate.length > 0 && existingForDate.length <= 5;
 
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<"cancel" | "restore" | null>(null);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelLoadingId, setCancelLoadingId] = useState<string | null>(null);
 
   const handleCancelEntry = useCallback(async (id: string) => {
-    setActionLoadingId(id);
+    setCancelLoadingId(id);
     try {
       await deleteSchedule(id);
       onReload?.();
     } finally {
-      setActionLoadingId(null);
-      setConfirmId(null);
-      setConfirmAction(null);
+      setCancelLoadingId(null);
+      setCancelingId(null);
     }
   }, [onReload]);
-
-  const handleRestoreEntry = useCallback(async (id: string) => {
-    setActionLoadingId(id);
-    try {
-      await updateSchedule({ id, status: "planned" });
-      onReload?.();
-    } finally {
-      setActionLoadingId(null);
-      setConfirmId(null);
-      setConfirmAction(null);
-    }
-  }, [onReload]);
-
-  const duplicateEntryToForm = useCallback((entry: ScheduleEntry) => {
-    const route = routes.find((r) => r.id === entry.routeId);
-    const et = (v: string | undefined) => {
-      if (!v) return "";
-      if (v.includes("T")) return v.split("T")[1]?.slice(0, 5) ?? "";
-      if (v.includes(":")) return v.slice(0, 5);
-      return "";
-    };
-    const newRow: AssignmentRow = {
-      key: nextKey(),
-      routeId: entry.routeId ?? "",
-      routeNumber: entry.routeNumber ?? route?.number ?? "",
-      routeName: route?.name ?? "",
-      driverId: entry.driverId ?? null,
-      vehicleId: entry.vehicleId ?? "",
-      shiftStart: et(entry.startTime) || "06:00",
-      shiftEnd: et(entry.endTime) || "14:00",
-      shiftType: (entry.shiftType as "regular" | "additional") ?? "regular",
-      notes: entry.notes ?? "",
-      showNotes: !!(entry.notes),
-    };
-    setRows((prev) => [...prev, newRow]);
-    setResults(null);
-  }, [routes]);
 
   const availableDrivers = useMemo(
     () =>
@@ -1089,56 +1049,37 @@ export function DailyAssignmentView({
                           {SCHEDULE_STATUS_LABELS[entry.status] ?? entry.status}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        {confirmId === entry.id ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-[11px] text-muted-foreground mr-1 whitespace-nowrap">
-                              {confirmAction === "cancel" ? "Отменить?" : "Восстановить?"}
-                            </span>
-                            <button
-                              onClick={() => confirmAction === "cancel" ? handleCancelEntry(entry.id) : handleRestoreEntry(entry.id)}
-                              disabled={actionLoadingId === entry.id}
-                              className={`flex items-center gap-1 h-6 px-2 rounded text-[11px] font-medium transition-colors disabled:opacity-50 ${confirmAction === "cancel" ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-green-500/10 text-green-600 hover:bg-green-500/20"}`}
-                            >
-                              {actionLoadingId === entry.id ? (
-                                <Icon name="Loader2" className="w-3 h-3 animate-spin" />
-                              ) : "Да"}
-                            </button>
-                            <button
-                              onClick={() => { setConfirmId(null); setConfirmAction(null); }}
-                              disabled={actionLoadingId === entry.id}
-                              className="h-6 px-2 rounded bg-muted hover:bg-muted/70 text-[11px] text-muted-foreground transition-colors"
-                            >
-                              Нет
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => duplicateEntryToForm(entry)}
-                              title="Дублировать в форму"
-                              className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <Icon name="Copy" className="w-3.5 h-3.5" />
-                            </button>
-                            {entry.status === "cancelled" ? (
+                      <td className="px-3 py-2.5 text-right">
+                        {entry.status !== "cancelled" && (
+                          cancelingId === entry.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[11px] text-muted-foreground mr-1">Отменить?</span>
                               <button
-                                onClick={() => { setConfirmId(entry.id); setConfirmAction("restore"); }}
-                                title="Восстановить"
-                                className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-green-500/10 text-muted-foreground hover:text-green-600 transition-colors"
+                                onClick={() => handleCancelEntry(entry.id)}
+                                disabled={cancelLoadingId === entry.id}
+                                className="flex items-center gap-1 h-6 px-2 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[11px] font-medium transition-colors disabled:opacity-50"
                               >
-                                <Icon name="RotateCcw" className="w-3.5 h-3.5" />
+                                {cancelLoadingId === entry.id ? (
+                                  <Icon name="Loader2" className="w-3 h-3 animate-spin" />
+                                ) : "Да"}
                               </button>
-                            ) : (
                               <button
-                                onClick={() => { setConfirmId(entry.id); setConfirmAction("cancel"); }}
-                                title="Отменить назначение"
-                                className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                                onClick={() => setCancelingId(null)}
+                                disabled={cancelLoadingId === entry.id}
+                                className="h-6 px-2 rounded bg-muted hover:bg-muted/70 text-[11px] text-muted-foreground transition-colors"
                               >
-                                <Icon name="X" className="w-3.5 h-3.5" />
+                                Нет
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setCancelingId(entry.id)}
+                              className="opacity-0 group-hover:opacity-100 flex items-center gap-1 h-6 px-2 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 text-[11px] transition-all"
+                            >
+                              <Icon name="X" className="w-3 h-3" />
+                              Отменить
+                            </button>
+                          )
                         )}
                       </td>
                     </tr>
