@@ -8,6 +8,7 @@ import {
   updateTemplate,
   deleteTemplate,
 } from "@/api/dashboardApi";
+import AssignmentPrintForm, { preparePrintRows } from "./AssignmentPrintForm";
 
 interface AssignmentRow {
   key: string;
@@ -340,6 +341,12 @@ export function DailyAssignmentView({
       setTemplatesPanelOpen(false);
     },
     []
+  );
+
+  const [printOpen, setPrintOpen] = useState(false);
+  const printRows = useMemo(
+    () => preparePrintRows(rows, drivers, vehicles),
+    [rows, drivers, vehicles]
   );
 
   const existingForDate = useMemo(
@@ -872,6 +879,14 @@ export function DailyAssignmentView({
             )}
           </div>
           <button
+            onClick={() => setPrintOpen(true)}
+            disabled={filledRows.length === 0}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Icon name="Printer" className="w-3.5 h-3.5" />
+            Печать
+          </button>
+          <button
             onClick={clearAll}
             className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors"
           >
@@ -1335,6 +1350,12 @@ export function DailyAssignmentView({
           </div>
         </div>
       )}
+      <AssignmentPrintForm
+        date={date}
+        rows={printRows}
+        open={printOpen}
+        onClose={() => setPrintOpen(false)}
+      />
     </div>
   );
 }
