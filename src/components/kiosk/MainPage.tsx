@@ -88,18 +88,18 @@ export default function MainPage({
           </div>
 
           {/* Route + stops */}
-          <div className="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/10 min-w-0">
+          <div className="flex items-center gap-2 tablet:gap-3 px-3 tablet:px-4 py-1.5 rounded-xl bg-white/10 min-w-0">
             <div className="flex flex-col items-center justify-center flex-shrink-0">
               <span className="text-white/50 text-[9px] leading-none">маршрут</span>
-              <span className="text-white font-black text-2xl leading-none tabular-nums">№{driver.routeNumber}</span>
+              <span className="text-white font-black text-xl tablet:text-2xl leading-none tabular-nums">№{driver.routeNumber}</span>
             </div>
             <div className="w-px h-7 bg-white/20 flex-shrink-0" />
-            <div className="flex items-center gap-1.5 text-sm min-w-0">
+            <div className="flex items-center gap-1.5 text-xs tablet:text-sm min-w-0">
               <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-              <span className="text-white/90 font-medium leading-none truncate max-w-[200px]">{FIRST_STOP}</span>
+              <span className="text-white/90 font-medium leading-none truncate max-w-[120px] tablet:max-w-[200px]">{FIRST_STOP}</span>
               <Icon name="ArrowRight" size={14} className="text-white/40 flex-shrink-0" />
               <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
-              <span className="text-white/90 font-medium leading-none truncate max-w-[200px]">{LAST_STOP}</span>
+              <span className="text-white/90 font-medium leading-none truncate max-w-[120px] tablet:max-w-[200px]">{LAST_STOP}</span>
             </div>
           </div>
 
@@ -165,8 +165,8 @@ export default function MainPage({
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
-        {/* MAP + WIDGETS ROW */}
-        <div className="flex-1 min-h-0 flex gap-2">
+        {/* MAP + WIDGETS ROW — takes ~55% of available height */}
+        <div className="flex-[55] min-h-0 flex gap-2">
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -181,20 +181,20 @@ export default function MainPage({
           </div>
 
           {/* SIDE WIDGETS COLUMN */}
-          <div className="flex flex-col gap-2 w-[110px] flex-shrink-0">
+          <div className="flex flex-col gap-2 w-[100px] tablet:w-[110px] flex-shrink-0">
             {/* Интервал */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3">
-              <Icon name="Timer" size={20} className="text-primary" />
-              <span className="text-xl font-black text-foreground tabular-nums leading-none">{interval} мин</span>
-              <span className="text-[10px] text-muted-foreground leading-none text-center">интервал</span>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-3">
+              <Icon name="Timer" size={18} className="text-primary tablet:!w-5 tablet:!h-5" />
+              <span className="text-lg tablet:text-xl font-black text-foreground tabular-nums leading-none">{interval} мин</span>
+              <span className="text-[9px] tablet:text-[10px] text-muted-foreground leading-none text-center">интервал</span>
             </div>
             {/* Отклонение от графика */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-3">
-              <Icon name="Clock" size={20} className="text-primary" />
-              <span className={`text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-3">
+              <Icon name="Clock" size={18} className="text-primary tablet:!w-5 tablet:!h-5" />
+              <span className={`text-lg tablet:text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
                 {devSign}{deviation} мин
               </span>
-              <span className="text-[10px] text-muted-foreground leading-none text-center">от графика</span>
+              <span className="text-[9px] tablet:text-[10px] text-muted-foreground leading-none text-center">от графика</span>
             </div>
             {/* Статус транспортного средства */}
             <div className="flex-1 flex flex-col min-h-0">
@@ -222,9 +222,9 @@ export default function MainPage({
           </div>
         </div>
 
-        {/* MESSENGER — below stops */}
-        <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
+        {/* MESSENGER — fills remaining space, min-height guarantees 2 messages visible */}
+        <div className="flex-[45] min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
             <Icon name="MessageSquare" size={14} className="text-primary" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
             {unreadCount > 0 && (
@@ -242,7 +242,7 @@ export default function MainPage({
               </button>
             </div>
           </div>
-          <div className="h-[240px] tablet:h-[360px] overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
           </div>
         </div>

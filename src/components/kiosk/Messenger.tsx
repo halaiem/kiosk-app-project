@@ -120,7 +120,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+      <div className="flex-1 overflow-y-auto px-3 tablet:px-4 py-2 tablet:py-3 space-y-2 tablet:space-y-3 min-h-0">
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Icon name="MessageSquare" size={48} className="opacity-30" />
@@ -131,7 +131,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
           const isOutgoing = msg.text.startsWith('[Водитель]');
           return (
             <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 tablet:px-4 tablet:py-3 ${
                 msg.type === 'important'
                   ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
                   : isOutgoing
@@ -146,8 +146,8 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
                     <span className="text-xs font-bold text-destructive uppercase">Важное</span>
                   </div>
                 )}
-                <p className="text-base leading-relaxed">{msg.text}</p>
-                <div className={`text-xs mt-1.5 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
+                <p className="text-sm tablet:text-base leading-snug tablet:leading-relaxed">{msg.text}</p>
+                <div className={`text-[10px] tablet:text-xs mt-1 tablet:mt-1.5 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
                   {formatTime(msg.timestamp)}
                   {isOutgoing && <DeliveryIcon status={msg.deliveryStatus} />}
                 </div>
@@ -159,13 +159,13 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       </div>
 
       {!inputFocused && (!isMoving || input.length === 0) && (
-        <div className="px-4 py-2 border-t border-border">
-          <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        <div className="px-3 tablet:px-4 py-1.5 tablet:py-2 border-t border-border flex-shrink-0">
+          <div className="flex gap-2 tablet:gap-2.5 overflow-x-auto pb-0.5 tablet:pb-1" style={{ scrollbarWidth: 'none' }}>
             {QUICK_TEMPLATES.map((tpl, i) => (
               <button
                 key={i}
                 onClick={() => handleTemplate(tpl)}
-                className="flex-shrink-0 px-4 py-2 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground text-sm text-foreground transition-all whitespace-nowrap active:scale-95 ripple"
+                className="flex-shrink-0 px-3 tablet:px-4 py-1.5 tablet:py-2 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground text-xs tablet:text-sm text-foreground transition-all whitespace-nowrap active:scale-95 ripple"
               >
                 {tpl}
               </button>
@@ -174,16 +174,16 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      <div className="px-4 pb-4 pt-2 border-t border-border flex-shrink-0">
+      <div className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
-          <div className="flex items-center gap-3 p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
-            <div className="w-5 h-5 rounded-full bg-destructive animate-pulse" />
-            <span className="text-lg text-destructive font-medium flex-1">
+          <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
+            <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
+            <span className="text-base tablet:text-lg text-destructive font-medium flex-1">
               Запись... {recordTime}с
             </span>
             <button
               onPointerUp={stopRecord}
-              className="px-6 py-3 rounded-2xl bg-destructive text-white text-lg font-semibold ripple"
+              className="px-5 py-2.5 tablet:px-6 tablet:py-3 rounded-2xl bg-destructive text-white text-base tablet:text-lg font-semibold ripple"
             >
               Стоп
             </button>
@@ -198,7 +198,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
-              className={`flex-1 min-w-0 h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 transition-all ${
+              className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${
                 isOffline
                   ? 'border-yellow-500/40 focus:ring-yellow-500/40 focus:border-yellow-500'
                   : 'border-border focus:ring-primary/40 focus:border-primary'
@@ -206,22 +206,22 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
             />
             <button
               onPointerDown={startRecord}
-              className="w-20 h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+              className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
               title="Голосовое сообщение (удерживайте)"
             >
-              <Icon name="Mic" size={36} className="text-muted-foreground" />
+              <Icon name="Mic" size={28} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
             </button>
             <button
               onPointerDown={handleSendPointerDown}
               onTouchEnd={e => e.preventDefault()}
               disabled={!input.trim()}
-              className={`w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
+              className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
                 isOffline
                   ? 'bg-yellow-500 text-white'
                   : 'bg-primary text-primary-foreground'
               }`}
             >
-              <Icon name="Send" size={34} />
+              <Icon name="Send" size={26} className="tablet:!w-[34px] tablet:!h-[34px]" />
             </button>
           </div>
         )}
