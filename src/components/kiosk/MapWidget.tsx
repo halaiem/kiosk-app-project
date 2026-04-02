@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import Icon from '@/components/ui/icon';
+import { loadIconSettings, type IconConfig } from '@/lib/vehicleIconConfig';
 
 // Fix default Leaflet icon paths for Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -51,38 +52,34 @@ function getPosOnRoute(progress: number): [number, number] {
   return [lerp(aLat, bLat, segProgress), lerp(aLng, bLng, segProgress)];
 }
 
-function vehicleTypeSvgPath(type: VehicleState['type']): string {
+function vehicleTypeSvgPath(type: VehicleState['type'], bgColor: string): string {
   switch (type) {
     case 'tram':
-      // Tram: rectangle body with rounded top, two windows, rails below
       return `<rect x="10" y="4" width="16" height="20" rx="4" ry="4" fill="white"/>
-        <rect x="12" y="8" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
-        <rect x="19" y="8" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="12" y="8" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
+        <rect x="19" y="8" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
         <line x1="8" y1="26" x2="28" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/>
         <line x1="16" y1="2" x2="16" y2="4" stroke="white" stroke-width="1.5"/>
         <line x1="20" y1="2" x2="20" y2="4" stroke="white" stroke-width="1.5"/>`;
     case 'trolleybus':
-      // Trolleybus: bus body with antenna wires on top
       return `<rect x="8" y="10" width="20" height="14" rx="3" fill="white"/>
-        <rect x="10" y="13" width="5" height="4" rx="1" fill="#f97316" opacity="0.5"/>
-        <rect x="17" y="13" width="5" height="4" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="10" y="13" width="5" height="4" rx="1" fill="${bgColor}" opacity="0.5"/>
+        <rect x="17" y="13" width="5" height="4" rx="1" fill="${bgColor}" opacity="0.5"/>
         <line x1="14" y1="10" x2="10" y2="3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
         <line x1="22" y1="10" x2="26" y2="3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
         <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
         <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
     case 'bus':
-      // Bus: simple bus rectangle with windows
       return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>
-        <rect x="10" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
-        <rect x="17" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="10" y="11" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
+        <rect x="17" y="11" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
         <rect x="25" y="12" width="2" height="4" rx="1" fill="white" opacity="0.7"/>
         <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
         <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
     case 'electrobus':
-      // Electrobus: bus shape with lightning bolt
       return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>
-        <rect x="10" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
-        <rect x="17" y="11" width="5" height="5" rx="1" fill="#f97316" opacity="0.5"/>
+        <rect x="10" y="11" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
+        <rect x="17" y="11" width="5" height="5" rx="1" fill="${bgColor}" opacity="0.5"/>
         <polygon points="19,3 16,9 19,9 17,14 22,7 19,7" fill="white"/>
         <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
         <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
@@ -91,19 +88,28 @@ function vehicleTypeSvgPath(type: VehicleState['type']): string {
   }
 }
 
-function makeVehicleIcon(type: VehicleState['type'], isOwn = false) {
-  const size = isOwn ? 36 : 28;
+function makeVehicleIcon(type: VehicleState['type'], isOwn = false, cfg?: IconConfig) {
+  const config = cfg ?? loadIconSettings()[type] ?? { color: '#f97316', size: 32 };
+  const baseSize = config.size;
+  const size = isOwn ? Math.round(baseSize * 1.2) : baseSize;
   const vb = 36;
   const cx = vb / 2;
   const cy = vb / 2;
   const r = vb / 2 - 1;
-  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="#f97316"/>
-    ${isOwn ? `<circle cx="${cx}" cy="${cy}" r="${r + 1}" fill="none" stroke="#f97316" stroke-width="2" stroke-opacity="0.4"/>` : ''}
-    ${vehicleTypeSvgPath(type)}
-  </svg>`;
+
+  let html: string;
+  if (config.customIcon) {
+    html = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${config.color};display:flex;align-items:center;justify-content:center;overflow:hidden;${isOwn ? `box-shadow:0 0 0 3px ${config.color}66` : ''}"><img src="${config.customIcon}" style="width:60%;height:60%;object-fit:contain" /></div>`;
+  } else {
+    html = `<svg width="${size}" height="${size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="${config.color}"/>
+      ${isOwn ? `<circle cx="${cx}" cy="${cy}" r="${r + 1}" fill="none" stroke="${config.color}" stroke-width="2" stroke-opacity="0.4"/>` : ''}
+      ${vehicleTypeSvgPath(type, config.color)}
+    </svg>`;
+  }
+
   return L.divIcon({
-    html: svg,
+    html,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -133,6 +139,26 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
   const [vehicles, setVehicles] = useState<VehicleState[]>(VEHICLES);
   const animRef = useRef<number>();
   const lastTimeRef = useRef(0);
+  const iconSettingsRef = useRef(loadIconSettings());
+
+  useEffect(() => {
+    const refreshIcons = () => {
+      iconSettingsRef.current = loadIconSettings();
+      vehicleMarkersRef.current.forEach((marker, id) => {
+        const v = vehicles.find((vv) => vv.id === id);
+        if (v) marker.setIcon(makeVehicleIcon(v.type, v.isOwn, iconSettingsRef.current[v.type]));
+      });
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'kiosk_vehicle_icons') refreshIcons();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('vehicleIconsChanged', refreshIcons);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('vehicleIconsChanged', refreshIcons);
+    };
+  }, [vehicles]);
 
   // Init map once
   useEffect(() => {
@@ -168,11 +194,12 @@ export default function MapWidget({ currentStopIndex, speed }: Props) {
       stopMarkersRef.current.push(marker);
     });
 
-    // Vehicle markers
+    // Vehicle markers with admin-configured icons
+    const iconCfg = iconSettingsRef.current;
     VEHICLES.forEach((v) => {
       const pos = getPosOnRoute(v.progress);
       const marker = L.marker(pos, {
-        icon: makeVehicleIcon(v.type, v.isOwn),
+        icon: makeVehicleIcon(v.type, v.isOwn, iconCfg[v.type]),
         zIndexOffset: v.isOwn ? 1000 : 500,
       }).addTo(map);
       if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
@@ -292,6 +319,7 @@ function FullscreenMap({ currentStopIndex, speed, vehicles, onClose }: {
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    const iconCfg = loadIconSettings();
     const center: [number, number] = [56.8400, 60.6200];
     const map = L.map(mapRef.current, { center, zoom: 14, zoomControl: true, attributionControl: false });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -302,7 +330,7 @@ function FullscreenMap({ currentStopIndex, speed, vehicles, onClose }: {
     });
     vehicles.forEach((v) => {
       const pos = getPosOnRoute(v.progress);
-      const marker = L.marker(pos, { icon: makeVehicleIcon(v.type, v.isOwn), zIndexOffset: v.isOwn ? 1000 : 500 }).addTo(map);
+      const marker = L.marker(pos, { icon: makeVehicleIcon(v.type, v.isOwn, iconCfg[v.type]), zIndexOffset: v.isOwn ? 1000 : 500 }).addTo(map);
       if (v.label) marker.bindTooltip(v.label, { permanent: false, direction: 'top', offset: [0, -8] });
       vehicleMarkersRef.current.set(v.id, marker);
     });

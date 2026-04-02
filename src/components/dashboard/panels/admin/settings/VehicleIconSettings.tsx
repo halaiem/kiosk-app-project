@@ -1,17 +1,13 @@
 import { useState, useRef, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import {
+  loadIconSettings,
+  saveIconSettings,
+  type IconConfig,
+  type IconSettings,
+} from "@/lib/vehicleIconConfig";
 
 type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus";
-
-interface IconConfig {
-  color: string;
-  size: number;
-  customIcon?: string;
-}
-
-type IconSettings = Record<VehicleType, IconConfig>;
-
-const STORAGE_KEY = "kiosk_vehicle_icons";
 
 const VEHICLE_TYPES: { key: VehicleType; label: string; icon: string }[] = [
   { key: "tram", label: "Трамвай", icon: "TramFront" },
@@ -29,29 +25,6 @@ function getDefaults(): IconSettings {
     bus: { ...DEFAULT_CONFIG },
     electrobus: { ...DEFAULT_CONFIG },
   };
-}
-
-function loadSettings(): IconSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const defaults = getDefaults();
-      for (const key of Object.keys(defaults) as VehicleType[]) {
-        if (parsed[key]) {
-          defaults[key] = { ...defaults[key], ...parsed[key] };
-        }
-      }
-      return defaults;
-    }
-  } catch {
-    /* ignore parse errors */
-  }
-  return getDefaults();
-}
-
-function saveSettings(settings: IconSettings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
 function vehicleTypeSvgPath(type: VehicleType, color: string): string {
@@ -103,14 +76,14 @@ function buildPreviewSvg(type: VehicleType, config: IconConfig): string {
 }
 
 export function VehicleIconSettings() {
-  const [settings, setSettings] = useState<IconSettings>(loadSettings);
+  const [settings, setSettings] = useState<IconSettings>(loadIconSettings);
   const [saved, setSaved] = useState(false);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const update = useCallback((type: VehicleType, patch: Partial<IconConfig>) => {
     setSettings((prev) => {
       const next = { ...prev, [type]: { ...prev[type], ...patch } };
-      saveSettings(next);
+      saveIconSettings(next);
       return next;
     });
   }, []);
@@ -134,11 +107,11 @@ export function VehicleIconSettings() {
   const resetAll = useCallback(() => {
     const defaults = getDefaults();
     setSettings(defaults);
-    saveSettings(defaults);
+    saveIconSettings(defaults);
   }, []);
 
   const handleSave = () => {
-    saveSettings(settings);
+    saveIconSettings(settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
