@@ -238,6 +238,13 @@ export async function createSchedule(payload: Record<string, unknown>) {
   });
 }
 
+export async function createScheduleBatch(assignments: Record<string, unknown>[]) {
+  return request(`${DATA_URL}?entity=schedule&action=batch`, {
+    method: 'POST',
+    body: JSON.stringify({ assignments }),
+  });
+}
+
 export async function updateSchedule(payload: Record<string, unknown>) {
   return request(`${DATA_URL}?entity=schedule`, {
     method: 'PUT',
@@ -277,4 +284,5 @@ export default {
   deleteDriver,
   updateRoute,
   deleteSchedule,
+  createScheduleBatch,
 };

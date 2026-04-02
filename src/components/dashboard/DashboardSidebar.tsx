@@ -42,6 +42,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "vehicles", icon: "Bus", label: "Транспорт" },
   { tab: "drivers", icon: "Users", label: "Водители" },
   { tab: "schedule", icon: "Calendar", label: "Расписание" },
+  { tab: "daily_assignment", icon: "ClipboardList", label: "Наряд на день" },
   { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
 ];
 

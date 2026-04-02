@@ -508,6 +508,61 @@ def handle_schedule(method, qs, event, cur, conn, user):
             return resp(403, {'error': 'Нет доступа'})
 
         body = json.loads(event.get('body') or '{}')
+
+        action = params.get('action', '') if params else ''
+        if action == 'batch':
+            assignments = body.get('assignments', [])
+            if not assignments or not isinstance(assignments, list):
+                return resp(400, {'error': 'assignments[] обязателен'})
+            if len(assignments) > 100:
+                return resp(400, {'error': 'Максимум 100 назначений за раз'})
+
+            status_labels = {'vacation': 'в отпуске', 'sick_leave': 'на больничном', 'fired': 'уволен'}
+            overlap_check = """
+                SELECT id FROM assignments
+                WHERE assignment_status IN ('scheduled', 'active')
+                AND shift_start < %s AND (shift_end IS NULL OR shift_end > %s)
+            """
+            created = []
+            errors = []
+            for idx, item in enumerate(assignments):
+                v_id = item.get('vehicleId')
+                r_id = item.get('routeId')
+                d_id = item.get('driverId')
+                s_start = item.get('shiftStart')
+                s_end = item.get('shiftEnd')
+                label = item.get('label', f'#{idx+1}')
+                if not v_id or not r_id or not s_start:
+                    errors.append({'index': idx, 'label': label, 'error': 'vehicleId, routeId, shiftStart обязательны'})
+                    continue
+                if d_id:
+                    cur.execute("SELECT driver_status, full_name FROM drivers WHERE id = %s", (d_id,))
+                    dr_row = cur.fetchone()
+                    if dr_row and dr_row[0] in ('vacation', 'sick_leave', 'fired'):
+                        errors.append({'index': idx, 'label': label, 'error': f'Водитель {dr_row[1]} {status_labels.get(dr_row[0], "недоступен")}'})
+                        continue
+                end_val = s_end if s_end else s_start
+                cur.execute(overlap_check + " AND vehicle_id = %s", (end_val, s_start, v_id))
+                if cur.fetchone():
+                    errors.append({'index': idx, 'label': label, 'error': 'ТС уже занято в это время'})
+                    continue
+                if d_id:
+                    cur.execute(overlap_check + " AND driver_id = %s", (end_val, s_start, d_id))
+                    if cur.fetchone():
+                        errors.append({'index': idx, 'label': label, 'error': 'Водитель уже занят в это время'})
+                        continue
+                cur.execute(
+                    """INSERT INTO assignments (vehicle_id, route_id, driver_id, shift_start, shift_end, assignment_status, shift_type, notes)
+                       VALUES (%s, %s, %s, %s, %s, 'scheduled', %s, %s) RETURNING id""",
+                    (v_id, r_id, d_id, s_start, s_end, item.get('shiftType', 'regular'), item.get('notes'))
+                )
+                aid = cur.fetchone()[0]
+                created.append({'id': str(aid), 'index': idx, 'label': label})
+            if created:
+                log_action(cur, user, 'batch_create_assignments', '', f'Создано {len(created)} назначений, ошибок: {len(errors)}')
+            conn.commit()
+            return resp(200, {'created': created, 'errors': errors})
+
         vehicle_id = body.get('vehicleId')
         route_id = body.get('routeId')
         driver_id = body.get('driverId')
