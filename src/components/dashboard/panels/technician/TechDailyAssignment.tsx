@@ -344,6 +344,7 @@ export function DailyAssignmentView({
   );
 
   const [printOpen, setPrintOpen] = useState(false);
+  const [printSource, setPrintSource] = useState<"form" | "existing">("form");
   const printRows = useMemo(
     () => preparePrintRows(rows, drivers, vehicles),
     [rows, drivers, vehicles]
@@ -353,6 +354,61 @@ export function DailyAssignmentView({
     () => schedule.filter((s) => s.date === date),
     [schedule, date]
   );
+
+  const existingNonCancelled = useMemo(
+    () => existingForDate.filter((s) => s.status !== "cancelled"),
+    [existingForDate]
+  );
+
+  const existingPrintRows = useMemo(() => {
+    const typeLabels: Record<string, string> = {
+      bus: "Автобус",
+      tram: "Трамвай",
+      trolleybus: "Троллейбус",
+    };
+    return existingNonCancelled.map((entry) => {
+      const vehicle = vehicles.find((v) => v.id === entry.vehicleId);
+      return {
+        routeNumber: entry.routeNumber,
+        routeName: routes.find((r) => r.id === entry.routeId)?.name ?? "",
+        driverName: entry.driverName,
+        driverTab: drivers.find((d) => Number(d.id) === entry.driverId)?.tabNumber ?? "—",
+        vehicleDisplay: vehicle ? `#${vehicle.boardNumber ?? vehicle.number}` : `#${entry.vehicleNumber}`,
+        vehicleType: vehicle ? (typeLabels[vehicle.type] ?? vehicle.type) : "—",
+        shiftStart: entry.startTime?.includes("T") ? entry.startTime.split("T")[1]?.slice(0, 5) ?? entry.startTime : entry.startTime?.slice(0, 5) ?? "",
+        shiftEnd: entry.endTime?.includes("T") ? entry.endTime.split("T")[1]?.slice(0, 5) ?? entry.endTime : entry.endTime?.slice(0, 5) ?? "",
+        shiftType: (entry.shiftType as "regular" | "additional") ?? "regular",
+        notes: entry.notes ?? "",
+      };
+    });
+  }, [existingNonCancelled, vehicles, routes, drivers]);
+
+  const duplicateExistingToForm = useCallback(() => {
+    const newRows: AssignmentRow[] = existingNonCancelled.map((entry) => {
+      const route = routes.find((r) => r.id === entry.routeId);
+      const extractT = (v: string | undefined) => {
+        if (!v) return "";
+        if (v.includes("T")) return v.split("T")[1]?.slice(0, 5) ?? "";
+        if (v.includes(":")) return v.slice(0, 5);
+        return "";
+      };
+      return {
+        key: nextKey(),
+        routeId: entry.routeId ?? "",
+        routeNumber: entry.routeNumber ?? route?.number ?? "",
+        routeName: route?.name ?? "",
+        driverId: entry.driverId ?? null,
+        vehicleId: entry.vehicleId ?? "",
+        shiftStart: extractT(entry.startTime) || "06:00",
+        shiftEnd: extractT(entry.endTime) || "14:00",
+        shiftType: (entry.shiftType as "regular" | "additional") ?? "regular",
+        notes: entry.notes ?? "",
+        showNotes: !!(entry.notes),
+      };
+    });
+    setRows(newRows);
+    setResults(null);
+  }, [existingNonCancelled, routes]);
 
   const shouldAutoExpand = existingForDate.length > 0 && existingForDate.length <= 5;
 
@@ -879,7 +935,10 @@ export function DailyAssignmentView({
             )}
           </div>
           <button
-            onClick={() => setPrintOpen(true)}
+            onClick={() => {
+              setPrintSource("form");
+              setPrintOpen(true);
+            }}
             disabled={filledRows.length === 0}
             className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border bg-background text-sm text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -978,6 +1037,30 @@ export function DailyAssignmentView({
                   ))}
                 </tbody>
               </table>
+              <div className="flex items-center gap-2 px-5 py-3 border-t border-border bg-muted/20">
+                <button
+                  onClick={duplicateExistingToForm}
+                  disabled={existingNonCancelled.length === 0}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-background text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40"
+                >
+                  <Icon name="Copy" className="w-3.5 h-3.5" />
+                  Дублировать в форму
+                </button>
+                <button
+                  onClick={() => {
+                    setPrintSource("existing");
+                    setPrintOpen(true);
+                  }}
+                  disabled={existingNonCancelled.length === 0}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-background text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring transition-colors disabled:opacity-40"
+                >
+                  <Icon name="Printer" className="w-3.5 h-3.5" />
+                  Печать
+                </button>
+                <span className="text-[11px] text-muted-foreground ml-auto">
+                  {existingNonCancelled.length} активных из {existingForDate.length}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -1352,7 +1435,7 @@ export function DailyAssignmentView({
       )}
       <AssignmentPrintForm
         date={date}
-        rows={printRows}
+        rows={printSource === "existing" ? existingPrintRows : printRows}
         open={printOpen}
         onClose={() => setPrintOpen(false)}
       />
