@@ -199,7 +199,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
-              onFocus={handleFocus}
+              onFocus={e => { handleFocus(); setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400); }}
               onBlur={handleBlur}
               placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
               className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${
