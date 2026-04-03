@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
+import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 // ── Equipment fault report popup ─────────────────────────────────────────────
 const VEHICLE_EQUIPMENT = [
@@ -18,6 +19,8 @@ export function EquipmentFaultPopup({ onClose, onSend }: { onClose: () => void; 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [desc, setDesc] = useState('');
   const [sent, setSent] = useState(false);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const toggle = (item: string) => {
     setSelected(prev => {
@@ -78,8 +81,10 @@ export function EquipmentFaultPopup({ onClose, onSend }: { onClose: () => void; 
 
         <div className="px-3 py-3 border-t border-border space-y-2">
           <textarea
+            ref={descRef}
             value={desc}
             onChange={e => setDesc(e.target.value)}
+            onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(descRef.current, keyboardHeight), 400)}
             placeholder="Дополнительное описание (необязательно)..."
             className="w-full h-16 px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
@@ -115,6 +120,9 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputWrapRef = useRef<HTMLDivElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const startRecord = () => {
     setIsRecording(true);
@@ -161,7 +169,7 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
           </div>
         </div>
 
-        <div className="px-3 pb-4 pt-2 border-t border-border">
+        <div ref={inputWrapRef} className="px-3 pb-4 pt-2 border-t border-border">
           {isRecording ? (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
               <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
@@ -171,9 +179,11 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
           ) : (
             <div className="flex items-center gap-2">
               <input
+                ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSend()}
+                onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight), 400)}
                 placeholder="Написать сообщение..."
                 className="flex-1 px-3 py-2.5 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />

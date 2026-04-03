@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
+import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -41,18 +42,32 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputWrapRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
   const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
   const isOffline = connection === 'offline';
 
+  const { isOpen: keyboardOpen, keyboardHeight } = useVirtualKeyboard();
+
+  useEffect(() => {
+    if (keyboardOpen && inputFocused) {
+      setTimeout(() => {
+        scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+  }, [keyboardOpen, keyboardHeight, inputFocused]);
+
   const handleFocus = useCallback(() => {
     setInputFocused(true);
     onInputFocus?.();
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
-  }, [onInputFocus]);
+    setTimeout(() => {
+      scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight);
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 400);
+  }, [onInputFocus, keyboardHeight]);
 
   const handleBlur = useCallback(() => {
-    // Задержка чтобы дать время onPointerDown кнопки отправить сработать до blur
     setTimeout(() => {
       setInputFocused(false);
       onInputBlur?.();
@@ -178,7 +193,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      <div className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
+      <div ref={inputWrapRef} className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
           <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
             <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
@@ -199,7 +214,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
-              onFocus={e => { handleFocus(); setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400); }}
+              onFocus={() => handleFocus()}
               onBlur={handleBlur}
               placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
               className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${

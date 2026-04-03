@@ -6,6 +6,7 @@ import RouteStops from './RouteStops';
 import Messenger from './Messenger';
 import VehicleStatusWidget from './VehicleStatusWidget';
 import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
+import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard';
 
 const FIRST_STOP = 'Депо Северное';
 const LAST_STOP = 'Депо Южное';
@@ -59,27 +60,23 @@ export default function MainPage({
   const now = useClock();
 
   const [inputExpanded, setInputExpanded] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const { isOpen: keyboardOpen } = useVirtualKeyboard();
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTabletDevice = () => window.innerWidth >= 768 && window.innerWidth < 1024;
 
   const resetCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
     collapseTimerRef.current = setTimeout(() => {
       setInputExpanded(false);
-      setKeyboardOpen(false);
     }, 20000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
-    if (isTabletDevice()) setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
     setTimeout(() => {
-      setKeyboardOpen(false);
       setInputExpanded(false);
     }, 200);
   }, []);

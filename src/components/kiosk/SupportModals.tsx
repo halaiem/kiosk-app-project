@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
+import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 export type SupportModalRequest =
   | { type: 'contact'; contact: { name: string; role: string; phone: string } }
@@ -12,6 +13,8 @@ export function SupportContactModal({ contact, onClose, onSend }: {
   onSend: (text: string) => void;
 }) {
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
   const send = () => {
     if (message.trim()) { onSend(message.trim()); setMessage(''); onClose(); }
   };
@@ -86,8 +89,10 @@ export function SupportContactModal({ contact, onClose, onSend }: {
             ))}
           </div>
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={e => setMessage(e.target.value)}
+            onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(textareaRef.current, keyboardHeight), 400)}
             placeholder="Или введите своё сообщение..."
             rows={4}
             className="mt-4 w-full px-4 py-4 rounded-2xl border border-border bg-background text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
@@ -123,6 +128,8 @@ export function SupportEquipmentModal({ onClose, onSend }: {
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [note, setNote] = useState('');
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const items = [
     'Сенсорный дисплей не реагирует',
@@ -204,8 +211,10 @@ export function SupportEquipmentModal({ onClose, onSend }: {
           ))}
         </div>
         <textarea
+          ref={noteRef}
           value={note}
           onChange={e => setNote(e.target.value)}
+          onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(noteRef.current, keyboardHeight), 400)}
           placeholder="Дополнительные подробности..."
           rows={4}
           className="w-full px-4 py-4 rounded-2xl border border-border bg-background text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
