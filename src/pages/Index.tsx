@@ -54,6 +54,13 @@ export default function Index() {
   const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
 
+  const [tablet, setTablet] = useState(isTablet);
+  useEffect(() => {
+    const handler = () => setTablet(isTablet());
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+
   // Единая очередь уведомлений
   const [queue, setQueue] = useState<NotifItem[]>([]);
   const seenMsgIds = useRef<Set<string>>(new Set());
@@ -230,7 +237,7 @@ export default function Index() {
 
           {/* Стек уведомлений */}
           {top && (
-            <div className="fixed inset-0 z-[200] flex flex-col items-center justify-end pb-8 px-4" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}>
+            <div className="fixed inset-0 z-[200] flex flex-col items-center justify-end px-4" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)', paddingBottom: tablet ? '12vh' : '2rem' }}>
 
               {/* Счётчик над стопкой */}
               {stackCount > 1 && (
@@ -240,7 +247,10 @@ export default function Index() {
               )}
 
               {/* Тени накопленных под верхним */}
-              <div className="relative w-full max-w-2xl">
+              <div
+                className="relative w-full max-w-2xl"
+                style={tablet ? { transform: 'scale(2)', transformOrigin: 'bottom center' } : undefined}
+              >
                 {stackCount >= 3 && (
                   <div className="absolute inset-x-6 bottom-0 h-full rounded-2xl bg-card/40 border border-border/20" style={{ transform: 'translateY(12px) scaleX(0.88)', transformOrigin: 'bottom', zIndex: -2 }} />
                 )}
