@@ -62,36 +62,27 @@ export default function MainPage({
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Следим за реальным появлением клавиатуры через visualViewport
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const shrink = window.innerHeight - vv.height;
-      // Клавиатура считается открытой если экран уменьшился более чем на 150px
-      const isOpen = shrink > 150;
-      setKeyboardOpen(isOpen);
-      if (!isOpen) setInputExpanded(false);
-    };
-    vv.addEventListener('resize', onResize);
-    return () => vv.removeEventListener('resize', onResize);
-  }, []);
-
   const resetCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
     collapseTimerRef.current = setTimeout(() => {
       setInputExpanded(false);
-    }, 20000);
+      setKeyboardOpen(false);
+    }, 30000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
+    setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
-    // Не трогаем keyboardOpen — им управляет visualViewport
-    setTimeout(() => setInputExpanded(false), 300);
+    setTimeout(() => {
+      const a = document.activeElement;
+      if (a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement) return;
+      setInputExpanded(false);
+      setKeyboardOpen(false);
+    }, 300);
   }, []);
 
   useEffect(() => () => {
@@ -107,7 +98,7 @@ export default function MainPage({
     <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden">
 
       {/* ═══ TOP BAR ═══ */}
-      <div className="flex items-center gap-2 flex-shrink-0 px-[15px] py-2.5"
+      <div className={`${keyboardOpen ? 'hidden' : ''} flex items-center gap-2 flex-shrink-0 px-[15px] py-2.5`}
         style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
 
         {/* LEFT: Menu + route info */}
