@@ -61,27 +61,37 @@ export default function MainPage({
   const [inputExpanded, setInputExpanded] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTabletDevice = () => window.innerWidth >= 768 && window.innerWidth < 1024;
+
+  // Следим за реальным появлением клавиатуры через visualViewport
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const shrink = window.innerHeight - vv.height;
+      // Клавиатура считается открытой если экран уменьшился более чем на 150px
+      const isOpen = shrink > 150;
+      setKeyboardOpen(isOpen);
+      if (!isOpen) setInputExpanded(false);
+    };
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
 
   const resetCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
     collapseTimerRef.current = setTimeout(() => {
       setInputExpanded(false);
-      setKeyboardOpen(false);
     }, 20000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
-    if (isTabletDevice()) setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setKeyboardOpen(false);
-      setInputExpanded(false);
-    }, 200);
+    // Не трогаем keyboardOpen — им управляет visualViewport
+    setTimeout(() => setInputExpanded(false), 300);
   }, []);
 
   useEffect(() => () => {
