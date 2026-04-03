@@ -24,33 +24,32 @@ export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
   };
 
   return (
-    <div className={`animate-slide-in-down flex flex-col gap-5 p-8 rounded-3xl border-2 ${colors[message.type] || colors.normal} elevation-3 w-full pointer-events-auto`}>
-      <div className="flex items-start gap-5">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0
+    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${colors[message.type] || colors.normal} elevation-3 w-full pointer-events-auto`}>
+      <div className="flex items-start gap-4 md:gap-7">
+        <div className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl flex items-center justify-center flex-shrink-0
           ${message.type === 'can_error' ? 'bg-warning/20' : message.type === 'dispatcher' ? 'bg-primary/15' : 'bg-muted'}`}>
-          <Icon name={icons[message.type] || 'Bell'} size={32}
-            className={message.type === 'can_error' ? 'text-warning-foreground' : message.type === 'dispatcher' ? 'text-primary' : 'text-foreground'} />
+          <Icon name={icons[message.type] || 'Bell'} size={28} className={`md:!w-12 md:!h-12 ${message.type === 'can_error' ? 'text-warning-foreground' : message.type === 'dispatcher' ? 'text-primary' : 'text-foreground'}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold text-muted-foreground uppercase mb-1">
+          <div className="text-sm md:text-xl font-bold text-muted-foreground uppercase mb-1">
             {message.type === 'dispatcher' ? 'Диспетчер' : message.type === 'can_error' ? 'CAN-система' : 'Уведомление'}
           </div>
-          <p className="text-xl font-semibold text-foreground leading-snug">{message.text}</p>
+          <p className="text-lg md:text-3xl font-semibold text-foreground leading-snug">{message.text}</p>
         </div>
       </div>
-      <div className="flex gap-3">
+      <div className="flex gap-3 md:gap-5">
         <button
           onClick={onConfirm}
-          className="flex-1 h-16 rounded-2xl bg-primary text-primary-foreground font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all ripple"
+          className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
         >
-          <Icon name="CheckCircle" size={28} />
+          <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
           Принято
         </button>
         <button
           onClick={onReply}
-          className="flex-1 h-16 rounded-2xl bg-green-500 text-white font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all ripple"
+          className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
         >
-          <Icon name="MessageSquare" size={28} />
+          <Icon name="MessageSquare" size={24} className="md:!w-9 md:!h-9" />
           Ответить
         </button>
       </div>
@@ -83,46 +82,46 @@ export function ImportantMessageOverlay({ message, onConfirm, onReply }: Importa
       <div className="fixed inset-0 border-4 border-destructive animate-pulse pointer-events-none rounded-none z-0" />
 
       <div className={`relative z-10 w-full transition-all duration-300 ${leaving ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}>
-        <div className="bg-destructive rounded-t-3xl p-8 flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Icon name="AlertOctagon" size={48} className="text-white" />
+        <div className="bg-destructive rounded-t-3xl p-6 md:p-10 flex items-center gap-4 md:gap-7">
+          <div className="w-16 h-16 md:w-28 md:h-28 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Icon name="AlertOctagon" size={40} className="md:!w-16 md:!h-16 text-white" />
           </div>
           <div>
-            <div className="text-white/80 text-lg font-medium uppercase tracking-wide">⚠️ ВАЖНОЕ СООБЩЕНИЕ</div>
-            <div className="text-white font-bold text-2xl">Требует подтверждения</div>
+            <div className="text-white/80 text-sm md:text-xl font-medium uppercase tracking-wide">⚠️ ВАЖНОЕ СООБЩЕНИЕ</div>
+            <div className="text-white font-bold text-xl md:text-4xl">Требует подтверждения</div>
           </div>
-          <div className="ml-auto text-white/70 text-3xl font-mono tabular-nums">{elapsed}с</div>
+          <div className="ml-auto text-white/70 text-2xl md:text-5xl font-mono tabular-nums">{elapsed}с</div>
         </div>
 
-        <div className="bg-card rounded-b-3xl p-8 elevation-4">
-          <p className="text-foreground text-xl leading-relaxed mb-8">{message.text}</p>
+        <div className="bg-card rounded-b-3xl p-6 md:p-10 elevation-4">
+          <p className="text-foreground text-lg md:text-3xl leading-relaxed mb-6 md:mb-10">{message.text}</p>
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-6">
+          <div className="flex items-center justify-between text-xs md:text-lg text-muted-foreground mb-5 md:mb-8">
             <span>{new Date(message.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-            <span className="flex items-center gap-2">
-              <Icon name="Clock" size={16} />
+            <span className="flex items-center gap-1 md:gap-2">
+              <Icon name="Clock" size={14} className="md:!w-5 md:!h-5" />
               Время реакции фиксируется
             </span>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3 md:gap-5">
             <button
               onClick={() => dismiss(onConfirm)}
-              className="flex-1 py-7 rounded-2xl bg-destructive text-white font-bold text-2xl flex items-center justify-center gap-4 elevation-3 active:scale-[0.98] transition-all ripple animate-scale-bounce"
+              className="flex-1 py-5 md:py-9 rounded-2xl bg-destructive text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 elevation-3 active:scale-[0.98] transition-all ripple animate-scale-bounce"
             >
-              <Icon name="CheckCircle2" size={36} />
+              <Icon name="CheckCircle2" size={32} className="md:!w-14 md:!h-14" />
               Принял
             </button>
             <button
               onClick={() => dismiss(onReply)}
-              className="flex-1 py-7 rounded-2xl bg-green-600 text-white font-bold text-2xl flex items-center justify-center gap-4 elevation-3 active:scale-[0.98] transition-all ripple"
+              className="flex-1 py-5 md:py-9 rounded-2xl bg-green-600 text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 elevation-3 active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="MessageSquare" size={36} />
+              <Icon name="MessageSquare" size={32} className="md:!w-14 md:!h-14" />
               Ответить
             </button>
           </div>
 
-          <p className="text-center text-sm text-muted-foreground mt-4">
+          <p className="text-center text-xs md:text-lg text-muted-foreground mt-3 md:mt-5">
             Нажмите кнопку для продолжения.
           </p>
         </div>

@@ -247,10 +247,7 @@ export default function Index() {
               )}
 
               {/* Тени накопленных под верхним */}
-              <div
-                className="relative w-full max-w-2xl"
-                style={tablet ? { transform: 'scale(2)', transformOrigin: 'bottom center' } : undefined}
-              >
+              <div className="relative w-full max-w-2xl">
                 {stackCount >= 3 && (
                   <div className="absolute inset-x-6 bottom-0 h-full rounded-2xl bg-card/40 border border-border/20" style={{ transform: 'translateY(12px) scaleX(0.88)', transformOrigin: 'bottom', zIndex: -2 }} />
                 )}
