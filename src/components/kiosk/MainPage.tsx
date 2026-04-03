@@ -59,53 +59,21 @@ export default function MainPage({
   const now = useClock();
 
   const [inputExpanded, setInputExpanded] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTablet = () => window.innerWidth >= 768;
-
-  // Определяем клавиатуру комбинированно:
-  // 1) visualViewport resize — работает в браузере
-  // 2) просто фокус — работает в fullscreen/kiosk
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const shrink = window.innerHeight - vv.height;
-      if (shrink > 150) {
-        setKeyboardOpen(true);
-      } else {
-        // В fullscreen viewport не сжимается, поэтому не сбрасываем здесь
-      }
-    };
-    vv.addEventListener('resize', onResize);
-    return () => vv.removeEventListener('resize', onResize);
-  }, []);
 
   const resetCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => {
-      setInputExpanded(false);
-      setKeyboardOpen(false);
-    }, 30000);
+    collapseTimerRef.current = setTimeout(() => setInputExpanded(false), 20000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
-    // В fullscreen visualViewport не реагирует — ставим keyboardOpen сразу по фокусу
-    if (isTablet()) setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
-    // 400мс — кнопка отправить успевает сработать до закрытия
-    setTimeout(() => {
-      // Проверяем что фокус не вернулся на другой input
-      const active = document.activeElement;
-      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
-      setInputExpanded(false);
-      setKeyboardOpen(false);
-    }, 400);
-  }, []);
+    resetCollapseTimer();
+  }, [resetCollapseTimer]);
 
   useEffect(() => () => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
@@ -220,7 +188,7 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP + WIDGETS ROW — скрывается на планшете при открытой клавиатуре */}
-        <div className={`${keyboardOpen ? 'hidden' : inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        <div className={`${inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -269,7 +237,7 @@ export default function MainPage({
         </div>
 
         {/* STOPS — скрывается при открытой клавиатуре на планшете */}
-        <div className={`${keyboardOpen ? 'hidden' : ''} flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2`}>
+        <div className={`flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2`}>
           <div className="flex items-center">
             <div className="flex-1 min-w-0">
               <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
@@ -287,7 +255,7 @@ export default function MainPage({
         </div>
 
         {/* MESSENGER — расширяется при фокусе, на планшете занимает весь экран */}
-        <div className={`${keyboardOpen ? 'flex-1' : inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
+        <div className={`${inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
             <Icon name="MessageSquare" size={14} className="text-primary" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
