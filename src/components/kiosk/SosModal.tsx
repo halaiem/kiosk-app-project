@@ -82,13 +82,22 @@ export default function SosModal({ isOpen, onClose, onSend }: Props) {
                 </p>
               </div>
 
-              <button
-                onClick={handleSos}
-                className="w-full py-6 md:py-10 rounded-2xl bg-red-600 text-white font-black text-2xl md:text-4xl flex items-center justify-center gap-4 md:gap-6 active:scale-[0.98] transition-all shadow-lg animate-scale-bounce"
-              >
-                <Icon name="Siren" size={32} className="md:!w-14 md:!h-14" />
-                ВЫЗВАТЬ ДИСПЕТЧЕРА
-              </button>
+              <div className="flex gap-3 md:gap-5">
+                <button
+                  onClick={handleSos}
+                  className="flex-1 py-6 md:py-10 rounded-2xl bg-red-600 text-white font-black text-xl md:text-3xl flex flex-col items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all shadow-lg animate-scale-bounce"
+                >
+                  <Icon name="Siren" size={32} className="md:!w-12 md:!h-12" />
+                  Вызвать диспетчера
+                </button>
+                <a
+                  href="tel:+78001234567"
+                  className="flex-1 py-6 md:py-10 rounded-2xl bg-green-600 text-white font-black text-xl md:text-3xl flex flex-col items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all shadow-lg"
+                >
+                  <Icon name="Phone" size={32} className="md:!w-12 md:!h-12" />
+                  Позвонить
+                </a>
+              </div>
 
               <button
                 onClick={handleClose}
