@@ -97,14 +97,19 @@ function makeVehicleIcon(type: VehicleState['type'], isOwn = false, cfg?: IconCo
   const cy = vb / 2;
   const r = vb / 2 - 1;
 
+  const icoScale = (config.iconSize ?? 20) / 20;
+  const tx = cx * (1 - icoScale);
+  const ty = cy * (1 - icoScale);
+
   let html: string;
   if (config.customIcon) {
-    html = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${config.color};display:flex;align-items:center;justify-content:center;overflow:hidden;${isOwn ? `box-shadow:0 0 0 3px ${config.color}66` : ''}"><img src="${config.customIcon}" style="width:60%;height:60%;object-fit:contain" /></div>`;
+    const imgPct = Math.round(icoScale * 60);
+    html = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${config.color};display:flex;align-items:center;justify-content:center;overflow:hidden;${isOwn ? `box-shadow:0 0 0 3px ${config.color}66` : ''}"><img src="${config.customIcon}" style="width:${imgPct}%;height:${imgPct}%;object-fit:contain" /></div>`;
   } else {
     html = `<svg width="${size}" height="${size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg">
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="${config.color}"/>
       ${isOwn ? `<circle cx="${cx}" cy="${cy}" r="${r + 1}" fill="none" stroke="${config.color}" stroke-width="2" stroke-opacity="0.4"/>` : ''}
-      ${vehicleTypeSvgPath(type, config.color)}
+      <g transform="translate(${tx},${ty}) scale(${icoScale})">${vehicleTypeSvgPath(type, config.color)}</g>
     </svg>`;
   }
 

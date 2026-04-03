@@ -3,6 +3,7 @@ type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus";
 export interface IconConfig {
   color: string;
   size: number;
+  iconSize: number;
   customIcon?: string;
 }
 
@@ -10,7 +11,7 @@ export type IconSettings = Record<VehicleType, IconConfig>;
 
 const STORAGE_KEY = "kiosk_vehicle_icons";
 
-const DEFAULT_CONFIG: IconConfig = { color: "#f97316", size: 32 };
+const DEFAULT_CONFIG: IconConfig = { color: "#f97316", size: 32, iconSize: 20 };
 
 function getDefaults(): IconSettings {
   return {

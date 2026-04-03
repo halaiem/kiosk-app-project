@@ -16,7 +16,7 @@ const VEHICLE_TYPES: { key: VehicleType; label: string; icon: string }[] = [
   { key: "electrobus", label: "Электробус", icon: "Zap" },
 ];
 
-const DEFAULT_CONFIG: IconConfig = { color: "#f97316", size: 32 };
+const DEFAULT_CONFIG: IconConfig = { color: "#f97316", size: 32, iconSize: 20 };
 
 function getDefaults(): IconSettings {
   return {
@@ -69,10 +69,14 @@ function buildPreviewSvg(type: VehicleType, config: IconConfig): string {
   const cx = vb / 2;
   const cy = vb / 2;
   const r = vb / 2 - 1;
+  const icoScale = (config.iconSize ?? 20) / 20;
   if (config.customIcon) {
-    return `<div style="width:${config.size}px;height:${config.size}px;border-radius:50%;background:${config.color};display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="${config.customIcon}" style="width:60%;height:60%;object-fit:contain" /></div>`;
+    const imgPct = Math.round(icoScale * 60);
+    return `<div style="width:${config.size}px;height:${config.size}px;border-radius:50%;background:${config.color};display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="${config.customIcon}" style="width:${imgPct}%;height:${imgPct}%;object-fit:contain" /></div>`;
   }
-  return `<svg width="${config.size}" height="${config.size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${config.color}"/>${vehicleTypeSvgPath(type, config.color)}</svg>`;
+  const tx = cx * (1 - icoScale);
+  const ty = cy * (1 - icoScale);
+  return `<svg width="${config.size}" height="${config.size}" viewBox="0 0 ${vb} ${vb}" xmlns="http://www.w3.org/2000/svg"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${config.color}"/><g transform="translate(${tx},${ty}) scale(${icoScale})">${vehicleTypeSvgPath(type, config.color)}</g></svg>`;
 }
 
 export function VehicleIconSettings() {
@@ -225,23 +229,50 @@ export function VehicleIconSettings() {
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs text-muted-foreground">Размер</label>
-                    <span className="text-xs font-mono text-foreground">{config.size}px</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Icon name="Circle" className="w-3 h-3" />
+                        Круг
+                      </label>
+                      <span className="text-xs font-mono text-foreground">{config.size}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={56}
+                      step={1}
+                      value={config.size}
+                      onChange={(e) => update(key, { size: Number(e.target.value) })}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                      <span>20</span>
+                      <span>56</span>
+                    </div>
                   </div>
-                  <input
-                    type="range"
-                    min={24}
-                    max={48}
-                    step={1}
-                    value={config.size}
-                    onChange={(e) => update(key, { size: Number(e.target.value) })}
-                    className="w-full accent-primary"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                    <span>24px</span>
-                    <span>48px</span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Icon name={icon} className="w-3 h-3" />
+                        Иконка
+                      </label>
+                      <span className="text-xs font-mono text-foreground">{config.iconSize ?? 20}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={32}
+                      step={1}
+                      value={config.iconSize ?? 20}
+                      onChange={(e) => update(key, { iconSize: Number(e.target.value) })}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                      <span>10</span>
+                      <span>32</span>
+                    </div>
                   </div>
                 </div>
               </div>
