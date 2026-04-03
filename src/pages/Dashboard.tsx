@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useNewMessageNotifier } from '@/hooks/useNewMessageNotifier';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import DashboardLogin from '@/components/dashboard/DashboardLogin';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
@@ -51,6 +52,8 @@ export default function Dashboard() {
   const toggleTheme = () => {
     updateSettings({ dashboardTheme: settings.dashboardTheme === 'dark' ? 'light' : 'dark' });
   };
+
+  useNewMessageNotifier(user?.role === 'dispatcher' ? data.messages : []);
 
   const counts = useMemo(() => ({
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
