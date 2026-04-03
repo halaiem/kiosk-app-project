@@ -248,7 +248,7 @@ export default function Index() {
                   <div className="absolute inset-x-3 bottom-0 h-full rounded-2xl bg-card/60 border border-border/40" style={{ transform: 'translateY(6px) scaleX(0.94)', transformOrigin: 'bottom', zIndex: -1 }} />
                 )}
 
-                <div className="relative">
+                <div className="relative" key={top.id}>
                   {top.kind === 'important' && top.message && (
                     <ImportantMessageOverlay
                       message={top.message}
