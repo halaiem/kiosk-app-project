@@ -7,29 +7,23 @@ if ('virtualKeyboard' in navigator) {
   (navigator as unknown as { virtualKeyboard: { overlaysContent: boolean } }).virtualKeyboard.overlaysContent = true;
 }
 
-// Прокрутка активного поля ввода над клавиатурой на планшете
-function scrollFocusedAboveKeyboard() {
+// На планшете при фокусе на input/textarea прокручиваем поле над клавиатурой
+window.visualViewport?.addEventListener('resize', () => {
   const focused = document.activeElement;
   if (!(focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement)) return;
-  const vv = window.visualViewport;
-  if (!vv) return;
-  const rect = focused.getBoundingClientRect();
-  const visibleBottom = vv.offsetTop + vv.height;
-  if (rect.bottom > visibleBottom - 20) {
+  const vv = window.visualViewport!;
+  // Если поле перекрыто клавиатурой — прокручиваем
+  setTimeout(() => {
     focused.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }
-}
-
-window.visualViewport?.addEventListener('resize', () => {
-  setTimeout(scrollFocusedAboveKeyboard, 50);
-  setTimeout(scrollFocusedAboveKeyboard, 300);
+  }, 100);
 });
 
 document.addEventListener('focusin', (e) => {
   const el = e.target as HTMLElement;
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
-  setTimeout(() => scrollFocusedAboveKeyboard(), 400);
-  setTimeout(() => scrollFocusedAboveKeyboard(), 800);
+  // Задержка чтобы клавиатура успела открыться
+  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'end' }), 400);
+  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'end' }), 750);
 });
 
 createRoot(document.getElementById("root")!).render(<App />);
