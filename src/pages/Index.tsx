@@ -11,6 +11,7 @@ import BreakModal from '@/components/kiosk/BreakModal';
 import KioskUnlockModal from '@/components/kiosk/KioskUnlockModal';
 import DispatcherAlert from '@/components/kiosk/DispatcherAlert';
 import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/SupportModals';
+import SosModal from '@/components/kiosk/SosModal';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 import type { Message } from '@/types/kiosk';
@@ -48,6 +49,7 @@ export default function Index() {
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
   const [breakOpen, setBreakOpen] = useState(false);
   const [kioskUnlockOpen, setKioskUnlockOpen] = useState(false);
+  const [sosOpen, setSosOpen] = useState(false);
   const [supportModal, setSupportModal] = useState<SupportModalRequest | null>(null);
 
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
@@ -195,6 +197,7 @@ export default function Index() {
             onSetStopsFullscreen={setStopsFullscreen}
             onSetMapFullscreen={setMapFullscreen}
             pendingCount={state.pendingCount}
+            onSos={() => setSosOpen(true)}
           />
 
           <SidebarMenu
@@ -283,6 +286,12 @@ export default function Index() {
           )}
 
           <BreakModal isOpen={breakOpen} onClose={() => setBreakOpen(false)} />
+
+          <SosModal
+            isOpen={sosOpen}
+            onClose={() => setSosOpen(false)}
+            onSend={state.sendMessage}
+          />
 
           <KioskUnlockModal
             isOpen={kioskUnlockOpen}

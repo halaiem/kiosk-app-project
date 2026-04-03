@@ -236,7 +236,30 @@ export function useDashboardData(user?: DashboardUser | null) {
     try {
       const data = await apiFetchMessages();
       const msgs = Array.isArray(data) ? data : (data as Record<string, unknown>).messages || [];
-      setMessages((msgs as Record<string, unknown>[]).map(m => mapMessage(m, driversRef.current)));
+      const mapped = (msgs as Record<string, unknown>[]).map(m => mapMessage(m, driversRef.current));
+      setMessages(mapped);
+
+      const sosMessages = mapped.filter(m => m.direction === 'incoming' && !m.read && m.text.includes('🆘'));
+      if (sosMessages.length > 0) {
+        setAlerts(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newAlerts = sosMessages
+            .filter(m => !existingIds.has(`sos-${m.id}`))
+            .map(m => ({
+              id: `sos-${m.id}`,
+              driverId: m.driverId,
+              driverName: m.driverName,
+              vehicleNumber: m.vehicleNumber,
+              routeNumber: m.routeNumber,
+              type: 'sos' as Alert['type'],
+              message: m.text,
+              level: 'critical' as Alert['level'],
+              timestamp: m.timestamp,
+              resolved: false,
+            }));
+          return newAlerts.length > 0 ? [...prev, ...newAlerts] : prev;
+        });
+      }
     } catch { /* ignore */ }
   }, [user]);
 
