@@ -210,7 +210,7 @@ export default function MainPage({
               <span className="text-[9px] tablet:text-[10px] text-muted-foreground leading-none text-center">интервал</span>
             </div>
             {/* Отклонение от графика */}
-            <div className="flex-1 w-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border ‎elevation-2 px-2 py-2 tablet:py-3 active:scale-95 transition-all ripple">
+            <div className="flex-1 w-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border ‎elevation-2 px-2 tablet:py-3 active:scale-95 transition-all ripple py-0">
               <Icon name="Clock" size={18} className="text-primary tablet:!w-5 tablet:!h-5" />
               <span className={`text-lg tablet:text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
                 {devSign}{deviation} мин
