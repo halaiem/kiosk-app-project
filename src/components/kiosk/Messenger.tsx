@@ -19,6 +19,8 @@ interface Props {
   isMoving: boolean;
   connection?: ConnectionStatus;
   pendingCount?: number;
+  onInputFocus?: () => void;
+  onInputBlur?: () => void;
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -31,7 +33,7 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
-export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0 }: Props) {
+export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -45,15 +47,17 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
 
   const handleFocus = useCallback(() => {
     setInputFocused(true);
+    onInputFocus?.();
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
-  }, []);
+  }, [onInputFocus]);
 
   const handleBlur = useCallback(() => {
     // Задержка чтобы дать время onPointerDown кнопки отправить сработать до blur
     setTimeout(() => {
       setInputFocused(false);
+      onInputBlur?.();
     }, 100);
-  }, []);
+  }, [onInputBlur]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

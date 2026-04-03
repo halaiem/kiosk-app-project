@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import MapWidget from './MapWidget';
@@ -56,6 +56,27 @@ export default function MainPage({
   const [interval] = useState(4);
   const [deviation] = useState(-2);
   const now = useClock();
+
+  const [inputExpanded, setInputExpanded] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetCollapseTimer = useCallback(() => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = setTimeout(() => setInputExpanded(false), 20000);
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    setInputExpanded(true);
+    resetCollapseTimer();
+  }, [resetCollapseTimer]);
+
+  const handleInputBlur = useCallback(() => {
+    resetCollapseTimer();
+  }, [resetCollapseTimer]);
+
+  useEffect(() => () => {
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+  }, []);
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -165,8 +186,8 @@ export default function MainPage({
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
-        {/* MAP + WIDGETS ROW — takes ~55% of available height */}
-        <div className="flex-[55] min-h-0 flex gap-2">
+        {/* MAP + WIDGETS ROW — takes ~55% of available height, shrinks when messenger is focused */}
+        <div className={`${inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -222,8 +243,8 @@ export default function MainPage({
           </div>
         </div>
 
-        {/* MESSENGER — fills remaining space, min-height guarantees 2 messages visible */}
-        <div className="flex-[45] min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2">
+        {/* MESSENGER — fills remaining space, expands when input is focused */}
+        <div className={`${inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
             <Icon name="MessageSquare" size={14} className="text-primary" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
@@ -243,7 +264,7 @@ export default function MainPage({
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} />
           </div>
         </div>
       </div>
