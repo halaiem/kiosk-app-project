@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
-import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -42,41 +41,36 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const inputWrapRef = useRef<HTMLDivElement>(null);
+  const inputRowRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
   const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
   const isOffline = connection === 'offline';
 
-  const { isOpen: keyboardOpen, keyboardHeight } = useVirtualKeyboard();
-
+  // Скролл вниз при новых сообщениях
   useEffect(() => {
-    if (keyboardOpen && inputFocused) {
-      setTimeout(() => {
-        scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight);
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
-    }
-  }, [keyboardOpen, keyboardHeight, inputFocused]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  // Когда клавиатура открылась — прокрутить поле ввода в видимую зону
+  const scrollInputVisible = useCallback(() => {
+    setTimeout(() => {
+      inputRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 350);
+  }, []);
 
   const handleFocus = useCallback(() => {
     setInputFocused(true);
     onInputFocus?.();
-    setTimeout(() => {
-      scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight);
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 400);
-  }, [onInputFocus, keyboardHeight]);
+    scrollInputVisible();
+  }, [onInputFocus, scrollInputVisible]);
 
   const handleBlur = useCallback(() => {
+    // Задержка чтобы дать время onPointerDown кнопки отработать до blur
     setTimeout(() => {
       setInputFocused(false);
       onInputBlur?.();
-    }, 100);
+    }, 150);
   }, [onInputBlur]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
 
   const handleSend = useCallback(() => {
     if (sendingRef.current) return;
@@ -84,15 +78,12 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     sendingRef.current = true;
     onSend(input.trim());
     setInput('');
-    // Снимаем блокировку после отправки
     setTimeout(() => { sendingRef.current = false; }, 200);
   }, [input, onSend]);
 
   const handleSendPointerDown = useCallback((e: React.PointerEvent | React.TouchEvent) => {
-    // preventDefault чтобы не вызвать blur на input (клавиатура не закроется)
     e.preventDefault();
     handleSend();
-    // Вернуть фокус на input чтобы клавиатура не закрывалась
     inputRef.current?.focus();
   }, [handleSend]);
 
@@ -104,6 +95,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     setIsRecording(true);
     setRecordTime(0);
     recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
+    onInputFocus?.();
   };
 
   const stopRecord = () => {
@@ -111,6 +103,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     setRecordTime(0);
+    onInputBlur?.();
   };
 
   const formatTime = (date: Date) =>
@@ -139,6 +132,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
+      {/* Область сообщений */}
       <div className="flex-1 overflow-y-auto px-3 tablet:px-4 py-2 tablet:py-3 space-y-2 tablet:space-y-3 min-h-0">
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
@@ -177,7 +171,8 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         <div ref={messagesEndRef} />
       </div>
 
-      {!inputFocused && (!isMoving || input.length === 0) && (
+      {/* Быстрые шаблоны — скрываются при фокусе */}
+      {!inputFocused && !isRecording && (!isMoving || input.length === 0) && (
         <div className="px-3 tablet:px-4 py-1.5 tablet:py-2 border-t border-border flex-shrink-0">
           <div className="flex gap-2 tablet:gap-2.5 overflow-x-auto pb-0.5 tablet:pb-1" style={{ scrollbarWidth: 'none' }}>
             {QUICK_TEMPLATES.map((tpl, i) => (
@@ -193,7 +188,8 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      <div ref={inputWrapRef} className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
+      {/* Поле ввода — всегда внизу, видно над клавиатурой */}
+      <div ref={inputRowRef} className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
           <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
             <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
@@ -214,7 +210,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
-              onFocus={() => handleFocus()}
+              onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
               className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${

@@ -6,7 +6,7 @@ import RouteStops from './RouteStops';
 import Messenger from './Messenger';
 import VehicleStatusWidget from './VehicleStatusWidget';
 import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
-import { useVirtualKeyboard } from '@/hooks/useVirtualKeyboard';
+
 
 const FIRST_STOP = 'Депо Северное';
 const LAST_STOP = 'Депо Южное';
@@ -59,30 +59,22 @@ export default function MainPage({
   const [deviation] = useState(-2);
   const now = useClock();
 
-  const [inputExpanded, setInputExpanded] = useState(false);
-  const { isOpen: keyboardOpen } = useVirtualKeyboard();
-  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const resetCollapseTimer = useCallback(() => {
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => {
-      setInputExpanded(false);
-    }, 20000);
-  }, []);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInputFocus = useCallback(() => {
-    setInputExpanded(true);
-    resetCollapseTimer();
-  }, [resetCollapseTimer]);
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setKeyboardOpen(true);
+  }, []);
 
   const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setInputExpanded(false);
-    }, 200);
+    blurTimerRef.current = setTimeout(() => {
+      setKeyboardOpen(false);
+    }, 300);
   }, []);
 
   useEffect(() => () => {
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
   }, []);
 
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -193,8 +185,8 @@ export default function MainPage({
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
-        {/* MAP + WIDGETS ROW — скрывается на планшете при открытой клавиатуре */}
-        <div className={`${keyboardOpen ? 'hidden' : inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        {/* MAP + WIDGETS ROW — скрывается при открытой клавиатуре */}
+        <div className={`${keyboardOpen ? 'hidden' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -260,8 +252,8 @@ export default function MainPage({
           </div>
         </div>
 
-        {/* MESSENGER — расширяется при фокусе, на планшете занимает весь экран */}
-        <div className={`${keyboardOpen ? 'flex-1' : inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
+        {/* MESSENGER — при открытой клавиатуре занимает весь экран */}
+        <div className={`${keyboardOpen ? 'flex-1' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
             <Icon name="MessageSquare" size={14} className="text-primary" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
