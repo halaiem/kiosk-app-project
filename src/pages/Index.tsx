@@ -67,11 +67,11 @@ export default function Index() {
   useAutoClose(menuOpen, () => { setMenuOpen(false); setActiveSection(null); }, 30000);
 
   const dismissTop = useCallback(() => {
-    setQueue([]);
+    setQueue(prev => prev.slice(1));
   }, []);
 
   const dismissTopAndReply = useCallback(() => {
-    setQueue([]);
+    setQueue(prev => prev.slice(1));
     setTimeout(() => setMessengerFullscreen(true), 350);
   }, []);
 
