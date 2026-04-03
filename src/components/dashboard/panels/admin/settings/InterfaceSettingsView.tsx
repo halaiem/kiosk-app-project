@@ -231,10 +231,18 @@ export function InterfaceSettingsView() {
                   <div key={key} className="flex items-center justify-between">
                     <label className="text-xs text-muted-foreground">{label}</label>
                     <div className="flex items-center gap-2">
-                      <div
-                        className="w-6 h-6 rounded-lg border border-border"
-                        style={{ background: colors[key] }}
-                      />
+                      <div className="relative w-6 h-6 cursor-pointer">
+                        <div
+                          className="w-6 h-6 rounded-lg border border-border"
+                          style={{ background: colors[key] }}
+                        />
+                        <input
+                          type="color"
+                          value={colors[key]}
+                          onChange={(e) => updateSettings({ brandColors: { ...colors, [key]: e.target.value } })}
+                          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        />
+                      </div>
                       <input
                         type="text"
                         value={colors[key]}
