@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   DispatchMessage, Notification, Alert, RouteInfo, VehicleInfo,
   DriverInfo, ScheduleEntry, DocumentInfo, ServerInfo, AuditLog, DashboardStats, DashboardUser,
@@ -6,7 +6,7 @@ import type {
 } from '@/types/dashboard';
 import type { MapVehicleInfo } from '@/components/dashboard/MapVehicleCard';
 import {
-  fetchBatch, fetchAuditLogs,
+  fetchBatch, fetchAuditLogs, fetchMessages as apiFetchMessages,
   sendDispatcherMsg, resolveAlert as apiResolveAlert, updateDocumentStatus as apiUpdateDocumentStatus,
 } from '@/api/dashboardApi';
 import { fetchIssueReports, resolveIssueReport as apiResolveIssue } from '@/api/diagnosticsApi';
@@ -168,6 +168,10 @@ function mapLog(l: Record<string, unknown>): AuditLog {
   };
 }
 
+const MSG_FAST_INTERVAL = 5000;   // 5 сек — активный режим после отправки
+const MSG_IDLE_INTERVAL = 30000;  // 30 сек — обычный режим
+const ISSUES_INTERVAL = 3600000;  // 60 мин — диагностика ТС
+
 export function useDashboardData(user?: DashboardUser | null) {
   const [stats, setStats] = useState<DashboardStats>({
     activeDrivers: 0, totalVehicles: 0, activeRoutes: 0,
@@ -185,6 +189,11 @@ export function useDashboardData(user?: DashboardUser | null) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [issueReports, setIssueReports] = useState<IssueReport[]>([]);
 
+  const driversRef = useRef<DriverInfo[]>([]);
+  const msgFastModeRef = useRef(false);
+  const msgIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fastModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadAll = useCallback(async () => {
     if (!user) return;
     try {
@@ -201,6 +210,7 @@ export function useDashboardData(user?: DashboardUser | null) {
       });
 
       const mappedDrivers: DriverInfo[] = ((batch.drivers || []) as Record<string, unknown>[]).map(mapDriver);
+      driversRef.current = mappedDrivers;
       setDrivers(mappedDrivers);
       setRoutes(((batch.routes || []) as Record<string, unknown>[]).map(mapRoute));
       setVehicles(((batch.vehicles || []) as Record<string, unknown>[]).map(mapVehicle));
@@ -216,30 +226,74 @@ export function useDashboardData(user?: DashboardUser | null) {
           setLogs((arr as Record<string, unknown>[]).map(mapLog));
         } catch { /* ignore */ }
       }
-
-      if (user.role === 'dispatcher' || user.role === 'technician') {
-        try {
-          const issuesData = await fetchIssueReports();
-          const arr = Array.isArray(issuesData) ? issuesData : [];
-          setIssueReports(arr as IssueReport[]);
-        } catch { /* ignore */ }
-      }
     } catch (e) {
       console.error('Dashboard data load error:', e);
     }
   }, [user]);
 
+  const loadMessages = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await apiFetchMessages();
+      const msgs = Array.isArray(data) ? data : (data as Record<string, unknown>).messages || [];
+      setMessages((msgs as Record<string, unknown>[]).map(m => mapMessage(m, driversRef.current)));
+    } catch { /* ignore */ }
+  }, [user]);
+
+  const loadIssues = useCallback(async () => {
+    if (!user || (user.role !== 'dispatcher' && user.role !== 'technician')) return;
+    try {
+      const issuesData = await fetchIssueReports();
+      const arr = Array.isArray(issuesData) ? issuesData : [];
+      setIssueReports(arr as IssueReport[]);
+    } catch { /* ignore */ }
+  }, [user]);
+
+  const startMsgFastMode = useCallback(() => {
+    if (msgFastModeRef.current) return;
+    msgFastModeRef.current = true;
+
+    if (msgIntervalRef.current) clearInterval(msgIntervalRef.current);
+    msgIntervalRef.current = setInterval(loadMessages, MSG_FAST_INTERVAL);
+
+    if (fastModeTimerRef.current) clearTimeout(fastModeTimerRef.current);
+    fastModeTimerRef.current = setTimeout(() => {
+      msgFastModeRef.current = false;
+      if (msgIntervalRef.current) clearInterval(msgIntervalRef.current);
+      msgIntervalRef.current = setInterval(loadMessages, MSG_IDLE_INTERVAL);
+    }, 60000); // быстрый режим на 60 сек после последнего сообщения
+  }, [loadMessages]);
+
   useEffect(() => {
     loadAll();
     if (!user) return;
-    const interval = setInterval(loadAll, 30000);
-    return () => clearInterval(interval);
+    const mainInterval = setInterval(loadAll, 30000);
+    return () => clearInterval(mainInterval);
   }, [loadAll, user]);
+
+  // Отдельный интервал для сообщений
+  useEffect(() => {
+    if (!user) return;
+    loadMessages();
+    msgIntervalRef.current = setInterval(loadMessages, MSG_IDLE_INTERVAL);
+    return () => {
+      if (msgIntervalRef.current) clearInterval(msgIntervalRef.current);
+      if (fastModeTimerRef.current) clearTimeout(fastModeTimerRef.current);
+    };
+  }, [user, loadMessages]);
+
+  // Отдельный интервал для диагностики — 60 мин
+  useEffect(() => {
+    if (!user) return;
+    loadIssues();
+    const issuesInterval = setInterval(loadIssues, ISSUES_INTERVAL);
+    return () => clearInterval(issuesInterval);
+  }, [user, loadIssues]);
 
   const sendMessage = useCallback(async (driverId: string, text: string) => {
     try {
       await sendDispatcherMsg(driverId, text);
-      const driver = drivers.find(d => d.id === driverId);
+      const driver = driversRef.current.find(d => d.id === driverId);
       const newMsg: DispatchMessage = {
         id: Date.now().toString(),
         driverId,
@@ -253,10 +307,11 @@ export function useDashboardData(user?: DashboardUser | null) {
         type: 'normal',
       };
       setMessages(prev => [...prev, newMsg]);
+      startMsgFastMode();
     } catch (e) {
       console.error('Send message error:', e);
     }
-  }, [drivers]);
+  }, [startMsgFastMode]);
 
   const markMessageRead = useCallback((id: string) => {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m));
@@ -325,5 +380,8 @@ export function useDashboardData(user?: DashboardUser | null) {
     updateDocumentStatus,
     resolveIssue,
     reload: loadAll,
+    reloadMessages: loadMessages,
+    reloadIssues: loadIssues,
+    activateFastMessageMode: startMsgFastMode,
   };
 }
