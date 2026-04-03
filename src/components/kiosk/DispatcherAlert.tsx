@@ -38,11 +38,11 @@ export default function DispatcherAlert({ alert, onConfirm, onReply }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex items-end justify-center pb-6 px-4"
-      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', transition: 'opacity 0.3s', opacity: visible ? 1 : 0 }}
+      className="w-full"
+      style={{ transition: 'opacity 0.3s', opacity: visible ? 1 : 0 }}
     >
       <div
-        className="w-full max-w-lg"
+        className="w-full"
         style={{ transform: visible ? 'translateY(0)' : 'translateY(60px)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)', opacity: visible ? 1 : 0 }}
       >
         {/* Pulse ring */}

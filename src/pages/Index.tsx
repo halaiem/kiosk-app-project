@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { playMessageBeep, playUrgentBeep } from '@/lib/kioskSound';
 import { useKioskState } from '@/hooks/useKioskState';
 import { useAutoClose } from '@/hooks/useAutoClose';
@@ -13,8 +13,26 @@ import DispatcherAlert from '@/components/kiosk/DispatcherAlert';
 import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/SupportModals';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
+import type { Message } from '@/types/kiosk';
 
-const DISPATCHER_ALERTS = [
+type NotifKind = 'message' | 'important' | 'alert';
+
+interface AlertData {
+  id: string;
+  icon: string;
+  color: string;
+  text: string;
+  sub: string;
+}
+
+interface NotifItem {
+  id: string;
+  kind: NotifKind;
+  message?: Message;
+  alert?: AlertData;
+}
+
+const DISPATCHER_ALERTS: AlertData[] = [
   { id: 'da1', icon: 'AlertTriangle', color: 'bg-red-600', text: 'Срочно вернитесь в парк! Техническая проверка ТС.', sub: 'Диспетчер Иванова А.П.' },
   { id: 'da2', icon: 'Construction', color: 'bg-orange-500', text: 'Объезд! Перекрыта ул. Садовая — ДТП. Следуйте по ул. Невской.', sub: 'Диспетчер Петров М.С.' },
   { id: 'da3', icon: 'Clock', color: 'bg-blue-600', text: 'Задержитесь на конечной 10 мин — регулировка интервала.', sub: 'Диспетчер Смирнова Е.В.' },
@@ -28,32 +46,70 @@ export default function Index() {
   const state = useKioskState();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
-  const [toasts, setToasts] = useState<string[]>([]);
   const [breakOpen, setBreakOpen] = useState(false);
   const [kioskUnlockOpen, setKioskUnlockOpen] = useState(false);
-  const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
-  const [dispatcherAlert, setDispatcherAlert] = useState<typeof DISPATCHER_ALERTS[0] | null>(null);
-  const [shownAlerts, setShownAlerts] = useState<Set<string>>(new Set());
   const [supportModal, setSupportModal] = useState<SupportModalRequest | null>(null);
 
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
   const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
 
+  // Единая очередь уведомлений
+  const [queue, setQueue] = useState<NotifItem[]>([]);
+  const seenMsgIds = useRef<Set<string>>(new Set());
+  const seenImportantIds = useRef<Set<string>>(new Set());
+  const shownAlertIds = useRef<Set<string>>(new Set());
+  const lastAlertIdRef = useRef<string | null>(null);
+
   useAutoClose(messengerFullscreen, () => setMessengerFullscreen(false), 30000);
   useAutoClose(stopsFullscreen, () => setStopsFullscreen(false), 30000);
   useAutoClose(mapFullscreen, () => setMapFullscreen(false), 30000);
   useAutoClose(menuOpen, () => { setMenuOpen(false); setActiveSection(null); }, 30000);
 
+  const dismissTop = useCallback(() => {
+    setQueue(prev => prev.slice(1));
+  }, []);
+
+  const dismissTopAndReply = useCallback(() => {
+    setQueue(prev => prev.slice(1));
+    setTimeout(() => setMessengerFullscreen(true), 350);
+  }, []);
+
+  // Обычные сообщения от диспетчера → в очередь
+  useEffect(() => {
+    const latest = state.messages[0];
+    if (!latest) return;
+    if (latest.type === 'important') return;
+    if (!latest.read && !seenMsgIds.current.has(latest.id)) {
+      seenMsgIds.current.add(latest.id);
+      playMessageBeep();
+      setQueue(prev => [...prev, { id: `msg-${latest.id}`, kind: 'message', message: latest }]);
+    }
+  }, [state.messages[0]?.id]);
+
+  // Важные сообщения → в очередь
+  useEffect(() => {
+    const imp = state.pendingImportant;
+    if (!imp || imp.confirmed) return;
+    if (seenImportantIds.current.has(imp.id)) return;
+    seenImportantIds.current.add(imp.id);
+    playUrgentBeep();
+    setQueue(prev => [...prev, { id: `imp-${imp.id}`, kind: 'important', message: imp }]);
+  }, [state.pendingImportant?.id]);
+
+  // Алерты диспетчера (демо) → в очередь
   const triggerRandomAlert = useCallback(() => {
-    const unseen = DISPATCHER_ALERTS.filter(a => !shownAlerts.has(a.id));
+    const unseen = DISPATCHER_ALERTS.filter(a => !shownAlertIds.current.has(a.id));
     const pool = unseen.length > 0 ? unseen : DISPATCHER_ALERTS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    setDispatcherAlert(pick);
-    setShownAlerts(prev => new Set([...prev, pick.id]));
+    shownAlertIds.current.add(pick.id);
+    lastAlertIdRef.current = pick.id;
     state.addDispatcherMessage(pick.text, pick.sub);
-  }, [shownAlerts, state.addDispatcherMessage]);
+    playUrgentBeep();
+    setQueue(prev => [...prev, { id: `alert-${pick.id}-${Date.now()}`, kind: 'alert', alert: pick }]);
+  }, [state.addDispatcherMessage]);
 
+  // Первое уведомление через 60 сек (планшет)
   useEffect(() => {
     if (state.screen !== 'main') return;
     const tablet = isTablet();
@@ -62,37 +118,14 @@ export default function Index() {
     return () => clearTimeout(t);
   }, [state.screen, triggerRandomAlert]);
 
+  // Следующие через 300 сек (планшет)
   useEffect(() => {
-    if (!dispatcherAlert) return;
+    if (lastAlertIdRef.current === null) return;
     const tablet = isTablet();
     const interval = tablet ? 300000 : 40000 + Math.random() * 30000;
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
-  }, [dispatcherAlert?.id]);
-
-  useEffect(() => {
-    const latest = state.messages[0];
-    if (!latest) return;
-    if (latest.type === 'important') return;
-    if (!latest.read && !seenMessages.has(latest.id)) {
-      setSeenMessages(prev => new Set([...prev, latest.id]));
-      setToasts(prev => [...prev.slice(-2), latest.id]);
-      if (latest.type === 'dispatcher') playMessageBeep();
-      setTimeout(() => {
-        setToasts(prev => prev.filter(id => id !== latest.id));
-      }, 55000);
-    }
-  }, [state.messages[0]?.id]);
-
-  useEffect(() => {
-    if (state.pendingImportant && !state.pendingImportant.confirmed) {
-      playUrgentBeep();
-    }
-  }, [state.pendingImportant?.id]);
-
-  useEffect(() => {
-    if (dispatcherAlert) playUrgentBeep();
-  }, [dispatcherAlert?.id]);
+  }, [lastAlertIdRef.current, triggerRandomAlert]);
 
   const handleLogoTap = () => {
     state.handleLogoTap();
@@ -106,18 +139,8 @@ export default function Index() {
     if (ok) state.logout();
   };
 
-  const handleToggleTheme = () => {
-    state.toggleTheme();
-  };
-
-  const handleReplyFromAlert = () => {
-    setDispatcherAlert(null);
-    setTimeout(() => setMessengerFullscreen(true), 400);
-  };
-
-  const activeToasts = toasts
-    .map(id => state.messages.find(m => m.id === id))
-    .filter(Boolean);
+  const top = queue[0] ?? null;
+  const stackCount = queue.length;
 
   return (
     <div className="h-screen w-screen overflow-hidden relative">
@@ -157,7 +180,7 @@ export default function Index() {
             logoTapCount={state.logoTapCount}
             onBreak={() => setBreakOpen(true)}
             onEndShift={handleEndShift}
-            onToggleTheme={handleToggleTheme}
+            onToggleTheme={state.toggleTheme}
             messengerFullscreen={messengerFullscreen}
             stopsFullscreen={stopsFullscreen}
             mapFullscreen={mapFullscreen}
@@ -205,24 +228,51 @@ export default function Index() {
             />
           )}
 
-          <div className="fixed top-16 right-4 z-30 flex flex-col gap-2 pointer-events-none">
-            {activeToasts.map(msg => msg && (
-              <MessageToast
-                key={msg.id}
-                message={msg}
-                onClose={() => {
-                  setToasts(prev => prev.filter(id => id !== msg.id));
-                  state.markRead(msg.id);
-                }}
-              />
-            ))}
-          </div>
+          {/* Стек уведомлений */}
+          {top && (
+            <div className="fixed inset-0 z-[200] flex flex-col items-center justify-end pb-8 px-4" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}>
 
-          {state.pendingImportant && !state.pendingImportant.confirmed && (
-            <ImportantMessageOverlay
-              message={state.pendingImportant}
-              onConfirm={() => state.confirmImportant(state.pendingImportant!.id)}
-            />
+              {/* Счётчик над стопкой */}
+              {stackCount > 1 && (
+                <div className="mb-3 px-4 py-1.5 rounded-full bg-destructive text-white text-sm font-bold shadow-lg">
+                  {stackCount} уведомлений
+                </div>
+              )}
+
+              {/* Тени накопленных под верхним */}
+              <div className="relative w-full max-w-lg">
+                {stackCount >= 3 && (
+                  <div className="absolute inset-x-6 bottom-0 h-full rounded-2xl bg-card/40 border border-border/20" style={{ transform: 'translateY(12px) scaleX(0.88)', transformOrigin: 'bottom', zIndex: -2 }} />
+                )}
+                {stackCount >= 2 && (
+                  <div className="absolute inset-x-3 bottom-0 h-full rounded-2xl bg-card/60 border border-border/40" style={{ transform: 'translateY(6px) scaleX(0.94)', transformOrigin: 'bottom', zIndex: -1 }} />
+                )}
+
+                <div className="relative">
+                  {top.kind === 'important' && top.message && (
+                    <ImportantMessageOverlay
+                      message={top.message}
+                      onConfirm={() => { state.confirmImportant(top.message!.id); dismissTop(); }}
+                      onReply={() => { state.confirmImportant(top.message!.id); dismissTopAndReply(); }}
+                    />
+                  )}
+                  {top.kind === 'alert' && top.alert && (
+                    <DispatcherAlert
+                      alert={top.alert}
+                      onConfirm={dismissTop}
+                      onReply={dismissTopAndReply}
+                    />
+                  )}
+                  {top.kind === 'message' && top.message && (
+                    <MessageToast
+                      message={top.message}
+                      onConfirm={() => { state.markRead(top.message!.id); dismissTop(); }}
+                      onReply={() => { state.markRead(top.message!.id); dismissTopAndReply(); }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           <BreakModal isOpen={breakOpen} onClose={() => setBreakOpen(false)} />
@@ -232,14 +282,6 @@ export default function Index() {
             onClose={() => setKioskUnlockOpen(false)}
             onUnlock={() => console.log('Kiosk unlocked')}
           />
-
-          {dispatcherAlert && (
-            <DispatcherAlert
-              alert={dispatcherAlert}
-              onConfirm={() => setDispatcherAlert(null)}
-              onReply={handleReplyFromAlert}
-            />
-          )}
         </>
       )}
     </div>
