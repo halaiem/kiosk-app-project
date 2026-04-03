@@ -59,21 +59,30 @@ export default function MainPage({
   const now = useClock();
 
   const [inputExpanded, setInputExpanded] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTabletDevice = () => window.innerWidth >= 768 && window.innerWidth < 1024;
 
   const resetCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => setInputExpanded(false), 20000);
+    collapseTimerRef.current = setTimeout(() => {
+      setInputExpanded(false);
+      setKeyboardOpen(false);
+    }, 20000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
+    if (isTabletDevice()) setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
-    resetCollapseTimer();
-  }, [resetCollapseTimer]);
+    setTimeout(() => {
+      setKeyboardOpen(false);
+      setInputExpanded(false);
+    }, 200);
+  }, []);
 
   useEffect(() => () => {
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
@@ -187,8 +196,8 @@ export default function MainPage({
       {/* ═══ MAIN CONTENT ═══ */}
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
-        {/* MAP + WIDGETS ROW — takes ~55% of available height, shrinks when messenger is focused */}
-        <div className={`${inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        {/* MAP + WIDGETS ROW — скрывается на планшете при открытой клавиатуре */}
+        <div className={`${keyboardOpen ? 'hidden' : inputExpanded ? 'flex-[30]' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -236,8 +245,8 @@ export default function MainPage({
 
         </div>
 
-        {/* STOPS — horizontal strip above messenger */}
-        <div className="flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2">
+        {/* STOPS — скрывается при открытой клавиатуре на планшете */}
+        <div className={`${keyboardOpen ? 'hidden' : ''} flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2`}>
           <div className="flex items-center">
             <div className="flex-1 min-w-0">
               <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
@@ -254,8 +263,8 @@ export default function MainPage({
           </div>
         </div>
 
-        {/* MESSENGER — fills remaining space, expands when input is focused */}
-        <div className={`${inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
+        {/* MESSENGER — расширяется при фокусе, на планшете занимает весь экран */}
+        <div className={`${keyboardOpen ? 'flex-1' : inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
             <Icon name="MessageSquare" size={14} className="text-primary" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
