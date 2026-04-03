@@ -152,7 +152,7 @@ export default function Index() {
   const stackCount = queue.length;
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative">
+    <div className="h-full w-full overflow-hidden relative">
       {state.screen === 'login' && (
         <>
           <LoginPage onLogin={state.login} error={state.loginError} loading={state.loginLoading} />
