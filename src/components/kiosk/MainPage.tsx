@@ -204,7 +204,7 @@ export default function MainPage({
           {/* SIDE WIDGETS COLUMN — all 3 widgets equal height via flex-1 + basis-0 */}
           <div className="flex flex-col gap-2 w-[100px] tablet:w-[110px] flex-shrink-0">
             {/* Интервал */}
-            <div className="flex-1 basis-0 min-h-0 flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-3">
+            <div className="flex-1 w-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border ‎elevation-2 px-2 py-2 tablet:py-3 active:scale-95 transition-all ripple">
               <Icon name="Timer" size={18} className="text-primary tablet:!w-5 tablet:!h-5" />
               <span className="text-lg tablet:text-xl font-black text-foreground tabular-nums leading-none">{interval} мин</span>
               <span className="text-[9px] tablet:text-[10px] text-muted-foreground leading-none text-center">интервал</span>
