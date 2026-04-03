@@ -21,6 +21,7 @@ interface Props {
   pendingCount?: number;
   onInputFocus?: () => void;
   onInputBlur?: () => void;
+  inputOnTop?: boolean;
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -33,7 +34,7 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
-export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur }: Props) {
+export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur, inputOnTop = false }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -100,8 +101,64 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const formatTime = (date: Date) =>
     new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
+  const inputBlock = (
+    <div className={`px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 ${inputOnTop ? 'border-b' : 'border-t'} border-border flex-shrink-0`}>
+      {isRecording ? (
+        <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
+          <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
+          <span className="text-base tablet:text-lg text-destructive font-medium flex-1">
+            Запись... {recordTime}с
+          </span>
+          <button
+            onPointerUp={stopRecord}
+            className="px-5 py-2.5 tablet:px-6 tablet:py-3 rounded-2xl bg-destructive text-white text-base tablet:text-lg font-semibold ripple"
+          >
+            Стоп
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
+            className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${
+              isOffline
+                ? 'border-yellow-500/40 focus:ring-yellow-500/40 focus:border-yellow-500'
+                : 'border-border focus:ring-primary/40 focus:border-primary'
+            }`}
+          />
+          <button
+            onPointerDown={startRecord}
+            className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+            title="Голосовое сообщение (удерживайте)"
+          >
+            <Icon name="Mic" size={28} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
+          </button>
+          <button
+            onPointerDown={handleSendPointerDown}
+            onTouchEnd={e => e.preventDefault()}
+            disabled={!input.trim()}
+            className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
+              isOffline
+                ? 'bg-yellow-500 text-white'
+                : 'bg-primary text-primary-foreground'
+            }`}
+          >
+            <Icon name="Send" size={28} className="tablet:!w-9 tablet:!h-9" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full">
+      {inputOnTop && inputBlock}
       {isOffline && (
         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/15 border-b border-yellow-500/30">
           <Icon name="WifiOff" size={16} className="text-yellow-500" />
@@ -177,58 +234,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      <div className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
-        {isRecording ? (
-          <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
-            <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
-            <span className="text-base tablet:text-lg text-destructive font-medium flex-1">
-              Запись... {recordTime}с
-            </span>
-            <button
-              onPointerUp={stopRecord}
-              className="px-5 py-2.5 tablet:px-6 tablet:py-3 rounded-2xl bg-destructive text-white text-base tablet:text-lg font-semibold ripple"
-            >
-              Стоп
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
-              className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${
-                isOffline
-                  ? 'border-yellow-500/40 focus:ring-yellow-500/40 focus:border-yellow-500'
-                  : 'border-border focus:ring-primary/40 focus:border-primary'
-              }`}
-            />
-            <button
-              onPointerDown={startRecord}
-              className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
-              title="Голосовое сообщение (удерживайте)"
-            >
-              <Icon name="Mic" size={28} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
-            </button>
-            <button
-              onPointerDown={handleSendPointerDown}
-              onTouchEnd={e => e.preventDefault()}
-              disabled={!input.trim()}
-              className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
-                isOffline
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-primary text-primary-foreground'
-              }`}
-            >
-              <Icon name="Send" size={26} className="tablet:!w-[34px] tablet:!h-[34px]" />
-            </button>
-          </div>
-        )}
-      </div>
+      {!inputOnTop && inputBlock}
     </div>
   );
 }

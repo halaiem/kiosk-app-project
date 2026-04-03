@@ -264,30 +264,53 @@ export default function MainPage({
           </div>
         </div>
 
-        {/* MESSENGER — расширяется при фокусе, на планшете занимает весь экран */}
-        <div className={`${keyboardOpen ? 'flex-1' : inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
-            <Icon name="MessageSquare" size={14} className="text-primary" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
-            {unreadCount > 0 && (
-              <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
-                {unreadCount} новых
-              </div>
-            )}
-            <div className="ml-auto">
+        {/* MESSENGER — при keyboardOpen разворачивается на весь экран с input вверху */}
+        {keyboardOpen ? (
+          <div className="fixed inset-0 z-[50] flex flex-col kiosk-surface" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-shrink-0">
+              <Icon name="MessageSquare" size={14} className="text-primary" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
+              {unreadCount > 0 && (
+                <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
+                  {unreadCount} новых
+                </div>
+              )}
               <button
-                onClick={() => onSetMessengerFullscreen(true)}
-                className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
-                title="Открыть на весь экран"
+                onClick={() => { setKeyboardOpen(false); setInputExpanded(false); }}
+                className="ml-auto w-8 h-8 rounded-lg bg-muted hover:bg-muted-foreground/20 flex items-center justify-center active:scale-95 transition-all"
               >
-                <Icon name="Maximize2" size={14} className="text-muted-foreground" />
+                <Icon name="X" size={16} className="text-foreground" />
               </button>
             </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} inputOnTop />
+            </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} />
+        ) : (
+          <div className={`${inputExpanded ? 'flex-[70]' : 'flex-[45]'} min-h-[160px] flex flex-col kiosk-surface rounded-2xl overflow-hidden elevation-2 transition-all duration-300`}>
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border flex-shrink-0">
+              <Icon name="MessageSquare" size={14} className="text-primary" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Диспетчерская связь</span>
+              {unreadCount > 0 && (
+                <div className="px-2 py-0.5 rounded-full bg-destructive/15 text-destructive text-[10px] font-bold">
+                  {unreadCount} новых
+                </div>
+              )}
+              <div className="ml-auto">
+                <button
+                  onClick={() => onSetMessengerFullscreen(true)}
+                  className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+                  title="Открыть на весь экран"
+                >
+                  <Icon name="Maximize2" size={14} className="text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Messenger fullscreen overlay */}
