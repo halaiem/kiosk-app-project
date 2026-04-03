@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole } from "@/types/dashboard";
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -76,6 +76,7 @@ interface DashboardSidebarProps {
   counts?: Record<string, number>;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  onReload?: () => void;
 }
 
 export default function DashboardSidebar({
@@ -87,8 +88,20 @@ export default function DashboardSidebar({
   counts,
   isDark,
   onToggleTheme,
+  onReload,
 }: DashboardSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleReload = useCallback(async () => {
+    if (!onReload || refreshing) return;
+    setRefreshing(true);
+    try {
+      await onReload();
+    } finally {
+      setTimeout(() => setRefreshing(false), 600);
+    }
+  }, [onReload, refreshing]);
   const sidebarIsLight = useSidebarLight();
   const { settings } = useAppSettings();
   const navItems = NAV_BY_ROLE[user.role];
@@ -196,8 +209,23 @@ export default function DashboardSidebar({
         })}
       </nav>
 
-      {/* Logout + theme toggle */}
+      {/* Refresh + Logout + theme toggle */}
       <div className="px-2 pb-4 pt-2 space-y-0.5" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
+        {onReload && (
+          <button
+            onClick={handleReload}
+            disabled={refreshing}
+            title={collapsed ? "Обновить данные" : undefined}
+            className={`w-full flex items-center rounded-lg text-sm font-medium opacity-70 hover:opacity-100 transition-colors
+              ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"}
+              ${refreshing ? "opacity-40 cursor-not-allowed" : ""}`}
+            onMouseEnter={(e) => { if (!refreshing) e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            <Icon name="RefreshCw" className={`w-[18px] h-[18px] shrink-0 ${refreshing ? "animate-spin" : ""}`} />
+            {!collapsed && <span>{refreshing ? "Обновляю..." : "Обновить"}</span>}
+          </button>
+        )}
         {onToggleTheme && (
           <button
             onClick={onToggleTheme}

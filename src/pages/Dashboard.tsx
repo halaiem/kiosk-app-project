@@ -84,6 +84,7 @@ export default function Dashboard() {
         counts={counts}
         isDark={!isLight}
         onToggleTheme={toggleTheme}
+        onReload={data.reload}
       />
       <main className="flex-1 overflow-auto p-6 relative">
         {/* Theme toggle */}
