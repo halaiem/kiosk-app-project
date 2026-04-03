@@ -61,21 +61,17 @@ export default function MainPage({
   const [inputExpanded, setInputExpanded] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTablet = () => window.innerWidth >= 768;
 
-  // Определяем клавиатуру комбинированно:
-  // 1) visualViewport resize — работает в браузере
-  // 2) просто фокус — работает в fullscreen/kiosk
+  // Следим за реальным появлением клавиатуры через visualViewport
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
     const onResize = () => {
       const shrink = window.innerHeight - vv.height;
-      if (shrink > 150) {
-        setKeyboardOpen(true);
-      } else {
-        // В fullscreen viewport не сжимается, поэтому не сбрасываем здесь
-      }
+      // Клавиатура считается открытой если экран уменьшился более чем на 150px
+      const isOpen = shrink > 150;
+      setKeyboardOpen(isOpen);
+      if (!isOpen) setInputExpanded(false);
     };
     vv.addEventListener('resize', onResize);
     return () => vv.removeEventListener('resize', onResize);
@@ -85,26 +81,17 @@ export default function MainPage({
     if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
     collapseTimerRef.current = setTimeout(() => {
       setInputExpanded(false);
-      setKeyboardOpen(false);
-    }, 30000);
+    }, 20000);
   }, []);
 
   const handleInputFocus = useCallback(() => {
     setInputExpanded(true);
-    // В fullscreen visualViewport не реагирует — ставим keyboardOpen сразу по фокусу
-    if (isTablet()) setKeyboardOpen(true);
     resetCollapseTimer();
   }, [resetCollapseTimer]);
 
   const handleInputBlur = useCallback(() => {
-    // 400мс — кнопка отправить успевает сработать до закрытия
-    setTimeout(() => {
-      // Проверяем что фокус не вернулся на другой input
-      const active = document.activeElement;
-      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
-      setInputExpanded(false);
-      setKeyboardOpen(false);
-    }, 400);
+    // Не трогаем keyboardOpen — им управляет visualViewport
+    setTimeout(() => setInputExpanded(false), 300);
   }, []);
 
   useEffect(() => () => {

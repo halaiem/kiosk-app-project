@@ -48,13 +48,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const handleFocus = useCallback(() => {
     setInputFocused(true);
     onInputFocus?.();
-    // Прокручиваем поле ввода в видимую зону — работает и в fullscreen
-    setTimeout(() => {
-      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 350);
-    setTimeout(() => {
-      inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 700);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
   }, [onInputFocus]);
 
   const handleBlur = useCallback(() => {
