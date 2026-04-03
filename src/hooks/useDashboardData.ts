@@ -6,8 +6,7 @@ import type {
 } from '@/types/dashboard';
 import type { MapVehicleInfo } from '@/components/dashboard/MapVehicleCard';
 import {
-  fetchStats, fetchDrivers, fetchRoutes, fetchVehicles,
-  fetchSchedule, fetchDocuments, fetchMessages, fetchAlerts, fetchAuditLogs,
+  fetchBatch, fetchAuditLogs,
   sendDispatcherMsg, resolveAlert as apiResolveAlert, updateDocumentStatus as apiUpdateDocumentStatus,
 } from '@/api/dashboardApi';
 import { fetchIssueReports, resolveIssueReport as apiResolveIssue } from '@/api/diagnosticsApi';
@@ -189,64 +188,26 @@ export function useDashboardData(user?: DashboardUser | null) {
   const loadAll = useCallback(async () => {
     if (!user) return;
     try {
-      const [statsData, driversData, routesData, vehiclesData, schedData, docsData] = await Promise.allSettled([
-        fetchStats(),
-        fetchDrivers(),
-        fetchRoutes(),
-        fetchVehicles(),
-        fetchSchedule(),
-        fetchDocuments(),
-      ]);
+      const batch = await fetchBatch();
 
-      if (statsData.status === 'fulfilled') {
-        const s = statsData.value.stats || statsData.value;
-        setStats({
-          activeDrivers: Number(s.activeDrivers || 0),
-          totalVehicles: Number(s.totalVehicles || 0),
-          activeRoutes: Number(s.activeRoutes || 0),
-          unresolvedAlerts: Number(s.unresolvedAlerts || 0),
-          avgDelay: Number(s.avgDelay || 0),
-          onTimePercent: Number(s.onTimePercent || 95),
-        });
-      }
+      const s = batch.stats || {};
+      setStats({
+        activeDrivers: Number(s.activeDrivers || 0),
+        totalVehicles: Number(s.totalVehicles || 0),
+        activeRoutes: Number(s.activeRoutes || 0),
+        unresolvedAlerts: Number(s.unresolvedAlerts || 0),
+        avgDelay: Number(s.avgDelay || 0),
+        onTimePercent: Number(s.onTimePercent || 95),
+      });
 
-      let mappedDrivers: DriverInfo[] = [];
-      if (driversData.status === 'fulfilled') {
-        const arr = Array.isArray(driversData.value) ? driversData.value : (driversData.value as Record<string, unknown>).drivers || [];
-        mappedDrivers = (arr as Record<string, unknown>[]).map(mapDriver);
-        setDrivers(mappedDrivers);
-      }
-
-      if (routesData.status === 'fulfilled') {
-        const arr = Array.isArray(routesData.value) ? routesData.value : (routesData.value as Record<string, unknown>).routes || [];
-        setRoutes((arr as Record<string, unknown>[]).map(mapRoute));
-      }
-      if (vehiclesData.status === 'fulfilled') {
-        const arr = Array.isArray(vehiclesData.value) ? vehiclesData.value : (vehiclesData.value as Record<string, unknown>).vehicles || [];
-        setVehicles((arr as Record<string, unknown>[]).map(mapVehicle));
-      }
-      if (schedData.status === 'fulfilled') {
-        const arr = Array.isArray(schedData.value) ? schedData.value : (schedData.value as Record<string, unknown>).schedule || [];
-        setSchedule((arr as Record<string, unknown>[]).map(mapSchedule));
-      }
-      if (docsData.status === 'fulfilled') {
-        const arr = Array.isArray(docsData.value) ? docsData.value : (docsData.value as Record<string, unknown>).documents || [];
-        setDocuments((arr as Record<string, unknown>[]).map(mapDocument));
-      }
-
-      const [msgsData, alertsData] = await Promise.allSettled([
-        fetchMessages(),
-        fetchAlerts(),
-      ]);
-
-      if (msgsData.status === 'fulfilled') {
-        const arr = Array.isArray(msgsData.value) ? msgsData.value : (msgsData.value as Record<string, unknown>).messages || [];
-        setMessages((arr as Record<string, unknown>[]).map(m => mapMessage(m, mappedDrivers)));
-      }
-      if (alertsData.status === 'fulfilled') {
-        const arr = Array.isArray(alertsData.value) ? alertsData.value : (alertsData.value as Record<string, unknown>).alerts || [];
-        setAlerts((arr as Record<string, unknown>[]).map(a => mapAlert(a, mappedDrivers)));
-      }
+      const mappedDrivers: DriverInfo[] = ((batch.drivers || []) as Record<string, unknown>[]).map(mapDriver);
+      setDrivers(mappedDrivers);
+      setRoutes(((batch.routes || []) as Record<string, unknown>[]).map(mapRoute));
+      setVehicles(((batch.vehicles || []) as Record<string, unknown>[]).map(mapVehicle));
+      setSchedule(((batch.schedule || []) as Record<string, unknown>[]).map(mapSchedule));
+      setDocuments(((batch.documents || []) as Record<string, unknown>[]).map(mapDocument));
+      setMessages(((batch.messages || []) as Record<string, unknown>[]).map(m => mapMessage(m, mappedDrivers)));
+      setAlerts(((batch.alerts || []) as Record<string, unknown>[]).map(a => mapAlert(a, mappedDrivers)));
 
       if (user.role === 'admin') {
         try {
@@ -256,7 +217,6 @@ export function useDashboardData(user?: DashboardUser | null) {
         } catch { /* ignore */ }
       }
 
-      // Load issue reports for dispatcher/technician
       if (user.role === 'dispatcher' || user.role === 'technician') {
         try {
           const issuesData = await fetchIssueReports();
@@ -272,7 +232,7 @@ export function useDashboardData(user?: DashboardUser | null) {
   useEffect(() => {
     loadAll();
     if (!user) return;
-    const interval = setInterval(loadAll, 15000);
+    const interval = setInterval(loadAll, 30000);
     return () => clearInterval(interval);
   }, [loadAll, user]);
 

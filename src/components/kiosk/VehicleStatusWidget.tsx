@@ -8,7 +8,7 @@ interface VehicleStatusWidgetProps {
   isDark: boolean;
 }
 
-const POLL_INTERVAL = 30_000;
+const POLL_INTERVAL = 180_000;
 
 export default function VehicleStatusWidget({ isDark }: VehicleStatusWidgetProps) {
   const [summary, setSummary] = useState<VehicleDiagnosticSummary | null>(null);

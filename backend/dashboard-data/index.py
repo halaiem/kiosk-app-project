@@ -76,7 +76,10 @@ def handler(event, context):
         if entity == 'templates':
             return handle_templates(method, qs, event, cur, conn, user)
 
-        return resp(400, {'error': 'Укажите entity: stats, drivers, routes, vehicles, schedule, documents, messages, alerts, logs, templates'})
+        if entity == 'batch' and method == 'GET':
+            return handle_batch(cur, conn, user)
+
+        return resp(400, {'error': 'Укажите entity: stats, drivers, routes, vehicles, schedule, documents, messages, alerts, logs, templates, batch'})
 
     finally:
         cur.close()
@@ -115,6 +118,89 @@ def handle_stats(cur, conn, user):
             'totalVehicles': total_vehicles
         }
     })
+
+
+def handle_batch(cur, conn, user):
+    cur.execute("SELECT COUNT(*) FROM drivers WHERE is_active = true")
+    total_drivers = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(DISTINCT d.id) FROM drivers d JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true WHERE d.is_active = true")
+    active_drivers = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM routes WHERE is_active = true")
+    active_routes = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM vehicles WHERE transport_status = 'active'")
+    total_vehicles = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM messages WHERE message_type = 'urgent' AND is_read = false AND sender = 'driver'")
+    unresolved_alerts = cur.fetchone()[0]
+    stats = {'activeDrivers': active_drivers, 'totalDrivers': total_drivers, 'activeRoutes': active_routes, 'unresolvedAlerts': unresolved_alerts, 'avgDelay': 0, 'onTimePercent': 95, 'totalVehicles': total_vehicles}
+
+    cur.execute("""
+        SELECT d.id, d.full_name, d.employee_id, d.vehicle_type, d.vehicle_number,
+               d.route_number, d.shift_start, d.is_active, d.phone, d.shift_status, d.rating,
+               ds.is_online, ds.last_seen, ds.latitude, ds.longitude, ds.speed,
+               d.driver_status, d.status_changed_at, d.status_note, d.pin
+        FROM drivers d
+        LEFT JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true
+        WHERE d.is_active = true AND d.driver_status != 'fired'
+        ORDER BY d.id
+    """)
+    drivers = [{'id': r[0], 'name': r[1], 'tabNumber': r[2], 'vehicleType': r[3], 'vehicleNumber': r[4], 'routeNumber': r[5], 'shiftStart': str(r[6]) if r[6] else None, 'isActive': r[7], 'phone': r[8], 'status': r[9] or 'off_shift', 'rating': float(r[10]) if r[10] else 4.5, 'isOnline': bool(r[11]), 'lastSeen': r[12], 'latitude': r[13], 'longitude': r[14], 'speed': r[15], 'driverStatus': r[16] or 'active', 'statusChangedAt': r[17], 'statusNote': r[18], 'pin': r[19]} for r in cur.fetchall()]
+
+    cur.execute("SELECT id, route_number, name, is_active, distance_km, avg_time_min, route_status FROM routes WHERE is_active = true ORDER BY route_number")
+    routes = [{'id': r[0], 'number': r[1], 'name': r[2], 'isActive': r[3], 'distance': float(r[4]) if r[4] else 0, 'avgTime': r[5] or 0, 'routeStatus': r[6] or 'active', 'stopsCount': 0, 'assignedVehicles': 0} for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT v.id, v.label, v.transport_type, v.transport_status,
+               v.mileage, v.last_maintenance_at, v.next_maintenance_at,
+               r.route_number, d.full_name
+        FROM vehicles v
+        LEFT JOIN routes r ON r.id = v.assigned_route_id
+        LEFT JOIN drivers d ON d.id = v.assigned_driver_id
+        ORDER BY v.label
+    """)
+    vehicles = [{'id': r[0], 'number': r[1] or '', 'type': r[2] or 'bus', 'status': r[3] or 'active', 'mileage': r[4] or 0, 'lastMaintenance': str(r[5]) if r[5] else None, 'nextMaintenance': str(r[6]) if r[6] else None, 'routeNumber': r[7] or '', 'driverName': r[8] or ''} for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT a.id, r.route_number, d.full_name, v.label,
+               a.shift_start, a.shift_end, a.assignment_status, a.created_at
+        FROM assignments a
+        LEFT JOIN routes r ON r.id = a.route_id
+        LEFT JOIN vehicles v ON v.id = a.vehicle_id
+        LEFT JOIN drivers d ON d.id = a.driver_id
+        ORDER BY a.shift_start DESC LIMIT 200
+    """)
+    schedule = [{'id': r[0], 'routeNumber': r[1] or '', 'driverName': r[2] or '', 'vehicleNumber': r[3] or '', 'startTime': str(r[4]) if r[4] else '', 'endTime': str(r[5]) if r[5] else '', 'date': str(r[4])[:10] if r[4] else '', 'status': r[6] or 'planned'} for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT d.id, d.title, d.doc_type, d.status, du.full_name, d.created_at, d.updated_at
+        FROM documents d
+        LEFT JOIN dashboard_users du ON du.id = d.author_id
+        ORDER BY d.updated_at DESC LIMIT 100
+    """)
+    documents = [{'id': r[0], 'title': r[1] or '', 'type': r[2] or 'instruction', 'status': r[3] or 'draft', 'author': r[4] or '', 'createdAt': str(r[5]) if r[5] else None, 'updatedAt': str(r[6]) if r[6] else None} for r in cur.fetchall()]
+
+    cur.execute("SELECT id, driver_id, text, message_type, is_read, created_at, sender, client_id FROM messages ORDER BY created_at DESC LIMIT 200")
+    messages = []
+    msg_driver_ids = []
+    msg_rows = cur.fetchall()
+    for r in msg_rows:
+        msg_driver_ids.append(r[1])
+    driver_map = {d['id']: d for d in drivers}
+    for r in msg_rows:
+        drv = driver_map.get(r[1], {})
+        messages.append({'id': r[0], 'driverId': r[1], 'driverName': drv.get('name', ''), 'vehicleNumber': drv.get('vehicleNumber', ''), 'routeNumber': drv.get('routeNumber', ''), 'text': r[2] or '', 'type': r[3] or 'normal', 'read': bool(r[4]), 'timestamp': str(r[5]) if r[5] else None, 'sender': r[6], 'clientId': r[7]})
+
+    cur.execute("""
+        SELECT m.id, m.driver_id, d.full_name, d.vehicle_number, d.route_number,
+               m.text, m.message_type, m.is_read, m.created_at
+        FROM messages m
+        JOIN drivers d ON d.id = m.driver_id
+        WHERE m.message_type = 'urgent' AND m.sender = 'driver'
+        ORDER BY m.created_at DESC LIMIT 50
+    """)
+    alerts = [{'id': r[0], 'driverId': r[1], 'driverName': r[2] or '', 'vehicleNumber': r[3] or '', 'routeNumber': r[4] or '', 'message': r[5] or '', 'type': 'sos', 'level': 'critical', 'timestamp': str(r[8]) if r[8] else None, 'resolved': bool(r[7])} for r in cur.fetchall()]
+
+    conn.commit()
+    return resp(200, {'stats': stats, 'drivers': drivers, 'routes': routes, 'vehicles': vehicles, 'schedule': schedule, 'documents': documents, 'messages': messages, 'alerts': alerts})
 
 
 def handle_drivers(method, qs, event, cur, conn, user):

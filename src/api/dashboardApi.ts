@@ -94,6 +94,11 @@ export async function updateDashboardUser(payload: {
   });
 }
 
+export async function fetchBatch() {
+  const data = await request(`${DATA_URL}?entity=batch`);
+  return data;
+}
+
 export async function fetchStats() {
   const data = await request(`${DATA_URL}?entity=stats`);
   return data;
