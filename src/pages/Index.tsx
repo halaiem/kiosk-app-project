@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { playMessageBeep, playUrgentBeep } from '@/lib/kioskSound';
 import { useKioskState } from '@/hooks/useKioskState';
 import { useAutoClose } from '@/hooks/useAutoClose';
 import LoginPage from '@/components/kiosk/LoginPage';
@@ -80,11 +81,22 @@ export default function Index() {
     if (!latest.read && !seenMessages.has(latest.id)) {
       setSeenMessages(prev => new Set([...prev, latest.id]));
       setToasts(prev => [...prev.slice(-2), latest.id]);
+      if (latest.type === 'dispatcher') playMessageBeep();
       setTimeout(() => {
         setToasts(prev => prev.filter(id => id !== latest.id));
       }, 55000);
     }
   }, [state.messages[0]?.id]);
+
+  useEffect(() => {
+    if (state.pendingImportant && !state.pendingImportant.confirmed) {
+      playUrgentBeep();
+    }
+  }, [state.pendingImportant?.id]);
+
+  useEffect(() => {
+    if (dispatcherAlert) playUrgentBeep();
+  }, [dispatcherAlert?.id]);
 
   const handleLogoTap = () => {
     state.handleLogoTap();
