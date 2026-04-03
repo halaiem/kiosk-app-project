@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import KeyboardInputOverlay from '@/components/kiosk/KeyboardInputOverlay';
+import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 // ── Equipment fault report popup ─────────────────────────────────────────────
 const VEHICLE_EQUIPMENT = [
@@ -19,7 +19,8 @@ export function EquipmentFaultPopup({ onClose, onSend }: { onClose: () => void; 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [desc, setDesc] = useState('');
   const [sent, setSent] = useState(false);
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const toggle = (item: string) => {
     setSelected(prev => {
@@ -79,15 +80,14 @@ export function EquipmentFaultPopup({ onClose, onSend }: { onClose: () => void; 
         </div>
 
         <div className="px-3 py-3 border-t border-border space-y-2">
-          {/* Кнопка-заглушка для открытия оверлея */}
-          <button
-            onPointerDown={e => { e.preventDefault(); setOverlayOpen(true); }}
-            className="w-full h-12 px-3 py-2 rounded-xl bg-muted border border-border text-left flex items-center"
-          >
-            <span className={desc ? 'text-foreground text-xs' : 'text-muted-foreground text-xs'}>
-              {desc || 'Дополнительное описание (необязательно)...'}
-            </span>
-          </button>
+          <textarea
+            ref={descRef}
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
+            onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(descRef.current, keyboardHeight), 400)}
+            placeholder="Дополнительное описание (необязательно)..."
+            className="w-full h-16 px-3 py-2 rounded-xl bg-muted border border-border text-foreground text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
           <button
             onClick={handleSend}
             disabled={selected.size === 0 || sent}
@@ -101,18 +101,6 @@ export function EquipmentFaultPopup({ onClose, onSend }: { onClose: () => void; 
           </button>
         </div>
       </div>
-
-      {overlayOpen && (
-        <KeyboardInputOverlay
-          value={desc}
-          onChange={setDesc}
-          onSend={() => setOverlayOpen(false)}
-          onClose={() => setOverlayOpen(false)}
-          placeholder="Дополнительное описание..."
-          multiline
-          canSend
-        />
-      )}
     </div>
   );
 }
@@ -129,10 +117,12 @@ const QUICK_REPLIES_DISPATCHER = [
 
 export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: { name: string; role: string }; onClose: () => void; onSend: (text: string) => void }) {
   const [input, setInput] = useState('');
-  const [overlayOpen, setOverlayOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputWrapRef = useRef<HTMLDivElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const startRecord = () => {
     setIsRecording(true);
@@ -143,13 +133,11 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
-    setOverlayOpen(false);
     onClose();
   };
   const handleSend = () => {
     if (!input.trim()) return;
     onSend(input.trim());
-    setOverlayOpen(false);
     onClose();
   };
 
@@ -181,47 +169,34 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
           </div>
         </div>
 
-        {/* Панель ввода — нажатие открывает оверлей */}
-        <div className="px-3 pb-4 pt-2 border-t border-border">
-          <div className="flex items-center gap-2">
-            <button
-              onPointerDown={e => { e.preventDefault(); setOverlayOpen(true); }}
-              className="flex-1 h-10 px-3 rounded-xl bg-muted border border-border text-left flex items-center"
-            >
-              <span className={input ? 'text-foreground text-sm' : 'text-muted-foreground text-sm'}>
-                {input || 'Написать сообщение...'}
-              </span>
-            </button>
-            <button
-              onPointerDown={e => { e.preventDefault(); setOverlayOpen(true); }}
-              className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 flex items-center justify-center shrink-0 ripple"
-            >
-              <Icon name="Mic" size={18} className="text-muted-foreground" />
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 ripple elevation-1"
-            >
-              <Icon name="Send" size={16} />
-            </button>
-          </div>
+        <div ref={inputWrapRef} className="px-3 pb-4 pt-2 border-t border-border">
+          {isRecording ? (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
+              <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm text-destructive font-medium flex-1">Запись... {recordTime}с</span>
+              <button onPointerUp={stopRecord} className="px-3 py-1.5 rounded-lg bg-destructive text-white text-sm ripple">Стоп</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSend()}
+                onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(inputWrapRef.current, keyboardHeight), 400)}
+                placeholder="Написать сообщение..."
+                className="flex-1 px-3 py-2.5 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <button onPointerDown={startRecord} className="w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 flex items-center justify-center shrink-0 ripple" title="Голосовое">
+                <Icon name="Mic" size={18} className="text-muted-foreground" />
+              </button>
+              <button onClick={handleSend} disabled={!input.trim()} className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-40 ripple elevation-1">
+                <Icon name="Send" size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      {overlayOpen && (
-        <KeyboardInputOverlay
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          onClose={() => setOverlayOpen(false)}
-          placeholder="Написать сообщение..."
-          onVoiceStart={startRecord}
-          onVoiceStop={stopRecord}
-          isRecording={isRecording}
-          recordTime={recordTime}
-        />
-      )}
     </div>
   );
 }

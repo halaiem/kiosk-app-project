@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
-import KeyboardInputOverlay from './KeyboardInputOverlay';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -36,54 +35,76 @@ function DeliveryIcon({ status }: { status?: string }) {
 
 export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur }: Props) {
   const [input, setInput] = useState('');
-  const [overlayOpen, setOverlayOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
+  const [inputFocused, setInputFocused] = useState(false);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRowRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
   const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
   const isOffline = connection === 'offline';
 
+  // Скролл вниз при новых сообщениях
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  const openOverlay = useCallback(() => {
-    setOverlayOpen(true);
-    onInputFocus?.();
-  }, [onInputFocus]);
+  // Когда клавиатура открылась — прокрутить поле ввода в видимую зону
+  const scrollInputVisible = useCallback(() => {
+    setTimeout(() => {
+      inputRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 350);
+  }, []);
 
-  const closeOverlay = useCallback(() => {
-    setOverlayOpen(false);
-    setIsRecording(false);
-    if (recordTimer.current) clearInterval(recordTimer.current);
-    onInputBlur?.();
+  const handleFocus = useCallback(() => {
+    setInputFocused(true);
+    onInputFocus?.();
+    scrollInputVisible();
+  }, [onInputFocus, scrollInputVisible]);
+
+  const handleBlur = useCallback(() => {
+    // Задержка чтобы дать время onPointerDown кнопки отработать до blur
+    setTimeout(() => {
+      setInputFocused(false);
+      onInputBlur?.();
+    }, 150);
   }, [onInputBlur]);
 
   const handleSend = useCallback(() => {
+    if (sendingRef.current) return;
     if (!input.trim()) return;
+    sendingRef.current = true;
     onSend(input.trim());
     setInput('');
-    closeOverlay();
-  }, [input, onSend, closeOverlay]);
+    setTimeout(() => { sendingRef.current = false; }, 200);
+  }, [input, onSend]);
+
+  const handleSendPointerDown = useCallback((e: React.PointerEvent | React.TouchEvent) => {
+    e.preventDefault();
+    handleSend();
+    inputRef.current?.focus();
+  }, [handleSend]);
 
   const handleTemplate = (tpl: string) => {
     onSend(tpl);
   };
 
-  const startRecord = useCallback(() => {
+  const startRecord = () => {
     setIsRecording(true);
     setRecordTime(0);
     recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
-  }, []);
+    onInputFocus?.();
+  };
 
-  const stopRecord = useCallback(() => {
+  const stopRecord = () => {
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     setRecordTime(0);
-    closeOverlay();
-  }, [recordTime, onSend, closeOverlay]);
+    onInputBlur?.();
+  };
 
   const formatTime = (date: Date) =>
     new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -94,7 +115,8 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/15 border-b border-yellow-500/30">
           <Icon name="WifiOff" size={16} className="text-yellow-500" />
           <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
-            Нет сети{pendingCount > 0 && ` — ${pendingCount} сообщ. в очереди`}
+            Нет сети
+            {pendingCount > 0 && ` — ${pendingCount} сообщ. в очереди`}
           </span>
           <div className="ml-auto flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
@@ -110,7 +132,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      {/* Сообщения */}
+      {/* Область сообщений */}
       <div className="flex-1 overflow-y-auto px-3 tablet:px-4 py-2 tablet:py-3 space-y-2 tablet:space-y-3 min-h-0">
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
@@ -149,14 +171,14 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Быстрые шаблоны */}
-      {!isMoving && (
+      {/* Быстрые шаблоны — скрываются при фокусе */}
+      {!inputFocused && !isRecording && (!isMoving || input.length === 0) && (
         <div className="px-3 tablet:px-4 py-1.5 tablet:py-2 border-t border-border flex-shrink-0">
-          <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex gap-2 tablet:gap-2.5 overflow-x-auto pb-0.5 tablet:pb-1" style={{ scrollbarWidth: 'none' }}>
             {QUICK_TEMPLATES.map((tpl, i) => (
               <button
                 key={i}
-                onPointerDown={e => { e.preventDefault(); handleTemplate(tpl); }}
+                onClick={() => handleTemplate(tpl)}
                 className="flex-shrink-0 px-3 tablet:px-4 py-1.5 tablet:py-2 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground text-xs tablet:text-sm text-foreground transition-all whitespace-nowrap active:scale-95 ripple"
               >
                 {tpl}
@@ -166,49 +188,59 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      {/* Панель ввода — нажатие открывает оверлей поверх всего */}
-      <div className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onPointerDown={e => { e.preventDefault(); openOverlay(); }}
-            className={`flex-1 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-left transition-all ${
-              isOffline ? 'border-yellow-500/40' : 'border-border'
-            } ${input ? 'text-foreground' : 'text-muted-foreground'} text-sm tablet:text-base`}
-          >
-            {input || (isOffline ? 'Сообщение (отправится при подключении)...' : 'Сообщение диспетчеру...')}
-          </button>
-          <button
-            onPointerDown={e => { e.preventDefault(); openOverlay(); }}
-            className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
-          >
-            <Icon name="Mic" size={28} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
-          </button>
-          <button
-            onPointerDown={e => { e.preventDefault(); if (input.trim()) { onSend(input.trim()); setInput(''); } else openOverlay(); }}
-            className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-95 transition-all ripple elevation-1 ${
-              isOffline ? 'bg-yellow-500 text-white' : 'bg-primary text-primary-foreground'
-            } ${!input.trim() ? 'opacity-40' : ''}`}
-          >
-            <Icon name="Send" size={26} className="tablet:!w-[34px] tablet:!h-[34px]" />
-          </button>
-        </div>
+      {/* Поле ввода — всегда внизу, видно над клавиатурой */}
+      <div ref={inputRowRef} className="px-3 tablet:px-4 pb-3 tablet:pb-4 pt-1.5 tablet:pt-2 border-t border-border flex-shrink-0">
+        {isRecording ? (
+          <div className="flex items-center gap-3 p-3 tablet:p-4 rounded-2xl bg-destructive/10 border border-destructive/30">
+            <div className="w-4 h-4 tablet:w-5 tablet:h-5 rounded-full bg-destructive animate-pulse" />
+            <span className="text-base tablet:text-lg text-destructive font-medium flex-1">
+              Запись... {recordTime}с
+            </span>
+            <button
+              onPointerUp={stopRecord}
+              className="px-5 py-2.5 tablet:px-6 tablet:py-3 rounded-2xl bg-destructive text-white text-base tablet:text-lg font-semibold ripple"
+            >
+              Стоп
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              placeholder={isOffline ? "Сообщение (отправится при подключении)..." : "Сообщение диспетчеру..."}
+              className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-sm tablet:text-base focus:outline-none focus:ring-2 transition-all ${
+                isOffline
+                  ? 'border-yellow-500/40 focus:ring-yellow-500/40 focus:border-yellow-500'
+                  : 'border-border focus:ring-primary/40 focus:border-primary'
+              }`}
+            />
+            <button
+              onPointerDown={startRecord}
+              className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border hover:bg-muted-foreground/20 flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+              title="Голосовое сообщение (удерживайте)"
+            >
+              <Icon name="Mic" size={28} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
+            </button>
+            <button
+              onPointerDown={handleSendPointerDown}
+              onTouchEnd={e => e.preventDefault()}
+              disabled={!input.trim()}
+              className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all ripple elevation-1 ${
+                isOffline
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-primary text-primary-foreground'
+              }`}
+            >
+              <Icon name="Send" size={26} className="tablet:!w-[34px] tablet:!h-[34px]" />
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Оверлей ввода — поверх всего экрана, над клавиатурой */}
-      {overlayOpen && (
-        <KeyboardInputOverlay
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          onClose={closeOverlay}
-          placeholder={isOffline ? 'Сообщение (отправится при подключении)...' : 'Сообщение диспетчеру...'}
-          isOffline={isOffline}
-          onVoiceStart={startRecord}
-          onVoiceStop={stopRecord}
-          isRecording={isRecording}
-          recordTime={recordTime}
-        />
-      )}
     </div>
   );
 }

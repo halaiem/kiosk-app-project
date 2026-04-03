@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import KeyboardInputOverlay from './KeyboardInputOverlay';
+import { useVirtualKeyboard, scrollIntoViewAboveKeyboard } from '@/hooks/useVirtualKeyboard';
 
 export type SupportModalRequest =
   | { type: 'contact'; contact: { name: string; role: string; phone: string } }
@@ -13,8 +13,8 @@ export function SupportContactModal({ contact, onClose, onSend }: {
   onSend: (text: string) => void;
 }) {
   const [message, setMessage] = useState('');
-  const [overlayOpen, setOverlayOpen] = useState(false);
-
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
   const send = () => {
     if (message.trim()) { onSend(message.trim()); setMessage(''); onClose(); }
   };
@@ -88,16 +88,15 @@ export function SupportContactModal({ contact, onClose, onSend }: {
               </button>
             ))}
           </div>
-
-          {/* Поле ввода — открывает оверлей */}
-          <button
-            onPointerDown={e => { e.preventDefault(); setOverlayOpen(true); }}
-            className="mt-4 w-full px-4 py-4 rounded-2xl border border-border bg-background text-left resize-none text-base min-h-[80px] flex items-start"
-          >
-            <span className={message ? 'text-foreground' : 'text-muted-foreground'}>
-              {message || 'Или введите своё сообщение...'}
-            </span>
-          </button>
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(textareaRef.current, keyboardHeight), 400)}
+            placeholder="Или введите своё сообщение..."
+            rows={4}
+            className="mt-4 w-full px-4 py-4 rounded-2xl border border-border bg-background text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
         </div>
       </div>
 
@@ -118,17 +117,6 @@ export function SupportContactModal({ contact, onClose, onSend }: {
           Отправить
         </button>
       </div>
-
-      {overlayOpen && (
-        <KeyboardInputOverlay
-          value={message}
-          onChange={setMessage}
-          onSend={send}
-          onClose={() => setOverlayOpen(false)}
-          placeholder="Введите сообщение..."
-          multiline
-        />
-      )}
     </div>
   );
 }
@@ -140,7 +128,8 @@ export function SupportEquipmentModal({ onClose, onSend }: {
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const [overlayOpen, setOverlayOpen] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const items = [
     'Сенсорный дисплей не реагирует',
@@ -221,16 +210,15 @@ export function SupportEquipmentModal({ onClose, onSend }: {
             </button>
           ))}
         </div>
-
-        {/* Поле примечания — открывает оверлей */}
-        <button
-          onPointerDown={e => { e.preventDefault(); setOverlayOpen(true); }}
-          className="w-full px-4 py-4 rounded-2xl border border-border bg-background text-left min-h-[80px] flex items-start"
-        >
-          <span className={note ? 'text-foreground text-base' : 'text-muted-foreground text-base'}>
-            {note || 'Дополнительные подробности...'}
-          </span>
-        </button>
+        <textarea
+          ref={noteRef}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          onFocus={() => setTimeout(() => scrollIntoViewAboveKeyboard(noteRef.current, keyboardHeight), 400)}
+          placeholder="Дополнительные подробности..."
+          rows={4}
+          className="w-full px-4 py-4 rounded-2xl border border-border bg-background text-foreground text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+        />
       </div>
 
       {/* Footer */}
@@ -247,21 +235,9 @@ export function SupportEquipmentModal({ onClose, onSend }: {
           className="flex-1 h-16 rounded-2xl bg-orange-500 text-white text-base font-bold ripple disabled:opacity-40 flex items-center justify-center gap-2"
         >
           <Icon name="Send" size={20} />
-          Отправить заявку ({selected.length})
+          Отправить заявку {selected.length > 0 && `(${selected.length})`}
         </button>
       </div>
-
-      {overlayOpen && (
-        <KeyboardInputOverlay
-          value={note}
-          onChange={setNote}
-          onSend={() => setOverlayOpen(false)}
-          onClose={() => setOverlayOpen(false)}
-          placeholder="Дополнительные подробности..."
-          multiline
-          canSend
-        />
-      )}
     </div>
   );
 }
