@@ -3,6 +3,20 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+body {
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  padding-bottom: env(keyboard-inset-height, 0px);
+}
+input:focus,
+textarea:focus {
+  scroll-margin-bottom: 40vh;
+}
+
 /* Smooth theme transition — only body and kiosk surface elements, NOT header */
 body,
 .kiosk-bg,
