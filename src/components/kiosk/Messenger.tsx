@@ -15,7 +15,7 @@ const QUICK_TEMPLATES = [
 
 interface Props {
   messages: Message[];
-  onSend: (text: string) => void;
+  onSend: (text: string, isVoice?: boolean, voiceDuration?: number) => void;
   isMoving: boolean;
   connection?: ConnectionStatus;
   pendingCount?: number;
@@ -24,6 +24,81 @@ interface Props {
   onOpenFullscreen?: () => void;
   autoStartRecord?: boolean;
   onAutoRecordDone?: () => void;
+}
+
+function VoiceBubble({ duration, isOutgoing }: { duration: number; isOutgoing: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (playing) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+      setPlaying(false);
+      setProgress(0);
+      return;
+    }
+    setPlaying(true);
+    setProgress(0);
+    const step = 100 / (duration * 10);
+    timerRef.current = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = null;
+          setPlaying(false);
+          return 0;
+        }
+        return prev + step;
+      });
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  const formatDur = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `0:${sec.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="flex items-center gap-3 min-w-[140px]">
+      <button
+        onClick={handlePlay}
+        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+          isOutgoing
+            ? 'bg-white/20 hover:bg-white/30'
+            : 'bg-primary/15 hover:bg-primary/25'
+        }`}
+      >
+        <Icon
+          name={playing ? 'Pause' : 'Play'}
+          size={18}
+          className={isOutgoing ? 'text-white' : 'text-primary'}
+        />
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="h-1.5 rounded-full bg-current/20 overflow-hidden"
+          style={{ backgroundColor: isOutgoing ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
+          <div
+            className="h-full rounded-full transition-all duration-100"
+            style={{
+              width: `${progress}%`,
+              backgroundColor: isOutgoing ? 'rgba(255,255,255,0.7)' : 'hsl(var(--primary))',
+            }}
+          />
+        </div>
+        <span className={`text-xs mt-0.5 block tabular-nums ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
+          {formatDur(duration)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -108,7 +183,7 @@ export default function Messenger({
     setIsRecording(false);
     setRecordTime(0);
     recordTimeRef.current = 0;
-    onSend(`🎤 Голосовое сообщение (${time}с)`);
+    onSend(`🎤 Голосовое сообщение (${time}с)`, true, time);
     onInputBlur?.();
   }, [onSend, onInputBlur, stopRecordTimer]);
 
@@ -225,8 +300,11 @@ export default function Messenger({
                     <span className="text-base font-bold text-destructive uppercase">Важное</span>
                   </div>
                 )}
-                {/* Текст диалога x3 */}
-                <p className="text-3xl leading-snug">{msg.text}</p>
+                {msg.isVoice ? (
+                  <VoiceBubble duration={msg.voiceDuration || 5} isOutgoing={isOutgoing} />
+                ) : (
+                  <p className="text-3xl leading-snug">{msg.text}</p>
+                )}
                 <div className={`text-base mt-1 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
                   {formatTime(msg.timestamp)}
                   {isOutgoing && <DeliveryIcon status={msg.deliveryStatus} />}

@@ -27,6 +27,8 @@ interface AlertData {
   color: string;
   text: string;
   sub: string;
+  isVoice?: boolean;
+  voiceDuration?: number;
 }
 
 interface NotifItem {
@@ -42,6 +44,7 @@ const DISPATCHER_ALERTS: AlertData[] = [
   { id: 'da3', icon: 'Clock', color: 'bg-blue-600', text: 'Задержитесь на конечной 10 мин — регулировка интервала.', sub: 'Диспетчер Смирнова Е.В.' },
   { id: 'da4', icon: 'UserCheck', color: 'bg-purple-600', text: 'Ревизор на маршруте. Приготовьте путевой лист.', sub: 'Диспетчер Иванова А.П.' },
   { id: 'da5', icon: 'Zap', color: 'bg-yellow-600', text: 'Внимание! Обрыв контактной сети у ост. «Площадь Мира». Остановитесь.', sub: 'Диспетчер Козлов В.Н.' },
+  { id: 'da6', icon: 'Mic', color: 'bg-green-600', text: '🎤 Голосовое сообщение (12с)', sub: 'Диспетчер Смирнова Е.В.', isVoice: true, voiceDuration: 12 },
 ];
 
 const isTablet = () => window.innerWidth >= 768 && window.innerWidth < 1024;
@@ -118,9 +121,9 @@ export default function Index() {
     const pick = pool[Math.floor(Math.random() * pool.length)];
     shownAlertIds.current.add(pick.id);
     lastAlertIdRef.current = pick.id;
-    state.addDispatcherMessage(pick.text, pick.sub);
+    state.addDispatcherMessage(pick.text, pick.sub, pick.isVoice, pick.voiceDuration);
     playUrgentBeep();
-    setQueue(prev => [...prev, { id: `alert-${pick.id}-${Date.now()}`, kind: 'alert', alert: pick }]);
+    setQueue(prev => [...prev, { id: `alert-${pick.id}-${Date.now()}`, kind: pick.isVoice ? 'message' : 'alert', alert: pick, message: pick.isVoice ? { id: `voice-${Date.now()}`, type: 'dispatcher' as const, text: pick.text, timestamp: new Date(), read: false, isVoice: true, voiceDuration: pick.voiceDuration } : undefined }]);
   }, [state.addDispatcherMessage]);
 
   // Первое уведомление через 80 сек (планшет)

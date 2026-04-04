@@ -5,6 +5,7 @@ import MapWidget from './MapWidget';
 import RouteStops from './RouteStops';
 import Messenger from './Messenger';
 import VehicleStatusWidget from './VehicleStatusWidget';
+import IntervalWidget from './IntervalWidget';
 import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
 
 
@@ -22,7 +23,7 @@ interface Props {
   isDark: boolean;
   theme: ThemeMode;
   onOpenMenu: () => void;
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string, isVoice?: boolean, voiceDuration?: number) => void;
   onLogoTap: () => void;
   logoTapCount: number;
   onBreak: () => void;
@@ -55,7 +56,6 @@ export default function MainPage({
   onSetMessengerFullscreen, onSetStopsFullscreen, onSetMapFullscreen,
   pendingCount = 0, onSos,
 }: Props) {
-  const [interval] = useState(4);
   const [deviation] = useState(-2);
   const now = useClock();
 
@@ -212,11 +212,7 @@ export default function MainPage({
               <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">от графика</span>
             </div>
             {/* Интервал */}
-            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
-              <Icon name="Timer" size={16} className="text-primary" />
-              <span className="text-base tablet:text-xl font-black text-foreground tabular-nums leading-none">{interval}м</span>
-              <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">интервал</span>
-            </div>
+            <IntervalWidget isDark={isDark} />
             {/* Статус транспортного средства */}
             <div className="flex flex-col">
               <VehicleStatusWidget isDark={isDark} compact />

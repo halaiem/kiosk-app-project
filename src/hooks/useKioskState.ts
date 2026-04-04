@@ -143,17 +143,24 @@ export function useKioskState() {
         setConnection('online');
 
         if (newMsgs.length > 0) {
-          const mapped: Message[] = newMsgs.map((m: { id: number; sender: string; text: string; type: string; isRead: boolean; createdAt: string; clientId?: string; deliveredAt?: string }) => ({
-            id: String(m.id),
-            type: m.sender === 'dispatcher' ? 'dispatcher' : 'normal',
-            text: m.sender === 'driver' ? `[Водитель]: ${m.text}` : m.text,
-            timestamp: new Date(m.createdAt),
-            read: m.isRead,
-            clientId: m.clientId || undefined,
-            deliveryStatus: m.sender === 'driver'
-              ? ('delivered' as const)
-              : (m.deliveredAt ? 'delivered' as const : 'sent' as const),
-          }));
+          const mapped: Message[] = newMsgs.map((m: { id: number; sender: string; text: string; type: string; isRead: boolean; createdAt: string; clientId?: string; deliveredAt?: string; isVoice?: boolean; voiceDuration?: number }) => {
+            const voiceMatch = m.text.match(/🎤\s*Голосовое сообщение\s*\((\d+)с\)/);
+            const isVoice = m.isVoice || !!voiceMatch;
+            const voiceDuration = m.voiceDuration || (voiceMatch ? parseInt(voiceMatch[1]) : undefined);
+            return {
+              id: String(m.id),
+              type: m.sender === 'dispatcher' ? 'dispatcher' : 'normal',
+              text: m.sender === 'driver' ? `[Водитель]: ${m.text}` : m.text,
+              timestamp: new Date(m.createdAt),
+              read: m.isRead,
+              clientId: m.clientId || undefined,
+              deliveryStatus: m.sender === 'driver'
+                ? ('delivered' as const)
+                : (m.deliveredAt ? 'delivered' as const : 'sent' as const),
+              isVoice,
+              voiceDuration,
+            };
+          });
           lastMessageIdRef.current = newMsgs[newMsgs.length - 1].id;
 
           setMessages(prev => {
@@ -246,7 +253,7 @@ export function useKioskState() {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, read: true } : m));
   }, []);
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, isVoice?: boolean, voiceDuration?: number) => {
     const clientId = generateClientId();
     const isOnline = navigator.onLine;
 
@@ -258,6 +265,8 @@ export function useKioskState() {
       read: true,
       clientId,
       deliveryStatus: isOnline ? 'sending' : 'pending',
+      isVoice,
+      voiceDuration,
     };
     setMessages(prev => {
       const updated = [...prev, tempMsg];
@@ -288,13 +297,15 @@ export function useKioskState() {
     }
   }, []);
 
-  const addDispatcherMessage = useCallback((text: string, sender?: string) => {
+  const addDispatcherMessage = useCallback((text: string, sender?: string, isVoice?: boolean, voiceDuration?: number) => {
     const msg: Message = {
       id: 'alert_' + Date.now(),
       type: 'dispatcher',
       text: sender ? `[${sender}]: ${text}` : text,
       timestamp: new Date(),
       read: false,
+      isVoice,
+      voiceDuration,
     };
     setMessages(prev => [...prev, msg]);
   }, []);

@@ -9,6 +9,8 @@ interface ToastProps {
 }
 
 export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
+  const isVoice = message.isVoice;
+
   const icons: Record<string, string> = {
     normal: 'MessageSquare',
     dispatcher: 'Radio',
@@ -23,35 +25,72 @@ export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
     important: 'bg-destructive/10 border-destructive/30',
   };
 
+  const iconName = isVoice ? 'Mic' : (icons[message.type] || 'Bell');
+  const label = isVoice
+    ? 'Голосовое сообщение'
+    : message.type === 'dispatcher' ? 'Диспетчер' : message.type === 'can_error' ? 'CAN-система' : 'Уведомление';
+
   return (
-    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${colors[message.type] || colors.normal} w-full pointer-events-auto`}>
+    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${isVoice ? 'bg-green-500/10 border-green-500/30' : (colors[message.type] || colors.normal)} w-full pointer-events-auto`}>
       <div className="flex items-start gap-4 md:gap-7">
         <div className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl flex items-center justify-center flex-shrink-0
-          ${message.type === 'can_error' ? 'bg-warning/20' : message.type === 'dispatcher' ? 'bg-primary/15' : 'bg-muted'}`}>
-          <Icon name={icons[message.type] || 'Bell'} size={28} className={`md:!w-12 md:!h-12 ${message.type === 'can_error' ? 'text-warning-foreground' : message.type === 'dispatcher' ? 'text-primary' : 'text-foreground'}`} />
+          ${isVoice ? 'bg-green-500/20' : message.type === 'can_error' ? 'bg-warning/20' : message.type === 'dispatcher' ? 'bg-primary/15' : 'bg-muted'}`}>
+          <Icon name={iconName} size={28} className={`md:!w-12 md:!h-12 ${isVoice ? 'text-green-500' : message.type === 'can_error' ? 'text-warning-foreground' : message.type === 'dispatcher' ? 'text-primary' : 'text-foreground'}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm md:text-xl font-bold text-muted-foreground uppercase mb-1">
-            {message.type === 'dispatcher' ? 'Диспетчер' : message.type === 'can_error' ? 'CAN-система' : 'Уведомление'}
+            {label}
           </div>
-          <p className="text-lg md:text-3xl font-semibold text-foreground leading-snug">{message.text}</p>
+          {isVoice ? (
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-green-500 flex items-center justify-center">
+                <Icon name="Play" size={24} className="text-white md:!w-8 md:!h-8" />
+              </div>
+              <span className="text-lg md:text-3xl font-semibold text-foreground tabular-nums">
+                {message.voiceDuration ? `${message.voiceDuration} сек` : 'Голосовое'}
+              </span>
+            </div>
+          ) : (
+            <p className="text-lg md:text-3xl font-semibold text-foreground leading-snug">{message.text}</p>
+          )}
         </div>
       </div>
       <div className="flex gap-3 md:gap-5">
-        <button
-          onClick={onConfirm}
-          className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
-        >
-          <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
-          Принято
-        </button>
-        <button
-          onClick={onReply}
-          className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
-        >
-          <Icon name="MessageSquare" size={24} className="md:!w-9 md:!h-9" />
-          Ответить
-        </button>
+        {isVoice ? (
+          <>
+            <button
+              onClick={onReply}
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+            >
+              <Icon name="Play" size={24} className="md:!w-9 md:!h-9" />
+              Прослушать
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+            >
+              <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
+              Принято
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onConfirm}
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+            >
+              <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
+              Принято
+            </button>
+            <button
+              onClick={onReply}
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+            >
+              <Icon name="MessageSquare" size={24} className="md:!w-9 md:!h-9" />
+              Ответить
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

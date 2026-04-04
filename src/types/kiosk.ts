@@ -28,6 +28,8 @@ export interface Message {
   severity?: Severity;
   clientId?: string;
   deliveryStatus?: DeliveryStatus;
+  isVoice?: boolean;
+  voiceDuration?: number;
 }
 
 export interface RouteStop {
