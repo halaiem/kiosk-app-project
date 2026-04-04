@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
 
@@ -129,7 +129,9 @@ export default function Messenger({
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
     inputRef.current?.blur();
-  }, [input, onSend]);
+    // Скроллим вниз сразу после отправки
+    setTimeout(() => scrollToBottom('auto'), 50);
+  }, [input, onSend, scrollToBottom]);
 
   const handleSendTextPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -149,10 +151,10 @@ export default function Messenger({
     scrollToBottom('auto');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // При каждом новом сообщении
-  useEffect(() => {
-    scrollToBottom('smooth');
-  }, [messages.length, scrollToBottom]);
+  // После каждого изменения списка — до отрисовки браузером (мгновенно)
+  useLayoutEffect(() => {
+    scrollToBottom('auto');
+  }, [chatMessages.length, scrollToBottom]);
 
   // При открытии клавиатуры
   useEffect(() => {
