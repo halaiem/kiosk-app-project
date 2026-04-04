@@ -64,10 +64,13 @@ export default function Messenger({
     .slice(-50);
   const isOffline = connection === 'offline';
 
-  // ── Скролл — всегда показываем последнее сообщение ──────────────────────
+  // ── Скролл — всегда привязан к низу ─────────────────────────────────────
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
   // ── Запись ────────────────────────────────────────────────────────────────
@@ -107,8 +110,7 @@ export default function Messenger({
     recordTimeRef.current = 0;
     onSend(`🎤 Голосовое сообщение (${time}с)`);
     onInputBlur?.();
-    setTimeout(() => scrollToBottom('smooth'), 100);
-  }, [onSend, onInputBlur, stopRecordTimer, scrollToBottom]);
+  }, [onSend, onInputBlur, stopRecordTimer]);
 
   // Стоп — отменяет запись без отправки
   const handleCancelVoice = useCallback((e: React.PointerEvent) => {
@@ -129,10 +131,7 @@ export default function Messenger({
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
     inputRef.current?.blur();
-    // Скроллим после blur (блок hidden снимается через 200мс blurTimer)
-    setTimeout(() => scrollToBottom('auto'), 300);
-    setTimeout(() => scrollToBottom('auto'), 500);
-  }, [input, onSend, scrollToBottom]);
+  }, [input, onSend]);
 
   const handleSendTextPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -147,24 +146,17 @@ export default function Messenger({
     startRecordNow();
   }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // При первом рендере — мгновенно
-  useEffect(() => {
-    scrollToBottom('auto');
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // После каждого изменения списка — до отрисовки браузером (мгновенно)
+  // Всегда привязан к низу — при любом изменении
   useLayoutEffect(() => {
-    scrollToBottom('auto');
+    scrollToBottom();
   }, [chatMessages.length, scrollToBottom]);
 
-  // При открытии/закрытии клавиатуры — когда блок сообщений появляется обратно
   useEffect(() => {
-    if (inputFocused) {
-      setTimeout(() => scrollToBottom('smooth'), 150);
-    } else {
-      setTimeout(() => scrollToBottom('auto'), 50);
-    }
-  }, [inputFocused, scrollToBottom]);
+    scrollToBottom();
+    // Постоянный интервал — подстраховка на любой случай
+    const iv = setInterval(scrollToBottom, 500);
+    return () => clearInterval(iv);
+  }, [scrollToBottom]);
 
   // ── Фокус ─────────────────────────────────────────────────────────────────
 
@@ -207,7 +199,7 @@ export default function Messenger({
       )}
 
       {/* Сообщения */}
-      <div className={`overflow-y-auto px-3 py-2 space-y-3 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}>
+      <div ref={scrollContainerRef} className={`overflow-y-auto px-3 py-2 space-y-3 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}>
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Icon name="MessageSquare" size={48} className="opacity-30" />
