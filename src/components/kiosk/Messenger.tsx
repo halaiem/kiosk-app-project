@@ -64,6 +64,12 @@ export default function Messenger({
     .slice(0, 50);
   const isOffline = connection === 'offline';
 
+  // ── Скролл — всегда показываем последнее сообщение ──────────────────────
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
   // ── Запись ────────────────────────────────────────────────────────────────
 
   const stopRecordTimer = useCallback(() => {
@@ -137,12 +143,6 @@ export default function Messenger({
     onAutoRecordDone?.();
     startRecordNow();
   }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Скролл — всегда показываем последнее сообщение ──────────────────────
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, []);
 
   // При первом рендере — мгновенно
   useEffect(() => {
