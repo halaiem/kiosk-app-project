@@ -85,24 +85,41 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     handleSend();
   }, [handleSend]);
 
-  const startRecord = useCallback(() => {
-    if (blurTimer.current) clearTimeout(blurTimer.current);
+  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelAutoClose = useCallback(() => {
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
+  }, []);
+
+  const scheduleAutoClose = useCallback(() => {
+    cancelAutoClose();
+    autoCloseTimer.current = setTimeout(() => {
+      setIsRecording(false);
+      if (recordTimer.current) clearInterval(recordTimer.current);
+      setRecordTime(0);
+      onInputBlur?.();
+    }, 30000);
+  }, [cancelAutoClose, onInputBlur]);
+
+  const startRecord = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    // НЕ скрываем диалог — inputFocused остаётся false
     setIsRecording(true);
-    setInputFocused(true);
     setRecordTime(0);
     onInputFocus?.();
     recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
-  }, [onInputFocus]);
+    scheduleAutoClose();
+  }, [onInputFocus, scheduleAutoClose]);
 
   const stopRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    cancelAutoClose();
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     setRecordTime(0);
-    setInputFocused(false);
     onInputBlur?.();
-  }, [recordTime, onSend, onInputBlur]);
+  }, [recordTime, onSend, onInputBlur, cancelAutoClose]);
 
   const formatTime = (date: Date) =>
     new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -129,8 +146,11 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         </div>
       )}
 
-      {/* Сообщения — скрываются когда открыта клавиатура */}
-      <div className={`overflow-y-auto px-3 py-2 space-y-2 min-h-0 transition-all duration-200 ${inputFocused || isRecording ? 'hidden' : 'flex-1'}`}>
+      {/* Сообщения — скрываются только при вводе текста, не при записи */}
+      <div
+        className={`overflow-y-auto px-3 py-2 space-y-2 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}
+        onPointerDown={isRecording ? () => scheduleAutoClose() : undefined}
+      >
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Icon name="MessageSquare" size={48} className="opacity-30" />
@@ -217,7 +237,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               }`}
             />
             <button
-              onPointerDown={e => { e.preventDefault(); startRecord(); }}
+              onPointerDown={startRecord}
               className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
             >
               <Icon name="Mic" size={26} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
