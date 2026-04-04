@@ -150,6 +150,7 @@ export default function Messenger({
   const [recordTime, setRecordTime] = useState(0);
   const [transcribing, setTranscribing] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -178,16 +179,33 @@ export default function Messenger({
   const stopTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
 
   const startMic = async (): Promise<boolean> => {
+    setMicError(null);
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMicError('Микрофон недоступен в этом браузере');
+        return false;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
       const mr = new MediaRecorder(stream);
       recorderRef.current = mr;
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onerror = (e) => { console.error('MediaRecorder error', e); setMicError('Ошибка записи'); };
       mr.start(100);
       return true;
-    } catch { return false; }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Mic error:', msg);
+      if (msg.includes('Permission') || msg.includes('NotAllowed') || msg.includes('denied')) {
+        setMicError('Нет доступа к микрофону — проверь разрешения');
+      } else if (msg.includes('NotFound') || msg.includes('Devices')) {
+        setMicError('Микрофон не найден');
+      } else {
+        setMicError(`Ошибка микрофона: ${msg}`);
+      }
+      return false;
+    }
   };
 
   const stopMic = (): Promise<Blob> => new Promise(resolve => {
@@ -365,28 +383,39 @@ export default function Messenger({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendText()} onFocus={onFocus} onBlur={onBlur}
-              placeholder={isOffline ? 'Сообщение (при подключении)...' : 'Сообщение диспетчеру...'}
-              className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 transition-all ${
-                isOffline ? 'border-yellow-500/40 focus:ring-yellow-500/40' : 'border-border focus:ring-primary/40 focus:border-primary'}`} />
+          <div className="flex flex-col gap-1.5">
+            {micError && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-destructive/10 border border-destructive/30">
+                <Icon name="AlertCircle" size={16} className="text-destructive flex-shrink-0" />
+                <span className="text-sm text-destructive">{micError}</span>
+                <button onClick={() => setMicError(null)} className="ml-auto text-destructive/60 hover:text-destructive">
+                  <Icon name="X" size={14} />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendText()} onFocus={onFocus} onBlur={onBlur}
+                placeholder={isOffline ? 'Сообщение (при подключении)...' : 'Сообщение диспетчеру...'}
+                className={`flex-1 min-w-0 h-14 tablet:h-20 px-4 rounded-2xl bg-muted border text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:ring-2 transition-all ${
+                  isOffline ? 'border-yellow-500/40 focus:ring-yellow-500/40' : 'border-border focus:ring-primary/40 focus:border-primary'}`} />
 
-            {/* 🎤 Микрофон — onTouchStart/End для мобилки, onClick fallback для десктопа */}
-            <button type="button"
-              onTouchStart={micTouchStart}
-              onTouchEnd={micTouchEnd}
-              onTouchCancel={micTouchCancel}
-              onClick={e => { if (!('ontouchstart' in window)) { e.preventDefault(); handleMicClick(); } }}
-              className="relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 bg-muted border border-border active:bg-destructive/20 transition-all select-none">
-              <Icon name="Mic" size={26} className="tablet:!w-9 tablet:!h-9 text-muted-foreground" />
-            </button>
+              {/* 🎤 Микрофон */}
+              <button type="button"
+                onTouchStart={micTouchStart}
+                onTouchEnd={micTouchEnd}
+                onTouchCancel={micTouchCancel}
+                onClick={() => { if (!('ontouchstart' in window)) handleMicClick(); }}
+                className="relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 bg-muted border border-border active:bg-destructive/20 transition-all select-none">
+                <Icon name="Mic" size={26} className="tablet:!w-9 tablet:!h-9 text-muted-foreground" />
+              </button>
 
-            <button type="button" onClick={handleSendText} disabled={!input.trim()}
-              className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all elevation-1 ${
-                isOffline ? 'bg-yellow-500 text-white' : 'bg-primary text-primary-foreground'}`}>
-              <Icon name="Send" size={24} className="tablet:!w-8 tablet:!h-8" />
-            </button>
+              <button type="button" onClick={handleSendText} disabled={!input.trim()}
+                className={`w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all elevation-1 ${
+                  isOffline ? 'bg-yellow-500 text-white' : 'bg-primary text-primary-foreground'}`}>
+                <Icon name="Send" size={24} className="tablet:!w-8 tablet:!h-8" />
+              </button>
+            </div>
           </div>
         )}
       </div>
