@@ -56,7 +56,7 @@ export default function IntervalWidget({ isDark }: Props) {
           <Icon name={iconName} size={16} className="text-primary mx-auto" />
         </div>
         <div className={`flex items-baseline gap-1.5 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-          <span className="text-2xl tablet:text-3xl font-black text-foreground tabular-nums leading-none">
+          <span className="tablet:text-3xl text-foreground tabular-nums leading-none font-bold text-5xl">
             {current?.intervalMin ?? '—'}
           </span>
           <span className="text-xs tablet:text-sm font-semibold text-muted-foreground leading-none">мин</span>
