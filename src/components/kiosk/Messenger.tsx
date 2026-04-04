@@ -279,9 +279,20 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
             {/* Микрофон — стартует запись, не открывает клавиатуру */}
             <button
               onPointerDown={handleMicPress}
-              className="w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl bg-muted border border-border flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
+              className={`relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ripple ${
+                isRecording
+                  ? 'bg-destructive border-2 border-destructive animate-pulse'
+                  : 'bg-muted border border-border active:bg-destructive/20'
+              }`}
             >
-              <Icon name="Mic" size={26} className="text-muted-foreground tablet:!w-9 tablet:!h-9" />
+              {isRecording && (
+                <span className="absolute inset-0 rounded-2xl bg-destructive/40 animate-ping" />
+              )}
+              <Icon
+                name="Mic"
+                size={26}
+                className={`relative z-10 tablet:!w-9 tablet:!h-9 ${isRecording ? 'text-white' : 'text-muted-foreground'}`}
+              />
             </button>
             {/* Отправить текст */}
             <button
