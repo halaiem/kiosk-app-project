@@ -76,16 +76,13 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     onSend(input.trim());
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
-    inputRef.current?.focus();
+    // Снимаем фокус — закрываем клавиатуру
+    inputRef.current?.blur();
   }, [input, onSend]);
 
   const handleSendPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    // Отменяем blur-таймер — клавиатура остаётся открытой
-    if (blurTimer.current) clearTimeout(blurTimer.current);
     handleSend();
-    // Возвращаем фокус после отправки
-    requestAnimationFrame(() => inputRef.current?.focus());
   }, [handleSend]);
 
   const startRecord = useCallback(() => {
