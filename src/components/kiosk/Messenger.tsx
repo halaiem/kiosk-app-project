@@ -22,6 +22,8 @@ interface Props {
   onInputFocus?: () => void;
   onInputBlur?: () => void;
   onOpenFullscreen?: () => void;
+  autoStartRecord?: boolean;
+  onAutoRecordDone?: () => void;
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -34,7 +36,7 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
-export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur, onOpenFullscreen }: Props) {
+export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur, onOpenFullscreen, autoStartRecord, onAutoRecordDone }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -57,6 +59,18 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   }, [inputFocused]);
+
+  // Авто-старт записи при открытии fullscreen через кнопку микрофона
+  useEffect(() => {
+    if (!autoStartRecord) return;
+    onAutoRecordDone?.();
+    setIsRecording(true);
+    setRecordTime(0);
+    recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
+    return () => {
+      if (recordTimer.current) clearInterval(recordTimer.current);
+    };
+  }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFocus = useCallback(() => {
     if (blurTimer.current) clearTimeout(blurTimer.current);

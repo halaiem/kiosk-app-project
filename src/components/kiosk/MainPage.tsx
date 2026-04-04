@@ -60,6 +60,7 @@ export default function MainPage({
   const now = useClock();
 
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [messengerAutoRecord, setMessengerAutoRecord] = useState(false);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInputFocus = useCallback(() => {
@@ -273,7 +274,7 @@ export default function MainPage({
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => onSetMessengerFullscreen(true)} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => { setMessengerAutoRecord(true); onSetMessengerFullscreen(true); }} />
           </div>
         </div>
       </div>
@@ -300,7 +301,7 @@ export default function MainPage({
             </button>
           </div>
           <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} autoStartRecord={messengerAutoRecord} onAutoRecordDone={() => setMessengerAutoRecord(false)} />
           </div>
         </div>,
         document.body
