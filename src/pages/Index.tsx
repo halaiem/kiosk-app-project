@@ -118,20 +118,20 @@ export default function Index() {
     setQueue(prev => [...prev, { id: `alert-${pick.id}-${Date.now()}`, kind: 'alert', alert: pick }]);
   }, [state.addDispatcherMessage]);
 
-  // Первое уведомление через 60 сек (планшет)
+  // Первое уведомление через 80 сек (планшет)
   useEffect(() => {
     if (state.screen !== 'main') return;
     const tablet = isTablet();
-    const delay = tablet ? 60000 : 8000 + Math.random() * 7000;
+    const delay = tablet ? 80000 : 8000 + Math.random() * 7000;
     const t = setTimeout(() => triggerRandomAlert(), delay);
     return () => clearTimeout(t);
   }, [state.screen, triggerRandomAlert]);
 
-  // Следующие через 300 сек (планшет)
+  // Следующие через 10 мин (планшет)
   useEffect(() => {
     if (lastAlertIdRef.current === null) return;
     const tablet = isTablet();
-    const interval = tablet ? 300000 : 40000 + Math.random() * 30000;
+    const interval = tablet ? 600000 : 40000 + Math.random() * 30000;
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
   }, [lastAlertIdRef.current, triggerRandomAlert]);

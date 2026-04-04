@@ -24,7 +24,7 @@ export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
   };
 
   return (
-    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${colors[message.type] || colors.normal} elevation-3 w-full pointer-events-auto`}>
+    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${colors[message.type] || colors.normal} w-full pointer-events-auto`}>
       <div className="flex items-start gap-4 md:gap-7">
         <div className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl flex items-center justify-center flex-shrink-0
           ${message.type === 'can_error' ? 'bg-warning/20' : message.type === 'dispatcher' ? 'bg-primary/15' : 'bg-muted'}`}>
@@ -93,7 +93,7 @@ export function ImportantMessageOverlay({ message, onConfirm, onReply }: Importa
           <div className="ml-auto text-white/70 text-2xl md:text-5xl font-mono tabular-nums">{elapsed}с</div>
         </div>
 
-        <div className="bg-card rounded-b-3xl p-6 md:p-10 elevation-4">
+        <div className="bg-card rounded-b-3xl p-6 md:p-10">
           <p className="text-foreground text-lg md:text-3xl leading-relaxed mb-6 md:mb-10">{message.text}</p>
 
           <div className="flex items-center justify-between text-xs md:text-lg text-muted-foreground mb-5 md:mb-8">
@@ -107,14 +107,14 @@ export function ImportantMessageOverlay({ message, onConfirm, onReply }: Importa
           <div className="flex gap-3 md:gap-5">
             <button
               onClick={() => dismiss(onConfirm)}
-              className="flex-1 py-5 md:py-9 rounded-2xl bg-destructive text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 elevation-3 active:scale-[0.98] transition-all ripple animate-scale-bounce"
+              className="flex-1 py-5 md:py-9 rounded-2xl bg-destructive text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 active:scale-[0.98] transition-all ripple animate-scale-bounce"
             >
               <Icon name="CheckCircle2" size={32} className="md:!w-14 md:!h-14" />
               Принял
             </button>
             <button
               onClick={() => dismiss(onReply)}
-              className="flex-1 py-5 md:py-9 rounded-2xl bg-green-600 text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 elevation-3 active:scale-[0.98] transition-all ripple"
+              className="flex-1 py-5 md:py-9 rounded-2xl bg-green-600 text-white font-bold text-xl md:text-4xl flex items-center justify-center gap-3 md:gap-5 active:scale-[0.98] transition-all ripple"
             >
               <Icon name="MessageSquare" size={32} className="md:!w-14 md:!h-14" />
               Ответить
