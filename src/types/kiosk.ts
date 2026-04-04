@@ -30,6 +30,7 @@ export interface Message {
   deliveryStatus?: DeliveryStatus;
   isVoice?: boolean;
   voiceDuration?: number;
+  transcription?: string;
 }
 
 export interface RouteStop {

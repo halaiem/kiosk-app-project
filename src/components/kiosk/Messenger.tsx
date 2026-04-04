@@ -26,13 +26,27 @@ interface Props {
   onAutoRecordDone?: () => void;
 }
 
-function VoiceBubble({ duration, isOutgoing }: { duration: number; isOutgoing: boolean }) {
+const DEMO_TRANSCRIPTIONS = [
+  'Задержитесь на конечной, регулировка интервала',
+  'Принял, выполняю',
+  'Понял вас, следую по маршруту',
+  'На линии пробка, опоздание примерно пять минут',
+  'Ревизор на маршруте, будьте готовы',
+  'Всё в порядке, продолжаю движение',
+];
+
+function VoiceBubble({ duration, isOutgoing, transcription }: { duration: number; isOutgoing: boolean; transcription?: string }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptText, setTranscriptText] = useState(transcription || '');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
 
-  const handlePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handlePlay = () => {
+    if (didLongPress.current) return;
     if (playing) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
@@ -56,8 +70,45 @@ function VoiceBubble({ duration, isOutgoing }: { duration: number; isOutgoing: b
     }, 100);
   };
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    didLongPress.current = false;
+    longPressRef.current = setTimeout(() => {
+      didLongPress.current = true;
+      if (!transcriptText) {
+        setTranscribing(true);
+        setTimeout(() => {
+          const demo = DEMO_TRANSCRIPTIONS[Math.floor(Math.random() * DEMO_TRANSCRIPTIONS.length)];
+          setTranscriptText(demo);
+          setTranscribing(false);
+          setShowTranscript(true);
+        }, 1500);
+      } else {
+        setShowTranscript(prev => !prev);
+      }
+    }, 1500);
+  };
+
+  const handlePointerUp = () => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+    if (!didLongPress.current) handlePlay();
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  };
+
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (longPressRef.current) clearTimeout(longPressRef.current);
+    };
   }, []);
 
   const formatDur = (s: number) => {
@@ -67,36 +118,55 @@ function VoiceBubble({ duration, isOutgoing }: { duration: number; isOutgoing: b
   };
 
   return (
-    <div className="flex items-center gap-3 min-w-[140px]">
-      <button
-        onClick={handlePlay}
-        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
-          isOutgoing
-            ? 'bg-white/20 hover:bg-white/30'
-            : 'bg-primary/15 hover:bg-primary/25'
-        }`}
-      >
-        <Icon
-          name={playing ? 'Pause' : 'Play'}
-          size={18}
-          className={isOutgoing ? 'text-white' : 'text-primary'}
-        />
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className="h-1.5 rounded-full bg-current/20 overflow-hidden"
-          style={{ backgroundColor: isOutgoing ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-100"
-            style={{
-              width: `${progress}%`,
-              backgroundColor: isOutgoing ? 'rgba(255,255,255,0.7)' : 'hsl(var(--primary))',
-            }}
+    <div className="min-w-[140px]">
+      <div className="flex items-center gap-3">
+        <button
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onContextMenu={e => e.preventDefault()}
+          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+            isOutgoing
+              ? 'bg-white/20 hover:bg-white/30'
+              : 'bg-primary/15 hover:bg-primary/25'
+          }`}
+        >
+          <Icon
+            name={transcribing ? 'Loader' : playing ? 'Pause' : 'Play'}
+            size={18}
+            className={`${isOutgoing ? 'text-white' : 'text-primary'} ${transcribing ? 'animate-spin' : ''}`}
           />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: isOutgoing ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-100"
+              style={{
+                width: `${progress}%`,
+                backgroundColor: isOutgoing ? 'rgba(255,255,255,0.7)' : 'hsl(var(--primary))',
+              }}
+            />
+          </div>
+          <span className={`text-xs mt-0.5 block tabular-nums ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
+            {formatDur(duration)}
+          </span>
         </div>
-        <span className={`text-xs mt-0.5 block tabular-nums ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
-          {formatDur(duration)}
-        </span>
       </div>
+      {transcribing && (
+        <div className={`mt-2 flex items-center gap-2 text-sm ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
+          <Icon name="Loader" size={12} className="animate-spin" />
+          <span>Транскрибация...</span>
+        </div>
+      )}
+      {showTranscript && transcriptText && (
+        <div className={`mt-2 pt-2 text-xl leading-snug ${isOutgoing ? 'border-t border-white/20 text-white/90' : 'border-t border-border text-foreground/80'}`}>
+          <div className="flex items-start gap-1.5">
+            <Icon name="FileText" size={14} className={`mt-1 flex-shrink-0 ${isOutgoing ? 'text-white/50' : 'text-muted-foreground'}`} />
+            <span>{transcriptText}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -126,6 +196,8 @@ export default function Messenger({
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [inputFocused, setInputFocused] = useState(false);
+  const [isTranscribeMode, setIsTranscribeMode] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
 
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordTimeRef = useRef(0);
@@ -133,6 +205,8 @@ export default function Messenger({
   const inputRef = useRef<HTMLInputElement>(null);
   const sendingRef = useRef(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micDidLongPress = useRef(false);
 
   const chatMessages = messages
     .filter(m => m.type === 'dispatcher' || m.type === 'important')
@@ -169,29 +243,77 @@ export default function Messenger({
     }, 1000);
   }, [stopRecordTimer]);
 
-  // Микрофон — стартует запись
-  const handleMicPress = useCallback((e: React.PointerEvent) => {
+  const startTranscribeMode = useCallback(() => {
+    inputRef.current?.blur();
+    stopRecordTimer();
+    recordTimeRef.current = 0;
+    setRecordTime(0);
+    setIsRecording(true);
+    setIsTranscribeMode(true);
+    recordTimer.current = setInterval(() => {
+      recordTimeRef.current += 1;
+      setRecordTime(t => t + 1);
+    }, 1000);
+  }, [stopRecordTimer]);
+
+  const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    startRecordNow();
+    micDidLongPress.current = false;
+    micLongPressRef.current = setTimeout(() => {
+      micDidLongPress.current = true;
+      startTranscribeMode();
+    }, 1500);
+  }, [startTranscribeMode]);
+
+  const handleMicPointerUp = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    if (micLongPressRef.current) {
+      clearTimeout(micLongPressRef.current);
+      micLongPressRef.current = null;
+    }
+    if (!micDidLongPress.current) {
+      startRecordNow();
+    }
   }, [startRecordNow]);
 
-  // Прислать — отправляет голосовое
+  const handleMicPointerCancel = useCallback(() => {
+    if (micLongPressRef.current) {
+      clearTimeout(micLongPressRef.current);
+      micLongPressRef.current = null;
+    }
+  }, []);
+
   const handleSendVoice = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     const time = recordTimeRef.current;
     stopRecordTimer();
-    setIsRecording(false);
-    setRecordTime(0);
-    recordTimeRef.current = 0;
-    onSend(`🎤 Голосовое сообщение (${time}с)`, true, time);
-    onInputBlur?.();
-  }, [onSend, onInputBlur, stopRecordTimer]);
+    if (isTranscribeMode) {
+      setTranscribing(true);
+      setIsRecording(false);
+      setRecordTime(0);
+      recordTimeRef.current = 0;
+      setTimeout(() => {
+        const demo = DEMO_TRANSCRIPTIONS[Math.floor(Math.random() * DEMO_TRANSCRIPTIONS.length)];
+        setTranscribing(false);
+        setIsTranscribeMode(false);
+        setInput(demo);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }, 1500);
+    } else {
+      setIsRecording(false);
+      setRecordTime(0);
+      recordTimeRef.current = 0;
+      onSend(`🎤 Голосовое сообщение (${time}с)`, true, time);
+      onInputBlur?.();
+    }
+  }, [onSend, onInputBlur, stopRecordTimer, isTranscribeMode]);
 
-  // Стоп — отменяет запись без отправки
   const handleCancelVoice = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     stopRecordTimer();
     setIsRecording(false);
+    setIsTranscribeMode(false);
+    setTranscribing(false);
     setRecordTime(0);
     recordTimeRef.current = 0;
     onInputBlur?.();
@@ -301,7 +423,7 @@ export default function Messenger({
                   </div>
                 )}
                 {msg.isVoice ? (
-                  <VoiceBubble duration={msg.voiceDuration || 5} isOutgoing={isOutgoing} />
+                  <VoiceBubble duration={msg.voiceDuration || 5} isOutgoing={isOutgoing} transcription={msg.transcription} />
                 ) : (
                   <p className="text-3xl leading-snug">{msg.text}</p>
                 )}
@@ -335,16 +457,24 @@ export default function Messenger({
 
       {/* Поле ввода */}
       <div className="px-3 pb-3 pt-2 border-t border-border flex-shrink-0">
-        {isRecording ? (
+        {transcribing ? (
+          /* ── Режим транскрибации — ожидание ── */
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30">
+            <Icon name="Loader" size={20} className="text-blue-500 animate-spin flex-shrink-0" />
+            <span className="text-base text-blue-600 dark:text-blue-400 font-semibold flex-1">
+              Распознаю речь...
+            </span>
+          </div>
+        ) : isRecording ? (
           /* ── Режим записи ── */
-          <div className="flex items-center gap-2 p-3 rounded-2xl bg-destructive/10 border border-destructive/30">
-            <div className="w-5 h-5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
-            <span className="text-base text-destructive font-semibold flex-1 tabular-nums">
-              🎤 {recordTime}с
+          <div className={`flex items-center gap-2 p-3 rounded-2xl ${isTranscribeMode ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
+            <div className={`w-5 h-5 rounded-full animate-pulse flex-shrink-0 ${isTranscribeMode ? 'bg-blue-500' : 'bg-destructive'}`} />
+            <span className={`text-base font-semibold flex-1 tabular-nums ${isTranscribeMode ? 'text-blue-600 dark:text-blue-400' : 'text-destructive'}`}>
+              {isTranscribeMode ? '✍️' : '🎤'} {recordTime}с
             </span>
             <button
               onPointerDown={handleCancelVoice}
-              className="px-5 py-3 rounded-2xl bg-destructive text-white text-base font-semibold ripple active:scale-95"
+              className={`px-5 py-3 rounded-2xl text-white text-base font-semibold ripple active:scale-95 ${isTranscribeMode ? 'bg-blue-500' : 'bg-destructive'}`}
             >
               Стоп
             </button>
@@ -352,8 +482,8 @@ export default function Messenger({
               onPointerDown={handleSendVoice}
               className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
             >
-              <Icon name="Send" size={18} />
-              Прислать
+              <Icon name={isTranscribeMode ? 'FileText' : 'Send'} size={18} />
+              {isTranscribeMode ? 'В текст' : 'Прислать'}
             </button>
           </div>
         ) : (
@@ -375,7 +505,10 @@ export default function Messenger({
             />
             {/* Микрофон */}
             <button
-              onPointerDown={handleMicPress}
+              onPointerDown={handleMicPointerDown}
+              onPointerUp={handleMicPointerUp}
+              onPointerCancel={handleMicPointerCancel}
+              onContextMenu={e => e.preventDefault()}
               className={`relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ripple ${
                 isRecording
                   ? 'bg-destructive border-2 border-destructive animate-pulse'
