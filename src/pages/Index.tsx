@@ -249,15 +249,7 @@ export default function Index() {
                 </div>
               )}
 
-              {/* Тени накопленных под верхним */}
               <div className="relative w-full max-w-2xl">
-                {stackCount >= 3 && (
-                  <div className="absolute inset-x-6 bottom-0 h-full rounded-2xl bg-card/40 border border-border/20" style={{ transform: 'translateY(12px) scaleX(0.88)', transformOrigin: 'bottom', zIndex: -2 }} />
-                )}
-                {stackCount >= 2 && (
-                  <div className="absolute inset-x-3 bottom-0 h-full rounded-2xl bg-card/60 border border-border/40" style={{ transform: 'translateY(6px) scaleX(0.94)', transformOrigin: 'bottom', zIndex: -1 }} />
-                )}
-
                 <div className="relative" key={top.id}>
                   {top.kind === 'important' && top.message && (
                     <ImportantMessageOverlay

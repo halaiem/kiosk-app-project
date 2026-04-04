@@ -236,20 +236,7 @@ export default function MainPage({
 
         {/* STOPS — скрывается при открытой клавиатуре на планшете */}
         <div className={`${keyboardOpen ? 'hidden' : ''} flex-shrink-0 kiosk-surface rounded-2xl overflow-hidden elevation-2`}>
-          <div className="flex items-center">
-            <div className="flex-1 min-w-0">
-              <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} />
-            </div>
-            <div className="flex-shrink-0 pr-2">
-              <button
-                onClick={() => onSetStopsFullscreen(true)}
-                className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
-                title="Открыть на весь экран"
-              >
-                <Icon name="Maximize2" size={14} className="text-muted-foreground" />
-              </button>
-            </div>
-          </div>
+          <RouteStops currentStopIndex={currentStopIndex} deviation={deviation} onFullscreen={() => onSetStopsFullscreen(true)} />
         </div>
 
         {/* MESSENGER — при открытой клавиатуре занимает весь экран */}

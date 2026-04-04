@@ -36,11 +36,22 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
-export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur, onOpenFullscreen, autoStartRecord, onAutoRecordDone }: Props) {
+export default function Messenger({
+  messages,
+  onSend,
+  isMoving,
+  connection = 'online',
+  pendingCount = 0,
+  onInputFocus,
+  onInputBlur,
+  autoStartRecord,
+  onAutoRecordDone,
+}: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const [inputFocused, setInputFocused] = useState(false);
+
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordTimeRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,23 +59,12 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const sendingRef = useRef(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
+  const chatMessages = messages
+    .filter(m => m.type === 'dispatcher' || m.type === 'important')
+    .slice(0, 50);
   const isOffline = connection === 'offline';
 
   // ── Запись ────────────────────────────────────────────────────────────────
-
-  const startRecordNow = useCallback(() => {
-    // Убираем фокус с input чтобы клавиатура не открылась
-    inputRef.current?.blur();
-    if (recordTimer.current) clearInterval(recordTimer.current);
-    recordTimeRef.current = 0;
-    setRecordTime(0);
-    setIsRecording(true);
-    recordTimer.current = setInterval(() => {
-      recordTimeRef.current += 1;
-      setRecordTime(t => t + 1);
-    }, 1000);
-  }, []);
 
   const stopRecordTimer = useCallback(() => {
     if (recordTimer.current) {
@@ -73,13 +73,25 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     }
   }, []);
 
-  // Кнопка микрофона: всегда стартует запись прямо здесь
+  const startRecordNow = useCallback(() => {
+    inputRef.current?.blur(); // не открываем клавиатуру
+    stopRecordTimer();
+    recordTimeRef.current = 0;
+    setRecordTime(0);
+    setIsRecording(true);
+    recordTimer.current = setInterval(() => {
+      recordTimeRef.current += 1;
+      setRecordTime(t => t + 1);
+    }, 1000);
+  }, [stopRecordTimer]);
+
+  // Микрофон — стартует запись
   const handleMicPress = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     startRecordNow();
   }, [startRecordNow]);
 
-  // Кнопка "Прислать" (только в режиме записи): отправляет голос
+  // Прислать — отправляет голосовое
   const handleSendVoice = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     const time = recordTimeRef.current;
@@ -91,7 +103,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     onInputBlur?.();
   }, [onSend, onInputBlur, stopRecordTimer]);
 
-  // Кнопка "Стоп": отменяет запись без отправки
+  // Стоп — отменяет запись без отправки
   const handleCancelVoice = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     stopRecordTimer();
@@ -103,7 +115,6 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
 
   // ── Текст ─────────────────────────────────────────────────────────────────
 
-  // Кнопка отправки текста (иконка Send): отправляет только текст
   const handleSendText = useCallback(() => {
     if (sendingRef.current || !input.trim()) return;
     sendingRef.current = true;
@@ -118,7 +129,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     handleSendText();
   }, [handleSendText]);
 
-  // ── Авто-старт при открытии fullscreen ───────────────────────────────────
+  // ── Авто-старт записи при открытии fullscreen ────────────────────────────
 
   useEffect(() => {
     if (!autoStartRecord) return;
@@ -138,7 +149,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     }
   }, [inputFocused]);
 
-  // ── Фокус input ──────────────────────────────────────────────────────────
+  // ── Фокус ─────────────────────────────────────────────────────────────────
 
   const handleFocus = useCallback(() => {
     if (blurTimer.current) clearTimeout(blurTimer.current);
@@ -179,36 +190,35 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       )}
 
       {/* Сообщения */}
-      <div
-        className={`overflow-y-auto px-3 py-2 space-y-2 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}
-      >
+      <div className={`overflow-y-auto px-3 py-2 space-y-3 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}>
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Icon name="MessageSquare" size={48} className="opacity-30" />
-            <span className="text-lg">Нет сообщений</span>
+            <span className="text-2xl">Нет сообщений</span>
           </div>
         )}
         {[...chatMessages].map(msg => {
           const isOutgoing = msg.text.startsWith('[Водитель]');
           return (
             <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${
+              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                 msg.type === 'important'
                   ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
                   : isOutgoing
-                  ? (msg.deliveryStatus === 'pending' || msg.deliveryStatus === 'failed')
-                    ? 'bg-primary/60 text-primary-foreground rounded-br-sm'
-                    : 'bg-primary text-primary-foreground rounded-br-sm'
-                  : 'bg-muted text-foreground rounded-bl-sm'
+                    ? (msg.deliveryStatus === 'pending' || msg.deliveryStatus === 'failed')
+                      ? 'bg-primary/60 text-primary-foreground rounded-br-sm'
+                      : 'bg-primary text-primary-foreground rounded-br-sm'
+                    : 'bg-muted text-foreground rounded-bl-sm'
               }`}>
                 {msg.type === 'important' && (
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Icon name="AlertTriangle" size={16} className="text-destructive" />
-                    <span className="text-xs font-bold text-destructive uppercase">Важное</span>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Icon name="AlertTriangle" size={20} className="text-destructive" />
+                    <span className="text-base font-bold text-destructive uppercase">Важное</span>
                   </div>
                 )}
-                <p className="text-sm leading-snug">{msg.text}</p>
-                <div className={`text-[10px] mt-1 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
+                {/* Текст диалога x3 */}
+                <p className="text-3xl leading-snug">{msg.text}</p>
+                <div className={`text-base mt-1 ${isOutgoing ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground'}`}>
                   {formatTime(msg.timestamp)}
                   {isOutgoing && <DeliveryIcon status={msg.deliveryStatus} />}
                 </div>
@@ -219,7 +229,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Быстрые шаблоны — только без фокуса и без записи */}
+      {/* Быстрые шаблоны */}
       {!inputFocused && !isRecording && !isMoving && (
         <div className="px-3 py-1.5 border-t border-border flex-shrink-0">
           <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
@@ -227,7 +237,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               <button
                 key={i}
                 onPointerDown={e => { e.preventDefault(); onSend(tpl); }}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full bg-muted text-xs text-foreground whitespace-nowrap active:scale-95 ripple"
+                className="flex-shrink-0 px-3 py-1.5 rounded-full bg-muted text-base text-foreground whitespace-nowrap active:scale-95 ripple"
               >
                 {tpl}
               </button>
@@ -239,7 +249,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       {/* Поле ввода */}
       <div className="px-3 pb-3 pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
-          /* ── Режим записи голоса ── */
+          /* ── Режим записи ── */
           <div className="flex items-center gap-2 p-3 rounded-2xl bg-destructive/10 border border-destructive/30">
             <div className="w-5 h-5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
             <span className="text-base text-destructive font-semibold flex-1 tabular-nums">
@@ -276,7 +286,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
                   : 'border-border focus:ring-primary/40 focus:border-primary'
               }`}
             />
-            {/* Микрофон — стартует запись, не открывает клавиатуру */}
+            {/* Микрофон */}
             <button
               onPointerDown={handleMicPress}
               className={`relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ripple ${

@@ -68,9 +68,10 @@ interface Props {
   currentStopIndex: number;
   vertical?: boolean;
   deviation?: number;
+  onFullscreen?: () => void;
 }
 
-export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }: Props) {
+export default function RouteStops({ currentStopIndex, vertical, deviation = 0, onFullscreen }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoReturnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userScrolling, setUserScrolling] = useState(false);
@@ -251,7 +252,18 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
             {deviation > 0 ? '+' : ''}{deviation} мин
           </div>
         )}
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{currentStopIndex + 1}/{STOPS.length}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground tabular-nums">{currentStopIndex + 1}/{STOPS.length}</span>
+          {onFullscreen && (
+            <button
+              onClick={onFullscreen}
+              className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center active:scale-95 transition-all"
+              title="Открыть на весь экран"
+            >
+              <Icon name="Maximize2" size={13} className="text-muted-foreground" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Horizontal scrollable stops — all items on one line */}
