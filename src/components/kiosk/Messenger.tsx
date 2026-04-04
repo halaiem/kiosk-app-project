@@ -129,8 +129,9 @@ export default function Messenger({
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
     inputRef.current?.blur();
-    // Скроллим вниз сразу после отправки
-    setTimeout(() => scrollToBottom('auto'), 50);
+    // Скроллим после blur (блок hidden снимается через 200мс blurTimer)
+    setTimeout(() => scrollToBottom('auto'), 300);
+    setTimeout(() => scrollToBottom('auto'), 500);
   }, [input, onSend, scrollToBottom]);
 
   const handleSendTextPointerDown = useCallback((e: React.PointerEvent) => {
@@ -156,10 +157,12 @@ export default function Messenger({
     scrollToBottom('auto');
   }, [chatMessages.length, scrollToBottom]);
 
-  // При открытии клавиатуры
+  // При открытии/закрытии клавиатуры — когда блок сообщений появляется обратно
   useEffect(() => {
     if (inputFocused) {
       setTimeout(() => scrollToBottom('smooth'), 150);
+    } else {
+      setTimeout(() => scrollToBottom('auto'), 50);
     }
   }, [inputFocused, scrollToBottom]);
 
