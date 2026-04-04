@@ -12,6 +12,8 @@ import KioskUnlockModal from '@/components/kiosk/KioskUnlockModal';
 import DispatcherAlert from '@/components/kiosk/DispatcherAlert';
 import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/SupportModals';
 import SosModal from '@/components/kiosk/SosModal';
+import EndShiftModal from '@/components/kiosk/EndShiftModal';
+import GoodbyeScreen from '@/components/kiosk/GoodbyeScreen';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 import type { Message } from '@/types/kiosk';
@@ -50,6 +52,8 @@ export default function Index() {
   const [breakOpen, setBreakOpen] = useState(false);
   const [kioskUnlockOpen, setKioskUnlockOpen] = useState(false);
   const [sosOpen, setSosOpen] = useState(false);
+  const [endShiftOpen, setEndShiftOpen] = useState(false);
+  const [goodbyeScreen, setGoodbyeScreen] = useState(false);
   const [supportModal, setSupportModal] = useState<SupportModalRequest | null>(null);
 
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
@@ -144,8 +148,18 @@ export default function Index() {
   };
 
   const handleEndShift = () => {
-    const ok = window.confirm('Завершить смену? Все данные будут синхронизированы.');
-    if (ok) state.logout();
+    setEndShiftOpen(true);
+  };
+
+  const handleEndShiftConfirm = () => {
+    setEndShiftOpen(false);
+    setMenuOpen(false);
+    setGoodbyeScreen(true);
+  };
+
+  const handleGoodbyeComplete = () => {
+    setGoodbyeScreen(false);
+    state.logout();
   };
 
   const top = queue[0] ?? null;
@@ -290,7 +304,20 @@ export default function Index() {
             onClose={() => setKioskUnlockOpen(false)}
             onUnlock={() => console.log('Kiosk unlocked')}
           />
+
+          {state.driver && (
+            <EndShiftModal
+              open={endShiftOpen}
+              driver={state.driver}
+              onClose={() => setEndShiftOpen(false)}
+              onConfirm={handleEndShiftConfirm}
+            />
+          )}
         </>
+      )}
+
+      {goodbyeScreen && (
+        <GoodbyeScreen onComplete={handleGoodbyeComplete} />
       )}
     </div>
   );
