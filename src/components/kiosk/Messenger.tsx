@@ -61,7 +61,7 @@ export default function Messenger({
 
   const chatMessages = messages
     .filter(m => m.type === 'dispatcher' || m.type === 'important')
-    .slice(0, 50);
+    .slice(-50);
   const isOffline = connection === 'offline';
 
   // ── Скролл — всегда показываем последнее сообщение ──────────────────────
