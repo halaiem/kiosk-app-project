@@ -95,16 +95,23 @@ export default function KeyboardInputOverlay({
 
         {isRecording ? (
           /* Режим записи голоса */
-          <div className="flex items-center gap-4 px-4 py-4">
+          <div className="flex items-center gap-3 px-4 py-4">
             <div className="w-5 h-5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
-            <span className="text-lg text-destructive font-semibold flex-1">
-              Запись... {recordTime}с
+            <span className="text-lg text-destructive font-semibold flex-1 tabular-nums">
+              🎤 {recordTime}с
             </span>
             <button
-              onPointerUp={handleVoicePointerUp}
-              className="px-6 py-3 rounded-2xl bg-destructive text-white text-base font-bold ripple active:scale-95"
+              onPointerDown={e => { e.preventDefault(); onClose(); }}
+              className="px-5 py-3 rounded-2xl bg-muted border border-border text-foreground text-base font-semibold ripple active:scale-95"
             >
               Стоп
+            </button>
+            <button
+              onPointerUp={handleVoicePointerUp}
+              className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
+            >
+              <Icon name="Send" size={18} />
+              Отправить
             </button>
           </div>
         ) : (

@@ -107,7 +107,8 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     onOpenFullscreen?.();
   }, [onOpenFullscreen]);
 
-  const stopRecord = useCallback((e: React.PointerEvent) => {
+  // Отправить голосовое
+  const sendRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
@@ -115,6 +116,15 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     setRecordTime(0);
     onInputBlur?.();
   }, [recordTime, onSend, onInputBlur]);
+
+  // Отменить запись без отправки
+  const cancelRecord = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsRecording(false);
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    setRecordTime(0);
+    onInputBlur?.();
+  }, [onInputBlur]);
 
   const formatTime = (date: Date) =>
     new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -202,16 +212,23 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       {/* Поле ввода — реальный input, всегда внизу */}
       <div className="px-3 pb-3 pt-2 border-t border-border flex-shrink-0">
         {isRecording ? (
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-destructive/10 border border-destructive/30">
+          <div className="flex items-center gap-2 p-3 rounded-2xl bg-destructive/10 border border-destructive/30">
             <div className="w-5 h-5 rounded-full bg-destructive animate-pulse flex-shrink-0" />
             <span className="text-base text-destructive font-semibold flex-1 tabular-nums">
-              🎤 Запись... {recordTime}с
+              🎤 {recordTime}с
             </span>
             <button
-              onPointerDown={stopRecord}
-              className="px-6 py-3 rounded-2xl bg-destructive text-white text-base font-bold ripple"
+              onPointerDown={cancelRecord}
+              className="px-5 py-3 rounded-2xl bg-muted border border-border text-foreground text-base font-semibold ripple active:scale-95"
             >
               Стоп
+            </button>
+            <button
+              onPointerDown={sendRecord}
+              className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
+            >
+              <Icon name="Send" size={18} />
+              Отправить
             </button>
           </div>
         ) : (

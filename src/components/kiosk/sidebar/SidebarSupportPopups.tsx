@@ -129,11 +129,16 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
     setRecordTime(0);
     recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
   };
-  const stopRecord = () => {
+  const sendRecord = () => {
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     onClose();
+  };
+  const cancelRecord = () => {
+    setIsRecording(false);
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    setRecordTime(0);
   };
   const handleSend = () => {
     if (!input.trim()) return;
@@ -171,10 +176,13 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
 
         <div ref={inputWrapRef} className="px-3 pb-4 pt-2 border-t border-border">
           {isRecording ? (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
-              <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
-              <span className="text-sm text-destructive font-medium flex-1">Запись... {recordTime}с</span>
-              <button onPointerUp={stopRecord} className="px-3 py-1.5 rounded-lg bg-destructive text-white text-sm ripple">Стоп</button>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
+              <div className="w-3 h-3 rounded-full bg-destructive animate-pulse flex-shrink-0" />
+              <span className="text-sm text-destructive font-medium flex-1 tabular-nums">🎤 {recordTime}с</span>
+              <button onPointerDown={e => { e.preventDefault(); cancelRecord(); }} className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm font-semibold ripple">Стоп</button>
+              <button onPointerDown={e => { e.preventDefault(); sendRecord(); }} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold ripple flex items-center gap-1">
+                <Icon name="Send" size={14} />Отправить
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
