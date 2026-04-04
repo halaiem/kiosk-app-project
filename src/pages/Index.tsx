@@ -63,6 +63,7 @@ export default function Index() {
   const [messengerFullscreen, setMessengerFullscreen] = useState(false);
   const [stopsFullscreen, setStopsFullscreen] = useState(false);
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [activeVoiceMsgId, setActiveVoiceMsgId] = useState<string | null>(null);
 
   const [tablet, setTablet] = useState(isTablet);
   useEffect(() => {
@@ -90,6 +91,15 @@ export default function Index() {
   const dismissTopAndReply = useCallback(() => {
     setQueue(prev => prev.slice(1));
     setTimeout(() => setMessengerFullscreen(true), 350);
+  }, []);
+
+  const handlePlayVoiceInNotif = useCallback((msgId: string) => {
+    setQueue(prev => prev.slice(1));
+    setActiveVoiceMsgId(msgId);
+    setTimeout(() => {
+      setMessengerFullscreen(true);
+      setTimeout(() => setActiveVoiceMsgId(null), 4000);
+    }, 350);
   }, []);
 
   // Обычные сообщения от диспетчера → в очередь
@@ -207,6 +217,7 @@ export default function Index() {
             theme={state.theme}
             onOpenMenu={() => setMenuOpen(true)}
             onSendMessage={state.sendMessage}
+            onTranscribed={state.updateTranscription}
             onLogoTap={handleLogoTap}
             logoTapCount={state.logoTapCount}
             onBreak={() => setBreakOpen(true)}
@@ -220,6 +231,7 @@ export default function Index() {
             onSetMapFullscreen={setMapFullscreen}
             pendingCount={state.pendingCount}
             onSos={() => setSosOpen(true)}
+            activeVoiceMsgId={activeVoiceMsgId}
           />
 
           <SidebarMenu
@@ -292,6 +304,7 @@ export default function Index() {
                       message={top.message}
                       onConfirm={() => { state.markRead(top.message!.id); dismissTop(); }}
                       onReply={() => { state.markRead(top.message!.id); dismissTopAndReply(); }}
+                      onPlayVoice={top.message.isVoice ? () => { state.markRead(top.message!.id); handlePlayVoiceInNotif(top.message!.id); } : undefined}
                     />
                   )}
                 </div>

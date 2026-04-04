@@ -31,6 +31,7 @@ export interface Message {
   isVoice?: boolean;
   voiceDuration?: number;
   transcription?: string;
+  audioUrl?: string;
 }
 
 export interface RouteStop {

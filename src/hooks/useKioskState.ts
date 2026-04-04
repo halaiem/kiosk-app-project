@@ -253,7 +253,11 @@ export function useKioskState() {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, read: true } : m));
   }, []);
 
-  const sendMessage = useCallback(async (text: string, isVoice?: boolean, voiceDuration?: number) => {
+  const updateTranscription = useCallback((msgId: string, transcription: string) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, transcription } : m));
+  }, []);
+
+  const sendMessage = useCallback(async (text: string, isVoice?: boolean, voiceDuration?: number, audioUrl?: string) => {
     const clientId = generateClientId();
     const isOnline = navigator.onLine;
 
@@ -267,6 +271,7 @@ export function useKioskState() {
       deliveryStatus: isOnline ? 'sending' : 'pending',
       isVoice,
       voiceDuration,
+      audioUrl,
     };
     setMessages(prev => {
       const updated = [...prev, tempMsg];
@@ -357,6 +362,7 @@ export function useKioskState() {
     confirmImportant,
     markRead,
     sendMessage,
+    updateTranscription,
     addDispatcherMessage,
     handleLogoTap,
     logoTapCount,

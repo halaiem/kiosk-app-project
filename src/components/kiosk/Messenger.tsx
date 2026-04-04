@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
+import { useMediaRecorder } from '@/hooks/useMediaRecorder';
+import { transcribeAudio } from '@/api/transcribeApi';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -15,7 +17,8 @@ const QUICK_TEMPLATES = [
 
 interface Props {
   messages: Message[];
-  onSend: (text: string, isVoice?: boolean, voiceDuration?: number) => void;
+  onSend: (text: string, isVoice?: boolean, voiceDuration?: number, audioUrl?: string) => void;
+  onTranscribed?: (msgId: string, text: string) => void;
   isMoving: boolean;
   connection?: ConnectionStatus;
   pendingCount?: number;
@@ -24,151 +27,7 @@ interface Props {
   onOpenFullscreen?: () => void;
   autoStartRecord?: boolean;
   onAutoRecordDone?: () => void;
-}
-
-const DEMO_TRANSCRIPTIONS = [
-  'Задержитесь на конечной, регулировка интервала',
-  'Принял, выполняю',
-  'Понял вас, следую по маршруту',
-  'На линии пробка, опоздание примерно пять минут',
-  'Ревизор на маршруте, будьте готовы',
-  'Всё в порядке, продолжаю движение',
-];
-
-function VoiceBubble({ duration, isOutgoing, transcription }: { duration: number; isOutgoing: boolean; transcription?: string }) {
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [showTranscript, setShowTranscript] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [transcriptText, setTranscriptText] = useState(transcription || '');
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const didLongPress = useRef(false);
-
-  const handlePlay = () => {
-    if (didLongPress.current) return;
-    if (playing) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
-      setPlaying(false);
-      setProgress(0);
-      return;
-    }
-    setPlaying(true);
-    setProgress(0);
-    const step = 100 / (duration * 10);
-    timerRef.current = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          timerRef.current = null;
-          setPlaying(false);
-          return 0;
-        }
-        return prev + step;
-      });
-    }, 100);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    didLongPress.current = false;
-    longPressRef.current = setTimeout(() => {
-      didLongPress.current = true;
-      if (!transcriptText) {
-        setTranscribing(true);
-        setTimeout(() => {
-          const demo = DEMO_TRANSCRIPTIONS[Math.floor(Math.random() * DEMO_TRANSCRIPTIONS.length)];
-          setTranscriptText(demo);
-          setTranscribing(false);
-          setShowTranscript(true);
-        }, 1500);
-      } else {
-        setShowTranscript(prev => !prev);
-      }
-    }, 1500);
-  };
-
-  const handlePointerUp = () => {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
-    }
-    if (!didLongPress.current) handlePlay();
-  };
-
-  const handlePointerCancel = () => {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (longPressRef.current) clearTimeout(longPressRef.current);
-    };
-  }, []);
-
-  const formatDur = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `0:${sec.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div className="min-w-[140px]">
-      <div className="flex items-center gap-3">
-        <button
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerCancel}
-          onContextMenu={e => e.preventDefault()}
-          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
-            isOutgoing
-              ? 'bg-white/20 hover:bg-white/30'
-              : 'bg-primary/15 hover:bg-primary/25'
-          }`}
-        >
-          <Icon
-            name={transcribing ? 'Loader' : playing ? 'Pause' : 'Play'}
-            size={18}
-            className={`${isOutgoing ? 'text-white' : 'text-primary'} ${transcribing ? 'animate-spin' : ''}`}
-          />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="h-1.5 rounded-full overflow-hidden"
-            style={{ backgroundColor: isOutgoing ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
-            <div
-              className="h-full rounded-full transition-all duration-100"
-              style={{
-                width: `${progress}%`,
-                backgroundColor: isOutgoing ? 'rgba(255,255,255,0.7)' : 'hsl(var(--primary))',
-              }}
-            />
-          </div>
-          <span className={`text-xs mt-0.5 block tabular-nums ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
-            {formatDur(duration)}
-          </span>
-        </div>
-      </div>
-      {transcribing && (
-        <div className={`mt-2 flex items-center gap-2 text-sm ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
-          <Icon name="Loader" size={12} className="animate-spin" />
-          <span>Транскрибация...</span>
-        </div>
-      )}
-      {showTranscript && transcriptText && (
-        <div className={`mt-2 pt-2 text-xl leading-snug ${isOutgoing ? 'border-t border-white/20 text-white/90' : 'border-t border-border text-foreground/80'}`}>
-          <div className="flex items-start gap-1.5">
-            <Icon name="FileText" size={14} className={`mt-1 flex-shrink-0 ${isOutgoing ? 'text-white/50' : 'text-muted-foreground'}`} />
-            <span>{transcriptText}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  activeVoiceMsgId?: string | null;
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -181,9 +40,200 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
+interface VoiceBubbleProps {
+  msgId: string;
+  duration: number;
+  isOutgoing: boolean;
+  transcription?: string;
+  audioUrl?: string;
+  onTranscribed?: (msgId: string, text: string) => void;
+  highlighted?: boolean;
+}
+
+function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, onTranscribed, highlighted }: VoiceBubbleProps) {
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showTranscript, setShowTranscript] = useState(!!transcription);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptText, setTranscriptText] = useState(transcription || '');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (transcription) {
+      setTranscriptText(transcription);
+      setShowTranscript(true);
+    }
+  }, [transcription]);
+
+  const startPlayback = useCallback(() => {
+    if (audioUrl) {
+      if (!audioRef.current) audioRef.current = new Audio(audioUrl);
+      const audio = audioRef.current;
+      audio.currentTime = 0;
+      setProgress(0);
+      setPlaying(true);
+      audio.play().catch(() => {});
+      const step = 100 / (duration * 10);
+      timerRef.current = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = null;
+            setPlaying(false);
+            return 0;
+          }
+          return prev + step;
+        });
+      }, 100);
+      audio.onended = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+        setPlaying(false);
+        setProgress(0);
+      };
+    } else {
+      setPlaying(true);
+      setProgress(0);
+      const step = 100 / (duration * 10);
+      timerRef.current = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = null;
+            setPlaying(false);
+            return 0;
+          }
+          return prev + step;
+        });
+      }, 100);
+    }
+  }, [audioUrl, duration]);
+
+  const stopPlayback = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    audioRef.current?.pause();
+    setPlaying(false);
+    setProgress(0);
+  }, []);
+
+  const handlePlay = useCallback(() => {
+    if (didLongPress.current) return;
+    if (playing) { stopPlayback(); return; }
+    startPlayback();
+  }, [playing, startPlayback, stopPlayback]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    didLongPress.current = false;
+    longPressRef.current = setTimeout(async () => {
+      didLongPress.current = true;
+      if (transcriptText) {
+        setShowTranscript(prev => !prev);
+        return;
+      }
+      setTranscribing(true);
+      try {
+        let text = '';
+        if (audioUrl) {
+          const resp = await fetch(audioUrl);
+          const blob = await resp.blob();
+          text = await transcribeAudio(blob);
+        }
+        if (!text) text = 'Нет речи для распознавания';
+        setTranscriptText(text);
+        setShowTranscript(true);
+        onTranscribed?.(msgId, text);
+      } catch {
+        setTranscriptText('Ошибка транскрибации');
+        setShowTranscript(true);
+      } finally {
+        setTranscribing(false);
+      }
+    }, 1500);
+  }, [transcriptText, audioUrl, msgId, onTranscribed]);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+    if (!didLongPress.current) handlePlay();
+  }, [handlePlay]);
+
+  const handlePointerCancel = useCallback(() => {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (longPressRef.current) clearTimeout(longPressRef.current);
+      audioRef.current?.pause();
+    };
+  }, []);
+
+  const formatDur = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `0:${sec.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className={`min-w-[150px] transition-all duration-300 ${highlighted ? 'ring-2 ring-yellow-400 rounded-xl p-1 -m-1' : ''}`}>
+      <div className="flex items-center gap-3">
+        <button
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onContextMenu={e => e.preventDefault()}
+          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 select-none ${
+            isOutgoing ? 'bg-white/20 hover:bg-white/30' : 'bg-primary/15 hover:bg-primary/25'
+          }`}
+        >
+          <Icon
+            name={transcribing ? 'Loader' : playing ? 'Pause' : 'Play'}
+            size={18}
+            className={`${isOutgoing ? 'text-white' : 'text-primary'} ${transcribing ? 'animate-spin' : ''}`}
+          />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: isOutgoing ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}>
+            <div className="h-full rounded-full transition-all duration-100"
+              style={{
+                width: `${progress}%`,
+                backgroundColor: isOutgoing ? 'rgba(255,255,255,0.8)' : 'hsl(var(--primary))',
+              }}
+            />
+          </div>
+          <span className={`text-xs mt-0.5 block tabular-nums ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
+            {formatDur(duration)}
+          </span>
+        </div>
+      </div>
+      {transcribing && (
+        <div className={`mt-2 flex items-center gap-2 text-sm ${isOutgoing ? 'text-white/60' : 'text-muted-foreground'}`}>
+          <Icon name="Loader" size={12} className="animate-spin flex-shrink-0" />
+          <span>Распознаю речь...</span>
+        </div>
+      )}
+      {showTranscript && transcriptText && !transcribing && (
+        <div className={`mt-2 pt-2 text-xl leading-snug ${isOutgoing ? 'border-t border-white/20 text-white/90' : 'border-t border-border text-foreground/80'}`}>
+          <div className="flex items-start gap-1.5">
+            <Icon name="FileText" size={14} className={`mt-1 flex-shrink-0 ${isOutgoing ? 'text-white/50' : 'text-muted-foreground'}`} />
+            <span>{transcriptText}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Messenger({
   messages,
   onSend,
+  onTranscribed,
   isMoving,
   connection = 'online',
   pendingCount = 0,
@@ -191,6 +241,7 @@ export default function Messenger({
   onInputBlur,
   autoStartRecord,
   onAutoRecordDone,
+  activeVoiceMsgId,
 }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -199,6 +250,7 @@ export default function Messenger({
   const [isTranscribeMode, setIsTranscribeMode] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
 
+  const mediaRecorder = useMediaRecorder();
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordTimeRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -213,48 +265,51 @@ export default function Messenger({
     .slice(-50);
   const isOffline = connection === 'offline';
 
-  // ── Скролл — всегда привязан к низу ─────────────────────────────────────
-
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  // ── Запись ────────────────────────────────────────────────────────────────
-
   const stopRecordTimer = useCallback(() => {
-    if (recordTimer.current) {
-      clearInterval(recordTimer.current);
-      recordTimer.current = null;
-    }
+    if (recordTimer.current) { clearInterval(recordTimer.current); recordTimer.current = null; }
   }, []);
 
-  const startRecordNow = useCallback(() => {
-    inputRef.current?.blur(); // не открываем клавиатуру
-    stopRecordTimer();
-    recordTimeRef.current = 0;
-    setRecordTime(0);
-    setIsRecording(true);
-    recordTimer.current = setInterval(() => {
-      recordTimeRef.current += 1;
-      setRecordTime(t => t + 1);
-    }, 1000);
-  }, [stopRecordTimer]);
-
-  const startTranscribeMode = useCallback(() => {
+  const startRecordNow = useCallback(async () => {
     inputRef.current?.blur();
     stopRecordTimer();
     recordTimeRef.current = 0;
     setRecordTime(0);
-    setIsRecording(true);
-    setIsTranscribeMode(true);
-    recordTimer.current = setInterval(() => {
-      recordTimeRef.current += 1;
-      setRecordTime(t => t + 1);
-    }, 1000);
-  }, [stopRecordTimer]);
+    try {
+      await mediaRecorder.start();
+      setIsRecording(true);
+      recordTimer.current = setInterval(() => {
+        recordTimeRef.current += 1;
+        setRecordTime(t => t + 1);
+      }, 1000);
+    } catch {
+      setIsRecording(false);
+    }
+  }, [stopRecordTimer, mediaRecorder]);
+
+  const startTranscribeMode = useCallback(async () => {
+    inputRef.current?.blur();
+    stopRecordTimer();
+    recordTimeRef.current = 0;
+    setRecordTime(0);
+    try {
+      await mediaRecorder.start();
+      setIsRecording(true);
+      setIsTranscribeMode(true);
+      recordTimer.current = setInterval(() => {
+        recordTimeRef.current += 1;
+        setRecordTime(t => t + 1);
+      }, 1000);
+    } catch {
+      setIsRecording(false);
+      setIsTranscribeMode(false);
+    }
+  }, [stopRecordTimer, mediaRecorder]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -267,59 +322,59 @@ export default function Messenger({
 
   const handleMicPointerUp = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    if (micLongPressRef.current) {
-      clearTimeout(micLongPressRef.current);
-      micLongPressRef.current = null;
-    }
-    if (!micDidLongPress.current) {
-      startRecordNow();
-    }
+    if (micLongPressRef.current) { clearTimeout(micLongPressRef.current); micLongPressRef.current = null; }
+    if (!micDidLongPress.current) startRecordNow();
   }, [startRecordNow]);
 
   const handleMicPointerCancel = useCallback(() => {
-    if (micLongPressRef.current) {
-      clearTimeout(micLongPressRef.current);
-      micLongPressRef.current = null;
-    }
+    if (micLongPressRef.current) { clearTimeout(micLongPressRef.current); micLongPressRef.current = null; }
   }, []);
 
-  const handleSendVoice = useCallback((e: React.PointerEvent) => {
+  const handleSendVoice = useCallback(async (e: React.PointerEvent) => {
     e.preventDefault();
-    const time = recordTimeRef.current;
     stopRecordTimer();
+    setIsRecording(false);
+    setRecordTime(0);
+    recordTimeRef.current = 0;
+
+    let result;
+    try { result = await mediaRecorder.stop(); } catch { return; }
+
     if (isTranscribeMode) {
       setTranscribing(true);
-      setIsRecording(false);
-      setRecordTime(0);
-      recordTimeRef.current = 0;
-      setTimeout(() => {
-        const demo = DEMO_TRANSCRIPTIONS[Math.floor(Math.random() * DEMO_TRANSCRIPTIONS.length)];
-        setTranscribing(false);
-        setIsTranscribeMode(false);
-        setInput(demo);
+      setIsTranscribeMode(false);
+      try {
+        const text = await transcribeAudio(result.blob);
+        setInput(text || '');
         setTimeout(() => inputRef.current?.focus(), 100);
-      }, 1500);
+      } catch {
+        setInput('');
+      } finally {
+        setTranscribing(false);
+      }
+      onInputBlur?.();
     } else {
-      setIsRecording(false);
-      setRecordTime(0);
-      recordTimeRef.current = 0;
-      onSend(`🎤 Голосовое сообщение (${time}с)`, true, time);
+      onSend(
+        `🎤 Голосовое сообщение (${result.durationSec}с)`,
+        true,
+        result.durationSec,
+        result.audioUrl,
+      );
       onInputBlur?.();
     }
-  }, [onSend, onInputBlur, stopRecordTimer, isTranscribeMode]);
+  }, [stopRecordTimer, mediaRecorder, isTranscribeMode, onSend, onInputBlur]);
 
   const handleCancelVoice = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     stopRecordTimer();
+    mediaRecorder.cancel();
     setIsRecording(false);
     setIsTranscribeMode(false);
     setTranscribing(false);
     setRecordTime(0);
     recordTimeRef.current = 0;
     onInputBlur?.();
-  }, [onInputBlur, stopRecordTimer]);
-
-  // ── Текст ─────────────────────────────────────────────────────────────────
+  }, [stopRecordTimer, mediaRecorder, onInputBlur]);
 
   const handleSendText = useCallback(() => {
     if (sendingRef.current || !input.trim()) return;
@@ -335,27 +390,30 @@ export default function Messenger({
     handleSendText();
   }, [handleSendText]);
 
-  // ── Авто-старт записи при открытии fullscreen ────────────────────────────
-
   useEffect(() => {
     if (!autoStartRecord) return;
     onAutoRecordDone?.();
     startRecordNow();
   }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Всегда привязан к низу — при любом изменении
-  useLayoutEffect(() => {
-    scrollToBottom();
-  }, [chatMessages.length, scrollToBottom]);
+  useLayoutEffect(() => { scrollToBottom(); }, [chatMessages.length, scrollToBottom]);
 
   useEffect(() => {
     scrollToBottom();
-    // Постоянный интервал — подстраховка на любой случай
     const iv = setInterval(scrollToBottom, 500);
     return () => clearInterval(iv);
   }, [scrollToBottom]);
 
-  // ── Фокус ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (activeVoiceMsgId) {
+      setTimeout(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        const target = el.querySelector(`[data-msg-id="${activeVoiceMsgId}"]`);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [activeVoiceMsgId]);
 
   const handleFocus = useCallback(() => {
     if (blurTimer.current) clearTimeout(blurTimer.current);
@@ -364,10 +422,7 @@ export default function Messenger({
   }, [onInputFocus]);
 
   const handleBlur = useCallback(() => {
-    blurTimer.current = setTimeout(() => {
-      setInputFocused(false);
-      onInputBlur?.();
-    }, 200);
+    blurTimer.current = setTimeout(() => { setInputFocused(false); onInputBlur?.(); }, 200);
   }, [onInputBlur]);
 
   const formatTime = (date: Date) =>
@@ -406,7 +461,7 @@ export default function Messenger({
         {[...chatMessages].map(msg => {
           const isOutgoing = msg.text.startsWith('[Водитель]');
           return (
-            <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+            <div key={msg.id} data-msg-id={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                 msg.type === 'important'
                   ? 'bg-destructive/15 border border-destructive/30 text-destructive-foreground'
@@ -423,7 +478,15 @@ export default function Messenger({
                   </div>
                 )}
                 {msg.isVoice ? (
-                  <VoiceBubble duration={msg.voiceDuration || 5} isOutgoing={isOutgoing} transcription={msg.transcription} />
+                  <VoiceBubble
+                    msgId={msg.id}
+                    duration={msg.voiceDuration || 5}
+                    isOutgoing={isOutgoing}
+                    transcription={msg.transcription}
+                    audioUrl={msg.audioUrl}
+                    onTranscribed={onTranscribed}
+                    highlighted={activeVoiceMsgId === msg.id}
+                  />
                 ) : (
                   <p className="text-3xl leading-snug">{msg.text}</p>
                 )}
@@ -458,7 +521,6 @@ export default function Messenger({
       {/* Поле ввода */}
       <div className="px-3 pb-3 pt-2 border-t border-border flex-shrink-0">
         {transcribing ? (
-          /* ── Режим транскрибации — ожидание ── */
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30">
             <Icon name="Loader" size={20} className="text-blue-500 animate-spin flex-shrink-0" />
             <span className="text-base text-blue-600 dark:text-blue-400 font-semibold flex-1">
@@ -466,7 +528,6 @@ export default function Messenger({
             </span>
           </div>
         ) : isRecording ? (
-          /* ── Режим записи ── */
           <div className={`flex items-center gap-2 p-3 rounded-2xl ${isTranscribeMode ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
             <div className={`w-5 h-5 rounded-full animate-pulse flex-shrink-0 ${isTranscribeMode ? 'bg-blue-500' : 'bg-destructive'}`} />
             <span className={`text-base font-semibold flex-1 tabular-nums ${isTranscribeMode ? 'text-blue-600 dark:text-blue-400' : 'text-destructive'}`}>
@@ -487,7 +548,6 @@ export default function Messenger({
             </button>
           </div>
         ) : (
-          /* ── Режим ввода текста ── */
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -503,26 +563,15 @@ export default function Messenger({
                   : 'border-border focus:ring-primary/40 focus:border-primary'
               }`}
             />
-            {/* Микрофон */}
+            {/* Микрофон: короткое = запись, долгое 1.5с = транскрибация */}
             <button
               onPointerDown={handleMicPointerDown}
               onPointerUp={handleMicPointerUp}
               onPointerCancel={handleMicPointerCancel}
               onContextMenu={e => e.preventDefault()}
-              className={`relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ripple ${
-                isRecording
-                  ? 'bg-destructive border-2 border-destructive animate-pulse'
-                  : 'bg-muted border border-border active:bg-destructive/20'
-              }`}
+              className="relative w-14 h-14 tablet:w-20 tablet:h-20 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all ripple bg-muted border border-border active:bg-destructive/20 select-none"
             >
-              {isRecording && (
-                <span className="absolute inset-0 rounded-2xl bg-destructive/40 animate-ping" />
-              )}
-              <Icon
-                name="Mic"
-                size={26}
-                className={`relative z-10 tablet:!w-9 tablet:!h-9 ${isRecording ? 'text-white' : 'text-muted-foreground'}`}
-              />
+              <Icon name="Mic" size={26} className="relative z-10 tablet:!w-9 tablet:!h-9 text-muted-foreground" />
             </button>
             {/* Отправить текст */}
             <button

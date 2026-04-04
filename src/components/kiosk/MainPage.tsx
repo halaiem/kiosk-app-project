@@ -23,7 +23,8 @@ interface Props {
   isDark: boolean;
   theme: ThemeMode;
   onOpenMenu: () => void;
-  onSendMessage: (text: string, isVoice?: boolean, voiceDuration?: number) => void;
+  onSendMessage: (text: string, isVoice?: boolean, voiceDuration?: number, audioUrl?: string) => void;
+  onTranscribed?: (msgId: string, text: string) => void;
   onLogoTap: () => void;
   logoTapCount: number;
   onBreak: () => void;
@@ -37,6 +38,8 @@ interface Props {
   onSetMapFullscreen: (v: boolean) => void;
   pendingCount?: number;
   onSos?: () => void;
+  activeVoiceMsgId?: string | null;
+  onClearActiveVoice?: () => void;
 }
 
 function useClock() {
@@ -51,10 +54,10 @@ function useClock() {
 export default function MainPage({
   driver, messages, speed, isMoving, currentStopIndex,
   connection, unreadCount, isDark, theme,
-  onOpenMenu, onSendMessage, onLogoTap, onBreak, onEndShift, onToggleTheme,
+  onOpenMenu, onSendMessage, onTranscribed, onLogoTap, onBreak, onEndShift, onToggleTheme,
   messengerFullscreen, stopsFullscreen, mapFullscreen,
   onSetMessengerFullscreen, onSetStopsFullscreen, onSetMapFullscreen,
-  pendingCount = 0, onSos,
+  pendingCount = 0, onSos, activeVoiceMsgId,
 }: Props) {
   const [deviation] = useState(-2);
   const now = useClock();
@@ -81,7 +84,6 @@ export default function MainPage({
   const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
   const devSign = deviation >= 0 ? '+' : '';
-  const devColorClass = Math.abs(deviation) <= 1 ? 'text-green-400' : Math.abs(deviation) <= 3 ? 'text-yellow-400' : 'text-red-400';
 
   return (
     <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden">
@@ -259,7 +261,7 @@ export default function MainPage({
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => { setMessengerAutoRecord(true); onSetMessengerFullscreen(true); }} playingMessageId={playingMessageId} onPlayMessage={onPlayMessage} />
+            <Messenger messages={messages} onSend={onSendMessage} onTranscribed={onTranscribed} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => { setMessengerAutoRecord(true); onSetMessengerFullscreen(true); }} activeVoiceMsgId={activeVoiceMsgId} />
           </div>
         </div>
       </div>
@@ -286,7 +288,7 @@ export default function MainPage({
             </button>
           </div>
           <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} autoStartRecord={messengerAutoRecord} onAutoRecordDone={() => setMessengerAutoRecord(false)} playingMessageId={playingMessageId} onPlayMessage={onPlayMessage} />
+            <Messenger messages={messages} onSend={onSendMessage} onTranscribed={onTranscribed} isMoving={isMoving} connection={connection} pendingCount={pendingCount} autoStartRecord={messengerAutoRecord} onAutoRecordDone={() => setMessengerAutoRecord(false)} activeVoiceMsgId={activeVoiceMsgId} />
           </div>
         </div>,
         document.body

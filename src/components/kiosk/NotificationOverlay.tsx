@@ -6,9 +6,10 @@ interface ToastProps {
   message: Message;
   onConfirm: () => void;
   onReply: () => void;
+  onPlayVoice?: () => void;
 }
 
-export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
+export function MessageToast({ message, onConfirm, onReply, onPlayVoice }: ToastProps) {
   const isVoice = message.isVoice;
 
   const icons: Record<string, string> = {
@@ -43,12 +44,18 @@ export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
           </div>
           {isVoice ? (
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-green-500 flex items-center justify-center">
+              <button
+                onClick={onPlayVoice || onReply}
+                className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center active:scale-95 transition-all"
+              >
                 <Icon name="Play" size={24} className="text-white md:!w-8 md:!h-8" />
+              </button>
+              <div>
+                <span className="text-lg md:text-3xl font-semibold text-foreground tabular-nums">
+                  {message.voiceDuration ? `${message.voiceDuration} сек` : 'Голосовое'}
+                </span>
+                <p className="text-xs md:text-base text-muted-foreground mt-0.5">Нажмите ▶ для воспроизведения</p>
               </div>
-              <span className="text-lg md:text-3xl font-semibold text-foreground tabular-nums">
-                {message.voiceDuration ? `${message.voiceDuration} сек` : 'Голосовое'}
-              </span>
             </div>
           ) : (
             <p className="text-lg md:text-3xl font-semibold text-foreground leading-snug">{message.text}</p>
@@ -59,7 +66,7 @@ export function MessageToast({ message, onConfirm, onReply }: ToastProps) {
         {isVoice ? (
           <>
             <button
-              onClick={onReply}
+              onClick={onPlayVoice || onReply}
               className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
             >
               <Icon name="Play" size={24} className="md:!w-9 md:!h-9" />
