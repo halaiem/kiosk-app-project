@@ -42,6 +42,16 @@ def handler(event: dict, context) -> dict:
                 "INSERT INTO driver_sessions (driver_id, session_token, started_at, last_seen, is_online) VALUES (%s, %s, NOW(), NOW(), true)",
                 (driver_id, token)
             )
+
+            cur.execute("""
+                SELECT du.full_name FROM messages m
+                JOIN dashboard_users du ON du.id = m.dispatcher_id
+                WHERE m.driver_id = %s AND m.sender = 'dispatcher' AND m.dispatcher_id IS NOT NULL
+                ORDER BY m.created_at DESC LIMIT 1
+            """, (driver_id,))
+            disp_row = cur.fetchone()
+            dispatcher_name = disp_row[0] if disp_row else None
+
             conn.commit()
 
             return {
@@ -55,7 +65,8 @@ def handler(event: dict, context) -> dict:
                         'vehicleType': vehicle_type,
                         'vehicleNumber': vehicle_number,
                         'routeNumber': route_number,
-                        'shiftStart': str(shift_start) if shift_start else '08:00'
+                        'shiftStart': str(shift_start) if shift_start else '08:00',
+                        'dispatcherName': dispatcher_name
                     }
                 })
             }

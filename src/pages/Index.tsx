@@ -311,6 +311,7 @@ export default function Index() {
             <EndShiftModal
               open={endShiftOpen}
               driver={state.driver}
+              dispatcherName={state.driver.dispatcherName}
               onClose={() => setEndShiftOpen(false)}
               onConfirm={handleEndShiftConfirm}
             />

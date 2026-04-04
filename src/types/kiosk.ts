@@ -12,6 +12,7 @@ export interface Driver {
   vehicleType: 'tram' | 'trolleybus' | 'bus' | 'electrobus';
   vehicleNumber: string;
   shiftStart: string;
+  dispatcherName?: string;
 }
 
 export type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'failed';
