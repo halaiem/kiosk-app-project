@@ -36,25 +36,24 @@ export default function GoodbyeScreen({ onComplete, onLogout }: Props) {
       }, 500);
     }, 3000);
 
-    // 13s → чёрный экран + logout в фоне сразу
+    // 6s → чёрный экран + logout в фоне сразу (thankyou длится 3с)
     const t2 = setTimeout(() => {
       setFadeIn(false);
       setTimeout(() => {
         setPhase('black');
         setFillProgress(0);
         setShowName(false);
-        // Логаут в фоне — к концу анимации интерфейс уже сброшен
         onLogout?.();
         setTimeout(() => setFadeIn(true), 100);
-        // fill-up стартует через 300ms, длится 8с
+        // fill-up стартует через 300ms, длится 5с
         setTimeout(() => setFillProgress(100), 300);
         // название появляется через 2с после старта fill-up
         setTimeout(() => setShowName(true), 2300);
       }, 500);
-    }, 13000);
+    }, 6000);
 
-    // 23s → убираем оверлей (logout уже выполнен, экран входа готов)
-    const t3 = setTimeout(() => onComplete(), 23000);
+    // 13s → убираем оверлей (6 + 0.5 + 5 + 1.5 запас)
+    const t3 = setTimeout(() => onComplete(), 13000);
 
     return () => {
       clearTimeout(t1);
@@ -117,7 +116,7 @@ export default function GoodbyeScreen({ onComplete, onLogout }: Props) {
                 className="absolute inset-0 overflow-hidden transition-all ease-linear"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transitionDuration: '8s',
+                  transitionDuration: '5s',
                 }}
               >
                 <img
@@ -136,7 +135,7 @@ export default function GoodbyeScreen({ onComplete, onLogout }: Props) {
                 className="absolute inset-0 flex items-center justify-center overflow-hidden transition-all ease-linear"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transitionDuration: '8s',
+                  transitionDuration: '5s',
                 }}
               >
                 <Icon name="Building2" size={56} className="text-white/50" />
