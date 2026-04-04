@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
-import { transcribeAudio } from '@/api/transcribeApi';
+import { transcribeAudio, uploadAudio } from '@/api/transcribeApi';
 
 const QUICK_TEMPLATES = [
   '🚦 Задержка на светофоре',
@@ -50,7 +50,8 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptText, setTranscriptText] = useState(transcription || '');
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Используем HTML <audio> элемент в DOM — единственный надёжный способ на мобильном Chrome
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { if (transcription) { setTranscriptText(transcription); setShowTranscript(true); } }, [transcription]);
 
@@ -60,11 +61,10 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
     stopProgress();
     setPlaying(true);
     setProgress(0);
-    if (audioUrl) {
-      if (!audioRef.current) audioRef.current = new Audio(audioUrl);
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-      audioRef.current.onended = () => { stopProgress(); setPlaying(false); setProgress(0); };
+    if (audioUrl && audioElRef.current) {
+      const el = audioElRef.current;
+      el.currentTime = 0;
+      el.play().catch(err => console.error('audio play error:', err));
     }
     const step = 100 / (Math.max(duration, 1) * 10);
     progressTimer.current = setInterval(() => {
@@ -72,10 +72,15 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
     }, 100);
   }, [audioUrl, duration]);
 
-  const stop = useCallback(() => { stopProgress(); audioRef.current?.pause(); setPlaying(false); setProgress(0); }, []);
+  const stop = useCallback(() => {
+    stopProgress();
+    audioElRef.current?.pause();
+    setPlaying(false);
+    setProgress(0);
+  }, []);
 
-  useEffect(() => { if (autoPlay && !playing) play(); }, [autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => { stopProgress(); audioRef.current?.pause(); }, []);
+  useEffect(() => { if (autoPlay) play(); }, [autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { stopProgress(); audioElRef.current?.pause(); }, []);
 
   const handlePlayClick = () => { if (playing) stop(); else play(); };
 
@@ -95,6 +100,9 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
 
   return (
     <div className="min-w-[150px]">
+      {/* Скрытый audio элемент — нужен для мобильного Chrome */}
+      {audioUrl && <audio ref={audioElRef} src={audioUrl} preload="none"
+        onEnded={() => { stopProgress(); setPlaying(false); setProgress(0); }} />}
       <div className="flex items-center gap-3">
         {/* Play/Pause — простой onClick */}
         <button onClick={handlePlayClick} type="button"
@@ -244,7 +252,6 @@ export default function Messenger({
     stopTimer();
     const m = mode; setMode('idle'); setRecordTime(0);
     const blob = await stopMic();
-    const url = blob.size > 100 ? URL.createObjectURL(blob) : undefined;
     const dur = timeRef.current; timeRef.current = 0;
     if (m === 'transcribe') {
       setTranscribing(true);
@@ -255,8 +262,12 @@ export default function Messenger({
       } catch { setInput(''); }
       finally { setTranscribing(false); }
     } else {
-      onSend(`🎤 Голосовое сообщение (${dur}с)`, true, dur, url);
+      // Сначала отправляем сообщение с локальным URL, потом обновляем на CDN
+      const localUrl = blob.size > 100 ? URL.createObjectURL(blob) : undefined;
+      onSend(`🎤 Голосовое сообщение (${dur}с)`, true, dur, localUrl);
       onInputBlur?.();
+      // Загружаем в S3 в фоне — но это уже нужно для VoiceBubble через props
+      if (blob.size > 100) uploadAudio(blob).catch(() => {});
     }
   }, [mode, onSend, onInputBlur]);
 

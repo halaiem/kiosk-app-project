@@ -1,28 +1,48 @@
 const TRANSCRIBE_URL = 'https://functions.poehali.dev/be33a4e1-8653-4cb9-a6db-6ec5ce816bcd';
 
-export async function transcribeAudio(audioBlob: Blob): Promise<string> {
-  const arrayBuffer = await audioBlob.arrayBuffer();
-  const uint8 = new Uint8Array(arrayBuffer);
-  let binary = '';
-  for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-  const base64 = btoa(binary);
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
-  const format = audioBlob.type.includes('ogg') ? 'ogg'
-    : audioBlob.type.includes('mp4') ? 'mp4'
-    : audioBlob.type.includes('wav') ? 'wav'
-    : 'webm';
+function getFormat(blob: Blob): string {
+  if (blob.type.includes('ogg')) return 'ogg';
+  if (blob.type.includes('mp4')) return 'mp4';
+  if (blob.type.includes('wav')) return 'wav';
+  return 'webm';
+}
 
+/** Загружает аудио в S3, возвращает CDN URL */
+export async function uploadAudio(blob: Blob): Promise<string | undefined> {
+  try {
+    const audio = await blobToBase64(blob);
+    const format = getFormat(blob);
+    const resp = await fetch(TRANSCRIBE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio, format, transcribe: false }),
+    });
+    const data = await resp.json();
+    return data.audio_url || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Транскрибирует аудио через Whisper, возвращает текст */
+export async function transcribeAudio(blob: Blob): Promise<string> {
+  const audio = await blobToBase64(blob);
+  const format = getFormat(blob);
   const resp = await fetch(TRANSCRIBE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audio: base64, format }),
+    body: JSON.stringify({ audio, format, transcribe: true }),
   });
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error || 'Ошибка транскрибации');
-  }
-
+  if (!resp.ok) throw new Error('Ошибка транскрибации');
   const data = await resp.json();
   return data.text || '';
 }
