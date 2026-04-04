@@ -129,8 +129,8 @@ export default function Messenger({
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
     inputRef.current?.blur();
+    // Скроллим вниз сразу после отправки
     setTimeout(() => scrollToBottom('auto'), 50);
-    setTimeout(() => scrollToBottom('auto'), 200);
   }, [input, onSend, scrollToBottom]);
 
   const handleSendTextPointerDown = useCallback((e: React.PointerEvent) => {
@@ -204,7 +204,7 @@ export default function Messenger({
       )}
 
       {/* Сообщения */}
-      <div className="overflow-y-auto px-3 py-2 space-y-3 min-h-0 flex-1">
+      <div className={`overflow-y-auto px-3 py-2 space-y-3 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}>
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Icon name="MessageSquare" size={48} className="opacity-30" />
