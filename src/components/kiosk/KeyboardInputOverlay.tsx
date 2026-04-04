@@ -102,7 +102,7 @@ export default function KeyboardInputOverlay({
             </span>
             <button
               onPointerDown={e => { e.preventDefault(); onClose(); }}
-              className="px-5 py-3 rounded-2xl bg-muted border border-border text-foreground text-base font-semibold ripple active:scale-95"
+              className="px-5 py-3 rounded-2xl bg-destructive text-white text-base font-semibold ripple active:scale-95"
             >
               Стоп
             </button>
@@ -111,7 +111,7 @@ export default function KeyboardInputOverlay({
               className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
             >
               <Icon name="Send" size={18} />
-              Отправить
+              Прислать
             </button>
           </div>
         ) : (

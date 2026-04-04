@@ -64,12 +64,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   useEffect(() => {
     if (!autoStartRecord) return;
     onAutoRecordDone?.();
-    setIsRecording(true);
-    setRecordTime(0);
-    recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
-    return () => {
-      if (recordTimer.current) clearInterval(recordTimer.current);
-    };
+    startRecordNow();
   }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFocus = useCallback(() => {
@@ -100,22 +95,42 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     handleSend();
   }, [handleSend]);
 
+  // Внутренняя функция старта — используется и из кнопки и из autoStartRecord
+  const recordTimeRef = useRef(0);
+
+  const startRecordNow = useCallback(() => {
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    recordTimeRef.current = 0;
+    setRecordTime(0);
+    setIsRecording(true);
+    recordTimer.current = setInterval(() => {
+      recordTimeRef.current += 1;
+      setRecordTime(recordTimeRef.current);
+    }, 1000);
+  }, []);
+
   const startRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    // Открываем fullscreen мессенджер — диалог остаётся виден
-    // Автозакрытие через 30 сек управляется в Index.tsx через useAutoClose
-    onOpenFullscreen?.();
-  }, [onOpenFullscreen]);
+    if (onOpenFullscreen) {
+      // В обычном режиме — открываем fullscreen, там запустится autoStartRecord
+      onOpenFullscreen();
+    } else {
+      // В fullscreen — запускаем запись прямо здесь
+      startRecordNow();
+    }
+  }, [onOpenFullscreen, startRecordNow]);
 
   // Отправить голосовое
   const sendRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    const time = recordTimeRef.current;
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
-    onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     setRecordTime(0);
+    recordTimeRef.current = 0;
+    onSend(`🎤 Голосовое сообщение (${time}с)`);
     onInputBlur?.();
-  }, [recordTime, onSend, onInputBlur]);
+  }, [onSend, onInputBlur]);
 
   // Отменить запись без отправки
   const cancelRecord = useCallback((e: React.PointerEvent) => {
@@ -123,6 +138,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     setRecordTime(0);
+    recordTimeRef.current = 0;
     onInputBlur?.();
   }, [onInputBlur]);
 
@@ -219,7 +235,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
             </span>
             <button
               onPointerDown={cancelRecord}
-              className="px-5 py-3 rounded-2xl bg-muted border border-border text-foreground text-base font-semibold ripple active:scale-95"
+              className="px-5 py-3 rounded-2xl bg-destructive text-white text-base font-semibold ripple active:scale-95"
             >
               Стоп
             </button>
@@ -228,7 +244,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
               className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
             >
               <Icon name="Send" size={18} />
-              Отправить
+              Прислать
             </button>
           </div>
         ) : (

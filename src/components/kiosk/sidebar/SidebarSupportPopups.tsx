@@ -179,9 +179,9 @@ export function ContactMessengerPopup({ contact, onClose, onSend }: { contact: {
             <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
               <div className="w-3 h-3 rounded-full bg-destructive animate-pulse flex-shrink-0" />
               <span className="text-sm text-destructive font-medium flex-1 tabular-nums">🎤 {recordTime}с</span>
-              <button onPointerDown={e => { e.preventDefault(); cancelRecord(); }} className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm font-semibold ripple">Стоп</button>
+              <button onPointerDown={e => { e.preventDefault(); cancelRecord(); }} className="px-3 py-2 rounded-lg bg-destructive text-white text-sm font-semibold ripple">Стоп</button>
               <button onPointerDown={e => { e.preventDefault(); sendRecord(); }} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold ripple flex items-center gap-1">
-                <Icon name="Send" size={14} />Отправить
+                <Icon name="Send" size={14} />Прислать
               </button>
             </div>
           ) : (
