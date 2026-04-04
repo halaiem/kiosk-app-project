@@ -7,8 +7,9 @@ import urllib.error
 
 
 def handler(event: dict, context) -> dict:
-    """Транскрибация голосового сообщения через OpenAI Whisper.
-    Принимает base64-аудио (webm/wav/ogg), возвращает текст на русском."""
+    """Транскрибация голосового сообщения через Whisper-совместимый API.
+    Принимает base64-аудио (webm/wav/ogg/mp4), возвращает текст на русском.
+    Поддерживает OpenAI и любой совместимый провайдер через WHISPER_API_URL."""
 
     if event.get('httpMethod') == 'OPTIONS':
         return {
@@ -28,8 +29,14 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 405, 'headers': headers, 'body': json.dumps({'error': 'Method not allowed'})}
 
     api_key = os.environ.get('OPENAI_API_KEY', '')
+    # Поддержка кастомного провайдера — по умолчанию OpenAI
+    api_url = os.environ.get('WHISPER_API_URL', 'https://api.openai.com/v1/audio/transcriptions')
+    # Модель по умолчанию whisper-1, можно переопределить через WHISPER_MODEL
+    model = os.environ.get('WHISPER_MODEL', 'whisper-1')
+
     if not api_key:
-        return {'statusCode': 500, 'headers': headers, 'body': json.dumps({'error': 'OPENAI_API_KEY not configured'})}
+        # Без ключа возвращаем пустой текст (не ошибку) — фронт покажет заглушку
+        return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': '', 'error': 'no_key'})}
 
     body = json.loads(event.get('body') or '{}')
     audio_b64 = body.get('audio', '')
@@ -39,6 +46,9 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'audio обязателен'})}
 
     audio_bytes = base64.b64decode(audio_b64)
+
+    if len(audio_bytes) < 500:
+        return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': ''})}
 
     ext_map = {'webm': 'webm', 'wav': 'wav', 'ogg': 'ogg', 'mp4': 'mp4', 'mp3': 'mp3'}
     ext = ext_map.get(audio_format, 'webm')
@@ -52,27 +62,24 @@ def handler(event: dict, context) -> dict:
         mime_types = {'webm': 'audio/webm', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'mp4': 'audio/mp4', 'mp3': 'audio/mpeg'}
         mime = mime_types.get(ext, 'audio/webm')
 
-        lines = []
-        lines.append(f'--{boundary}')
-        lines.append(f'Content-Disposition: form-data; name="file"; filename="audio.{ext}"')
-        lines.append(f'Content-Type: {mime}')
-        lines.append('')
-        form_header = ('\r\n'.join(lines) + '\r\n').encode('utf-8')
+        form_header = (
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="file"; filename="audio.{ext}"\r\n'
+            f'Content-Type: {mime}\r\n\r\n'
+        ).encode('utf-8')
 
-        model_part = (
+        form_tail = (
             f'\r\n--{boundary}\r\n'
-            f'Content-Disposition: form-data; name="model"\r\n\r\n'
-            f'whisper-1'
+            f'Content-Disposition: form-data; name="model"\r\n\r\n{model}'
             f'\r\n--{boundary}\r\n'
-            f'Content-Disposition: form-data; name="language"\r\n\r\n'
-            f'ru'
+            f'Content-Disposition: form-data; name="language"\r\n\r\nru'
             f'\r\n--{boundary}--\r\n'
         ).encode('utf-8')
 
-        post_data = form_header + audio_bytes + model_part
+        post_data = form_header + audio_bytes + form_tail
 
         req = urllib.request.Request(
-            'https://api.openai.com/v1/audio/transcriptions',
+            api_url,
             data=post_data,
             headers={
                 'Authorization': f'Bearer {api_key}',
@@ -89,7 +96,9 @@ def handler(event: dict, context) -> dict:
 
     except urllib.error.HTTPError as e:
         err_body = e.read().decode('utf-8')
-        return {'statusCode': 502, 'headers': headers, 'body': json.dumps({'error': f'OpenAI error: {err_body}'})}
+        return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': '', 'error': f'api_error: {err_body[:200]}'})}
+    except Exception as e:
+        return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': '', 'error': str(e)})}
     finally:
         try:
             os.unlink(tmp_path)
