@@ -6,9 +6,18 @@ type Phase = 'loading' | 'thankyou' | 'black';
 
 interface Props {
   onComplete: () => void;
+  onLogout?: () => void;
 }
 
-export default function GoodbyeScreen({ onComplete }: Props) {
+// Тайминги:
+// 0s  — loading (синхронизация)
+// 3s  — thankyou (Спасибо!)
+// 13s — black (чёрный экран) + logout сразу в фоне
+// 13s — fill-up логотипа за 8с
+// ~15s — название перевозчика (через 2с после старта fill-up)
+// 23s — onComplete → убираем оверлей, экран входа уже готов
+
+export default function GoodbyeScreen({ onComplete, onLogout }: Props) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [fadeIn, setFadeIn] = useState(false);
   const [fillProgress, setFillProgress] = useState(0);
@@ -18,6 +27,7 @@ export default function GoodbyeScreen({ onComplete }: Props) {
   useEffect(() => {
     setTimeout(() => setFadeIn(true), 100);
 
+    // 3s → thankyou
     const t1 = setTimeout(() => {
       setFadeIn(false);
       setTimeout(() => {
@@ -26,19 +36,25 @@ export default function GoodbyeScreen({ onComplete }: Props) {
       }, 500);
     }, 3000);
 
+    // 13s → чёрный экран + logout в фоне сразу
     const t2 = setTimeout(() => {
       setFadeIn(false);
       setTimeout(() => {
         setPhase('black');
         setFillProgress(0);
         setShowName(false);
+        // Логаут в фоне — к концу анимации интерфейс уже сброшен
+        onLogout?.();
         setTimeout(() => setFadeIn(true), 100);
+        // fill-up стартует через 300ms, длится 8с
         setTimeout(() => setFillProgress(100), 300);
-        setTimeout(() => setShowName(true), 28000);
+        // название появляется через 2с после старта fill-up
+        setTimeout(() => setShowName(true), 2300);
       }, 500);
     }, 13000);
 
-    const t3 = setTimeout(() => onComplete(), 73000);
+    // 23s → убираем оверлей (logout уже выполнен, экран входа готов)
+    const t3 = setTimeout(() => onComplete(), 23000);
 
     return () => {
       clearTimeout(t1);
@@ -85,6 +101,7 @@ export default function GoodbyeScreen({ onComplete }: Props) {
     );
   }
 
+  // Фаза black: логотип fill-up 8с, название через 2с
   return (
     <div className="fixed inset-0 z-[300] bg-black flex items-end justify-center pb-[15vh]">
       <div className={`flex flex-col items-center gap-5 transition-all duration-[2000ms] ease-out ${fadeIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
@@ -100,7 +117,7 @@ export default function GoodbyeScreen({ onComplete }: Props) {
                 className="absolute inset-0 overflow-hidden transition-all ease-linear"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transitionDuration: '30s',
+                  transitionDuration: '8s',
                 }}
               >
                 <img
@@ -116,10 +133,10 @@ export default function GoodbyeScreen({ onComplete }: Props) {
                 <Icon name="Building2" size={56} className="text-white/[0.08]" />
               </div>
               <div
-                className="absolute inset-0 bg-white/10 flex items-center justify-center overflow-hidden transition-all ease-linear"
+                className="absolute inset-0 flex items-center justify-center overflow-hidden transition-all ease-linear"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transitionDuration: '30s',
+                  transitionDuration: '8s',
                 }}
               >
                 <Icon name="Building2" size={56} className="text-white/50" />
@@ -128,7 +145,7 @@ export default function GoodbyeScreen({ onComplete }: Props) {
           )}
         </div>
         <p
-          className={`text-white text-lg md:text-xl font-bold tracking-wider uppercase transition-all duration-[3s] ease-out ${
+          className={`text-white text-lg md:text-xl font-bold tracking-wider uppercase transition-all duration-[2000ms] ease-out ${
             showName ? 'opacity-40 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
         >

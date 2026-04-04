@@ -159,9 +159,12 @@ export default function Index() {
     setGoodbyeScreen(true);
   };
 
+  const handleGoodbyeLogout = () => {
+    state.logout();
+  };
+
   const handleGoodbyeComplete = () => {
     setGoodbyeScreen(false);
-    state.logout();
   };
 
   const top = queue[0] ?? null;
@@ -320,7 +323,7 @@ export default function Index() {
       )}
 
       {goodbyeScreen && (
-        <GoodbyeScreen onComplete={handleGoodbyeComplete} />
+        <GoodbyeScreen onComplete={handleGoodbyeComplete} onLogout={handleGoodbyeLogout} />
       )}
     </div>
   );
