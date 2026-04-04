@@ -154,6 +154,16 @@ export async function deleteDriver(id: number) {
   return res.json();
 }
 
+export async function rateDispatcher(rating: number) {
+  const token = getStoredToken();
+  if (!token) return;
+  await fetch(`${URLS.auth}/?action=rate_dispatcher`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+    body: JSON.stringify({ rating }),
+  }).catch(() => {});
+}
+
 export async function fetchOnlineDrivers() {
   const res = await fetch(URLS.auth);
   const data = await res.json();

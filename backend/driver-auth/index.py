@@ -68,6 +68,27 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'ok': True})}
 
+        # POST ?action=rate_dispatcher — оценка работы диспетчера при завершении смены
+        if method == 'POST' and action == 'rate_dispatcher':
+            token = event.get('headers', {}).get('X-Auth-Token', '')
+            body = json.loads(event.get('body') or '{}')
+            rating = body.get('rating', 0)
+
+            if not isinstance(rating, int) or rating < 1 or rating > 5:
+                return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Оценка от 1 до 5'})}
+
+            cur.execute("SELECT driver_id FROM driver_sessions WHERE session_token = %s", (token,))
+            sess = cur.fetchone()
+            if not sess:
+                return {'statusCode': 401, 'headers': headers, 'body': json.dumps({'error': 'Неавторизован'})}
+
+            cur.execute(
+                "INSERT INTO dispatcher_ratings (driver_id, session_token, rating) VALUES (%s, %s, %s)",
+                (sess[0], token, rating)
+            )
+            conn.commit()
+            return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'ok': True})}
+
         # POST ?action=heartbeat — обновление онлайн-статуса и координат
         if method == 'POST' and action == 'heartbeat':
             token = event.get('headers', {}).get('X-Auth-Token', '')

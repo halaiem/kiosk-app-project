@@ -17,6 +17,7 @@ import GoodbyeScreen from '@/components/kiosk/GoodbyeScreen';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 import type { Message } from '@/types/kiosk';
+import { rateDispatcher } from '@/api/driverApi';
 
 type NotifKind = 'message' | 'important' | 'alert';
 
@@ -151,9 +152,10 @@ export default function Index() {
     setEndShiftOpen(true);
   };
 
-  const handleEndShiftConfirm = () => {
+  const handleEndShiftConfirm = (rating: number) => {
     setEndShiftOpen(false);
     setMenuOpen(false);
+    if (rating > 0) rateDispatcher(rating);
     setGoodbyeScreen(true);
   };
 

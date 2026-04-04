@@ -19,7 +19,7 @@ interface Props {
   open: boolean;
   driver: Driver;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (rating: number) => void;
 }
 
 export default function EndShiftModal({ open, driver, onClose, onConfirm }: Props) {
@@ -126,7 +126,7 @@ export default function EndShiftModal({ open, driver, onClose, onConfirm }: Prop
               Отменить
             </button>
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm(rating)}
               className="flex-1 py-3.5 rounded-2xl bg-[#152d52] text-white font-semibold text-base flex items-center justify-center gap-2 transition-all active:scale-[0.97] ripple elevation-2"
             >
               <Icon name="Hand" size={18} />

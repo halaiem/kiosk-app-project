@@ -24,6 +24,23 @@
       "expectedStatus": 200,
       "expectedBody": {"drivers": []},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Rate dispatcher without auth",
+      "method": "POST",
+      "path": "/?action=rate_dispatcher",
+      "body": {"rating": 5},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Rate dispatcher invalid rating",
+      "method": "POST",
+      "path": "/?action=rate_dispatcher",
+      "headers": {"X-Auth-Token": "invalid"},
+      "body": {"rating": 0},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
     }
   ]
 }
