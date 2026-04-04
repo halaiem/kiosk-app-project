@@ -21,6 +21,7 @@ interface Props {
   pendingCount?: number;
   onInputFocus?: () => void;
   onInputBlur?: () => void;
+  onOpenFullscreen?: () => void;
 }
 
 function DeliveryIcon({ status }: { status?: string }) {
@@ -33,7 +34,7 @@ function DeliveryIcon({ status }: { status?: string }) {
   return null;
 }
 
-export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur }: Props) {
+export default function Messenger({ messages, onSend, isMoving, connection = 'online', pendingCount = 0, onInputFocus, onInputBlur, onOpenFullscreen }: Props) {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
@@ -85,41 +86,21 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     handleSend();
   }, [handleSend]);
 
-  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancelAutoClose = useCallback(() => {
-    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
-  }, []);
-
-  const scheduleAutoClose = useCallback(() => {
-    cancelAutoClose();
-    autoCloseTimer.current = setTimeout(() => {
-      setIsRecording(false);
-      if (recordTimer.current) clearInterval(recordTimer.current);
-      setRecordTime(0);
-      onInputBlur?.();
-    }, 30000);
-  }, [cancelAutoClose, onInputBlur]);
-
   const startRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    // НЕ скрываем диалог — inputFocused остаётся false
-    setIsRecording(true);
-    setRecordTime(0);
-    onInputFocus?.();
-    recordTimer.current = setInterval(() => setRecordTime(t => t + 1), 1000);
-    scheduleAutoClose();
-  }, [onInputFocus, scheduleAutoClose]);
+    // Открываем fullscreen мессенджер — диалог остаётся виден
+    // Автозакрытие через 30 сек управляется в Index.tsx через useAutoClose
+    onOpenFullscreen?.();
+  }, [onOpenFullscreen]);
 
   const stopRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
-    cancelAutoClose();
     setIsRecording(false);
     if (recordTimer.current) clearInterval(recordTimer.current);
     onSend(`🎤 Голосовое сообщение (${recordTime}с)`);
     setRecordTime(0);
     onInputBlur?.();
-  }, [recordTime, onSend, onInputBlur, cancelAutoClose]);
+  }, [recordTime, onSend, onInputBlur]);
 
   const formatTime = (date: Date) =>
     new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -149,7 +130,6 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
       {/* Сообщения — скрываются только при вводе текста, не при записи */}
       <div
         className={`overflow-y-auto px-3 py-2 space-y-2 min-h-0 transition-all duration-200 ${inputFocused && !isRecording ? 'hidden' : 'flex-1'}`}
-        onPointerDown={isRecording ? () => scheduleAutoClose() : undefined}
       >
         {chatMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
