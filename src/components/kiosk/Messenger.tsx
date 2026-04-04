@@ -81,7 +81,11 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
 
   const handleSendPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    // Отменяем blur-таймер — клавиатура остаётся открытой
+    if (blurTimer.current) clearTimeout(blurTimer.current);
     handleSend();
+    // Возвращаем фокус после отправки
+    requestAnimationFrame(() => inputRef.current?.focus());
   }, [handleSend]);
 
   const startRecord = useCallback(() => {
