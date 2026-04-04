@@ -101,7 +101,8 @@ export default function Messenger({
     recordTimeRef.current = 0;
     onSend(`🎤 Голосовое сообщение (${time}с)`);
     onInputBlur?.();
-  }, [onSend, onInputBlur, stopRecordTimer]);
+    setTimeout(() => scrollToBottom('smooth'), 100);
+  }, [onSend, onInputBlur, stopRecordTimer, scrollToBottom]);
 
   // Стоп — отменяет запись без отправки
   const handleCancelVoice = useCallback((e: React.PointerEvent) => {
@@ -137,17 +138,28 @@ export default function Messenger({
     startRecordNow();
   }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Скролл ────────────────────────────────────────────────────────────────
+  // ── Скролл — всегда показываем последнее сообщение ──────────────────────
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  // При первом рендере — мгновенно
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    scrollToBottom('auto');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // При каждом новом сообщении
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [messages.length, scrollToBottom]);
+
+  // При открытии клавиатуры
   useEffect(() => {
     if (inputFocused) {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      setTimeout(() => scrollToBottom('smooth'), 150);
     }
-  }, [inputFocused]);
+  }, [inputFocused, scrollToBottom]);
 
   // ── Фокус ─────────────────────────────────────────────────────────────────
 
