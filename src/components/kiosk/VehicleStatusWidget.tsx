@@ -6,11 +6,12 @@ import VehicleDiagnosticsModal from './VehicleDiagnosticsModal';
 
 interface VehicleStatusWidgetProps {
   isDark: boolean;
+  compact?: boolean;
 }
 
 const POLL_INTERVAL = 180_000;
 
-export default function VehicleStatusWidget({ isDark }: VehicleStatusWidgetProps) {
+export default function VehicleStatusWidget({ isDark, compact }: VehicleStatusWidgetProps) {
   const [summary, setSummary] = useState<VehicleDiagnosticSummary | null>(null);
   const [checks, setChecks] = useState<VehicleDiagnosticCheck[]>([]);
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -70,19 +71,19 @@ export default function VehicleStatusWidget({ isDark }: VehicleStatusWidgetProps
     <>
       <button
         onClick={() => !loading && !error && setModalOpen(true)}
-        className="flex-1 w-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-3 active:scale-95 transition-all ripple"
+        className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2 active:scale-95 transition-all ripple ${compact ? '' : 'flex-1'}`}
         title="Диагностика ТС"
       >
         <div className="relative">
-          <Icon name="Activity" size={20} className={iconColor} />
+          <Icon name="Activity" size={16} className={iconColor} />
           <div
             className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${dotColor} border-2 border-card`}
           />
         </div>
-        <span className={`text-lg tablet:text-xl font-black tabular-nums leading-none ${statusTextColor}`}>
+        <span className={`text-base tablet:text-xl font-black tabular-nums leading-none ${statusTextColor}`}>
           {statusText}
         </span>
-        <span className="text-[9px] tablet:text-[10px] text-muted-foreground leading-none text-center">
+        <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">
           статус ТС
         </span>
       </button>

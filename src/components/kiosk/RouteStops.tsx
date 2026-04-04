@@ -307,12 +307,12 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
                 {/* Stop name */}
                 <span className={`text-center leading-tight transition-all duration-300 w-full px-0.5 line-clamp-2
                   ${isCurrent
-                    ? 'text-green-600 dark:text-green-400 font-bold text-[11px]'
+                    ? 'text-green-600 dark:text-green-400 font-bold text-[22px]'
                     : isNext
-                      ? 'text-foreground text-[10px] font-semibold'
+                      ? 'text-foreground text-[20px] font-semibold'
                       : isPassed
-                        ? 'text-muted-foreground/70 text-[9px]'
-                        : 'text-muted-foreground/50 text-[9px]'
+                        ? 'text-muted-foreground/70 text-[18px]'
+                        : 'text-muted-foreground/50 text-[18px]'
                   }`}
                 >
                   {stop}
@@ -320,17 +320,17 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
 
                 {/* ETA / status label */}
                 {isCurrent && (
-                  <span className="text-[9px] text-green-500 font-semibold tabular-nums">
+                  <span className="text-[18px] text-green-500 font-semibold tabular-nums">
                     {eta}
                   </span>
                 )}
                 {isNext && eta && (
-                  <span className="text-[9px] text-primary font-medium tabular-nums">
+                  <span className="text-[18px] text-primary font-medium tabular-nums">
                     {eta}
                   </span>
                 )}
                 {!isPassed && !isCurrent && !isNext && eta && (
-                  <span className="text-[8px] text-muted-foreground/40 tabular-nums">
+                  <span className="text-[16px] text-muted-foreground/40 tabular-nums">
                     {eta}
                   </span>
                 )}

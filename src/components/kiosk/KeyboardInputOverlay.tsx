@@ -12,7 +12,8 @@ interface KeyboardInputOverlayProps {
   canSend?: boolean;
   multiline?: boolean;
   onVoiceStart?: () => void;
-  onVoiceStop?: () => void;
+  onVoiceSend?: () => void;
+  onVoiceCancel?: () => void;
   isRecording?: boolean;
   recordTime?: number;
 }
@@ -32,7 +33,8 @@ export default function KeyboardInputOverlay({
   canSend,
   multiline = false,
   onVoiceStart,
-  onVoiceStop,
+  onVoiceSend,
+  onVoiceCancel,
   isRecording = false,
   recordTime = 0,
 }: KeyboardInputOverlayProps) {
@@ -59,11 +61,6 @@ export default function KeyboardInputOverlay({
     e.preventDefault();
     onVoiceStart?.();
   }, [onVoiceStart]);
-
-  const handleVoicePointerUp = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    onVoiceStop?.();
-  }, [onVoiceStop]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !multiline) {
@@ -101,13 +98,13 @@ export default function KeyboardInputOverlay({
               🎤 {recordTime}с
             </span>
             <button
-              onPointerDown={e => { e.preventDefault(); onClose(); }}
+              onPointerDown={e => { e.preventDefault(); onVoiceCancel?.(); }}
               className="px-5 py-3 rounded-2xl bg-destructive text-white text-base font-semibold ripple active:scale-95"
             >
               Стоп
             </button>
             <button
-              onPointerUp={handleVoicePointerUp}
+              onPointerDown={e => { e.preventDefault(); onVoiceSend?.(); }}
               className="px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-base font-bold ripple active:scale-95 flex items-center gap-2"
             >
               <Icon name="Send" size={18} />
@@ -150,7 +147,6 @@ export default function KeyboardInputOverlay({
             {onVoiceStart && (
               <button
                 onPointerDown={handleVoicePointerDown}
-                onPointerUp={handleVoicePointerUp}
                 className="w-14 h-14 rounded-2xl bg-muted border border-border flex items-center justify-center flex-shrink-0 active:bg-destructive/20 transition-all ripple"
               >
                 <Icon name="Mic" size={26} className="text-muted-foreground" />

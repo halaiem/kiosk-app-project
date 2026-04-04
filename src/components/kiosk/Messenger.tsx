@@ -50,6 +50,20 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
   const chatMessages = messages.filter(m => m.type === 'dispatcher' || m.type === 'important').slice(0, 50);
   const isOffline = connection === 'offline';
 
+  // Внутренняя функция старта — объявлена первой, используется в useEffect и кнопках
+  const recordTimeRef = useRef(0);
+
+  const startRecordNow = useCallback(() => {
+    if (recordTimer.current) clearInterval(recordTimer.current);
+    recordTimeRef.current = 0;
+    setRecordTime(0);
+    setIsRecording(true);
+    recordTimer.current = setInterval(() => {
+      recordTimeRef.current += 1;
+      setRecordTime(t => t + 1);
+    }, 1000);
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
@@ -65,7 +79,7 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     if (!autoStartRecord) return;
     onAutoRecordDone?.();
     startRecordNow();
-  }, [autoStartRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoStartRecord, startRecordNow, onAutoRecordDone]);  
 
   const handleFocus = useCallback(() => {
     if (blurTimer.current) clearTimeout(blurTimer.current);
@@ -86,7 +100,6 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     onSend(input.trim());
     setInput('');
     setTimeout(() => { sendingRef.current = false; }, 200);
-    // Снимаем фокус — закрываем клавиатуру
     inputRef.current?.blur();
   }, [input, onSend]);
 
@@ -94,20 +107,6 @@ export default function Messenger({ messages, onSend, isMoving, connection = 'on
     e.preventDefault();
     handleSend();
   }, [handleSend]);
-
-  // Внутренняя функция старта — используется и из кнопки и из autoStartRecord
-  const recordTimeRef = useRef(0);
-
-  const startRecordNow = useCallback(() => {
-    if (recordTimer.current) clearInterval(recordTimer.current);
-    recordTimeRef.current = 0;
-    setRecordTime(0);
-    setIsRecording(true);
-    recordTimer.current = setInterval(() => {
-      recordTimeRef.current += 1;
-      setRecordTime(recordTimeRef.current);
-    }, 1000);
-  }, []);
 
   const startRecord = useCallback((e: React.PointerEvent) => {
     e.preventDefault();

@@ -21,10 +21,21 @@ function DocViewer({ doc, onClose }: { doc: DocFile; onClose: () => void }) {
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] pointer-events-none">
+      {/* Затемнение только правой части */}
+      <div
+        className="absolute inset-0 bg-black/50 pointer-events-auto"
+        style={{ left: '320px' }}
+        onClick={onClose}
+      />
+      {/* Панель справа */}
+      <div
+        className="absolute top-0 right-0 bottom-0 bg-card border-l border-border shadow-2xl flex flex-col pointer-events-auto"
+        style={{ left: '320px' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
           <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={18} className="text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground truncate">{doc.name}</p>
@@ -44,7 +55,8 @@ function DocViewer({ doc, onClose }: { doc: DocFile; onClose: () => void }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

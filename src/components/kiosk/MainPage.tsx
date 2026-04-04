@@ -187,7 +187,7 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP + WIDGETS ROW — скрывается при открытой клавиатуре */}
-        <div className={`${keyboardOpen ? 'hidden' : 'flex-[55]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        <div className={`${keyboardOpen ? 'hidden' : 'flex-[41]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
@@ -201,35 +201,34 @@ export default function MainPage({
             </button>
           </div>
 
-          {/* SIDE WIDGETS — 2x2 grid on tablet, column on mobile */}
-          <div className="grid grid-cols-1 tablet:grid-cols-2 gap-2 w-[100px] tablet:w-[230px] flex-shrink-0">
-            {/* Колонка 1: от графика + статус ТС */}
+          {/* SIDE WIDGETS — 2x2 grid, все одинаковые */}
+          <div className="grid grid-cols-2 gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
             {/* Отклонение от графика */}
-            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-4">
-              <Icon name="Clock" size={18} className="text-primary tablet:!w-6 tablet:!h-6" />
-              <span className={`text-lg tablet:text-2xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
-                {devSign}{deviation} мин
+            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
+              <Icon name="Clock" size={16} className="text-primary" />
+              <span className={`text-base tablet:text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+                {devSign}{deviation}м
               </span>
-              <span className="text-[9px] tablet:text-xs text-muted-foreground leading-none text-center">от графика</span>
+              <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">от графика</span>
             </div>
             {/* Интервал */}
-            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 px-2 py-2 tablet:py-4">
-              <Icon name="Timer" size={18} className="text-primary tablet:!w-6 tablet:!h-6" />
-              <span className="text-lg tablet:text-2xl font-black text-foreground tabular-nums leading-none">{interval} мин</span>
-              <span className="text-[9px] tablet:text-xs text-muted-foreground leading-none text-center">интервал</span>
+            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
+              <Icon name="Timer" size={16} className="text-primary" />
+              <span className="text-base tablet:text-xl font-black text-foreground tabular-nums leading-none">{interval}м</span>
+              <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">интервал</span>
             </div>
             {/* Статус транспортного средства */}
-            <div className="flex flex-col min-h-0">
-              <VehicleStatusWidget isDark={isDark} />
+            <div className="flex flex-col">
+              <VehicleStatusWidget isDark={isDark} compact />
             </div>
             {/* SOS */}
             <button
               onClick={onSos}
-              className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-red-600 border-2 border-red-500 elevation-2 px-2 py-2 tablet:py-4 active:scale-95 transition-all ripple animate-pulse"
+              className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-red-600 border-2 border-red-500 elevation-2 p-2 active:scale-95 transition-all ripple animate-pulse"
             >
-              <Icon name="Siren" size={18} className="text-white tablet:!w-6 tablet:!h-6" />
-              <span className="text-lg tablet:text-2xl font-black text-white leading-none">SOS</span>
-              <span className="text-[9px] tablet:text-xs text-white/70 leading-none text-center">экстренный</span>
+              <Icon name="Siren" size={16} className="text-white" />
+              <span className="text-base tablet:text-xl font-black text-white leading-none">SOS</span>
+              <span className="text-[9px] tablet:text-[11px] text-white/70 leading-none text-center">экстренный</span>
             </button>
           </div>
 
