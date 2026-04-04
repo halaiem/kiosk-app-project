@@ -206,10 +206,13 @@ export default function MainPage({
             {/* Отклонение от графика */}
             <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
               <Icon name="Clock" size={16} className="text-primary" />
-              <span className={`text-base tablet:text-xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
-                {devSign}{deviation}м
-              </span>
-              <span className="text-[9px] tablet:text-[11px] text-muted-foreground leading-none text-center">от графика</span>
+              <div className="flex items-baseline gap-0.5">
+                <span className={`text-2xl tablet:text-3xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+                  {devSign}{deviation}
+                </span>
+                <span className={`text-xs tablet:text-sm font-semibold leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>м</span>
+              </div>
+              <span className="text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center">от графика</span>
             </div>
             {/* Интервал */}
             <IntervalWidget isDark={isDark} />
@@ -256,7 +259,7 @@ export default function MainPage({
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => { setMessengerAutoRecord(true); onSetMessengerFullscreen(true); }} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} onInputFocus={handleInputFocus} onInputBlur={handleInputBlur} onOpenFullscreen={() => { setMessengerAutoRecord(true); onSetMessengerFullscreen(true); }} playingMessageId={playingMessageId} onPlayMessage={onPlayMessage} />
           </div>
         </div>
       </div>
@@ -283,7 +286,7 @@ export default function MainPage({
             </button>
           </div>
           <div className="flex-1 min-h-0" style={{ backgroundColor: 'hsl(var(--kiosk-surface))' }}>
-            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} autoStartRecord={messengerAutoRecord} onAutoRecordDone={() => setMessengerAutoRecord(false)} />
+            <Messenger messages={messages} onSend={onSendMessage} isMoving={isMoving} connection={connection} pendingCount={pendingCount} autoStartRecord={messengerAutoRecord} onAutoRecordDone={() => setMessengerAutoRecord(false)} playingMessageId={playingMessageId} onPlayMessage={onPlayMessage} />
           </div>
         </div>,
         document.body
