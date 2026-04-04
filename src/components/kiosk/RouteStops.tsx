@@ -309,7 +309,7 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
                   ${isCurrent
                     ? 'text-green-600 dark:text-green-400 font-bold text-[22px]'
                     : isNext
-                      ? 'text-foreground text-[20px] font-semibold'
+                      ? 'text-foreground text-[16px] font-semibold'
                       : isPassed
                         ? 'text-muted-foreground/70 text-[18px]'
                         : 'text-muted-foreground/50 text-[18px]'
@@ -325,7 +325,7 @@ export default function RouteStops({ currentStopIndex, vertical, deviation = 0 }
                   </span>
                 )}
                 {isNext && eta && (
-                  <span className="text-[18px] text-primary font-medium tabular-nums">
+                  <span className="text-[14px] text-primary font-medium tabular-nums">
                     {eta}
                   </span>
                 )}

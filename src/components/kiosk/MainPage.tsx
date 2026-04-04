@@ -187,7 +187,7 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP + WIDGETS ROW — скрывается при открытой клавиатуре */}
-        <div className={`${keyboardOpen ? 'hidden' : 'flex-[41]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        <div className={`${keyboardOpen ? 'hidden' : 'flex-[35]'} min-h-0 flex gap-2 transition-all duration-300`}>
 
           {/* MAP */}
           <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>

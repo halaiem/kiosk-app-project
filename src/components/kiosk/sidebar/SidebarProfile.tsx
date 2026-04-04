@@ -12,15 +12,6 @@ interface DocFile {
 }
 
 function DocViewer({ doc, onClose }: { doc: DocFile; onClose: () => void }) {
-  const download = () => {
-    const text = doc.content ?? `Документ: ${doc.name}\n\nСодержимое документа загружается из системы.`;
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${doc.name}.txt`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return createPortal(
     <div className="fixed inset-0 z-[200] pointer-events-none">
       {/* Затемнение только правой части */}
@@ -41,10 +32,6 @@ function DocViewer({ doc, onClose }: { doc: DocFile; onClose: () => void }) {
             <p className="text-sm font-bold text-foreground truncate">{doc.name}</p>
             <p className="text-[10px] text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</p>
           </div>
-          <button onClick={download} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium ripple">
-            <Icon name="Download" size={13} />
-            Скачать
-          </button>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
             <Icon name="X" size={16} className="text-muted-foreground" />
           </button>
