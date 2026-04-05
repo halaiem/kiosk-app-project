@@ -66,8 +66,7 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         </div>
       </div>
 
-      {/* Вертикальный разделитель */}
-      <div className="relative z-10 w-px self-stretch flex-shrink-0 bg-transparent" />
+
 
       {/* Правая колонка 65% — форма авторизации (+20%) */}
       <div className="relative z-10 w-[65%] flex flex-col items-center justify-center px-10">
