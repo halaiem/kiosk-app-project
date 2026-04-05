@@ -52,14 +52,14 @@ export default function IntervalWidget({ isDark }: Props) {
         onClick={() => setPopupOpen(true)}
         className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2 active:scale-95 transition-all w-full h-full"
       >
-        <div className={`transition-all duration-300 ${animating ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-          <Icon name={iconName} size={16} className="text-primary mx-auto" />
+        <div className={`flex flex-col items-center gap-0.5 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+          <Icon name={iconName} size={16} className="text-primary" />
+          <span className="text-[10px] tablet:text-xs font-semibold text-muted-foreground leading-none">мин</span>
         </div>
-        <div className={`flex items-baseline gap-2.5 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+        <div className={`transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
           <span className="text-4xl tablet:text-5xl font-black text-foreground tabular-nums leading-none">
             {current?.intervalMin ?? '—'}
           </span>
-          <span className="text-sm tablet:text-base font-semibold text-muted-foreground leading-none">мин</span>
         </div>
         <span className={`text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center transition-all duration-300 ${animating ? 'opacity-0' : 'opacity-100'}`}>
           {label}
