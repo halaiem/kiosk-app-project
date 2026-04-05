@@ -60,8 +60,8 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
               style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
               <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-28 h-28 portrait:w-[112px] portrait:h-[112px] object-contain" />
             </div>
-            <div className="text-center portrait:mt-[10%]">
-              <div className="text-2xl portrait:text-[4.5rem] font-bold text-foreground tracking-tight">ИРИДА</div>
+            <div className="text-center">
+              <div className="text-2xl portrait:text-xl font-bold text-foreground tracking-tight">ИРИДА</div>
               <div className="text-base portrait:text-sm text-muted-foreground mt-1">Мобильные рабочие места</div>
             </div>
           </div>
