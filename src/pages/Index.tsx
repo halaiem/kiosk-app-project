@@ -14,6 +14,7 @@ import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/S
 import SosModal from '@/components/kiosk/SosModal';
 import EndShiftModal from '@/components/kiosk/EndShiftModal';
 import GoodbyeScreen from '@/components/kiosk/GoodbyeScreen';
+import LoginLoadingScreen from '@/components/kiosk/LoginLoadingScreen';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 import type { Message } from '@/types/kiosk';
@@ -51,6 +52,7 @@ const isTablet = () => window.innerWidth >= 768 && window.innerWidth < 1024;
 
 export default function Index() {
   const state = useKioskState();
+  const [loginLoading, setLoginLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
   const [breakOpen, setBreakOpen] = useState(false);
@@ -183,15 +185,30 @@ export default function Index() {
   const top = queue[0] ?? null;
   const stackCount = queue.length;
 
+  const handleLogin = (employeeId: string, pin: string) => {
+    state.login(employeeId, pin);
+  };
+
+  // Как только screen переключился на welcome — показываем loading на 3 сек
+  useEffect(() => {
+    if (state.screen === 'welcome') {
+      setLoginLoading(true);
+    }
+  }, [state.screen]);
+
   return (
     <div className="h-full w-full overflow-hidden relative">
-      {state.screen === 'login' && (
+      {state.screen === 'login' && !loginLoading && (
         <>
-          <LoginPage onLogin={state.login} error={state.loginError} loading={state.loginLoading} />
+          <LoginPage onLogin={handleLogin} error={state.loginError} loading={state.loginLoading} />
         </>
       )}
 
-      {state.screen === 'welcome' && state.driver && (
+      {loginLoading && (
+        <LoginLoadingScreen onDone={() => setLoginLoading(false)} />
+      )}
+
+      {state.screen === 'welcome' && state.driver && !loginLoading && (
         <WelcomeScreen driver={state.driver} onStart={state.startShift} />
       )}
 
