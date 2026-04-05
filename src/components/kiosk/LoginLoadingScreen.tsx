@@ -25,16 +25,16 @@ export default function LoginLoadingScreen({ onDone }: Props) {
       setFillProgress(100);
     }, 100);
 
-    // Смена шагов каждые ~700ms
+    // Смена шагов каждые ~1100ms
     const stepTimers = STEPS.map((_, i) =>
-      setTimeout(() => setStepIndex(i), i * 700)
+      setTimeout(() => setStepIndex(i), i * 1100)
     );
 
     // Fade-out за 400ms до конца
-    const fadeTimer = setTimeout(() => setFadeOut(true), 2600);
+    const fadeTimer = setTimeout(() => setFadeOut(true), 4600);
 
-    // Завершение через 3 сек
-    const doneTimer = setTimeout(() => onDone(), 3000);
+    // Завершение через 5 сек
+    const doneTimer = setTimeout(() => onDone(), 5000);
 
     return () => {
       clearTimeout(fillTimer);
@@ -76,7 +76,7 @@ export default function LoginLoadingScreen({ onDone }: Props) {
                 className="absolute inset-0 flex items-center justify-center bg-white/10"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transition: `clip-path ${2.5}s ease-in-out`,
+                  transition: `clip-path 4.5s ease-in-out`,
                 }}
               >
                 <img
@@ -98,7 +98,7 @@ export default function LoginLoadingScreen({ onDone }: Props) {
                 className="absolute inset-0 flex items-center justify-center"
                 style={{
                   clipPath: `inset(${100 - fillProgress}% 0 0 0)`,
-                  transition: `clip-path 2.5s ease-in-out`,
+                  transition: `clip-path 4.5s ease-in-out`,
                 }}
               >
                 <Icon name="Building2" size={80} className="text-white" />
@@ -153,7 +153,7 @@ export default function LoginLoadingScreen({ onDone }: Props) {
               className="h-full bg-primary rounded-full"
               style={{
                 width: `${fillProgress}%`,
-                transition: 'width 2.5s ease-in-out',
+                transition: 'width 4.5s ease-in-out',
               }}
             />
           </div>
