@@ -59,8 +59,8 @@ export default function BreakModal({ isOpen, onClose }: Props) {
         </div>
 
         {active ? (
-          <div className="text-center py-6">
-            <div className="relative inline-flex items-center justify-center w-56 h-56 mb-6">
+          <div className="flex items-center justify-center gap-8 py-6">
+            <div className="relative inline-flex items-center justify-center w-72 h-72 flex-shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
                 <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--warning))" strokeWidth="8"
@@ -70,8 +70,8 @@ export default function BreakModal({ isOpen, onClose }: Props) {
                   className="transition-all duration-1000" />
               </svg>
               <div className="absolute text-center">
-                <div className="text-4xl font-bold tabular-nums text-foreground">{formatTime(remaining)}</div>
-                <div className="text-sm text-muted-foreground mt-1">осталось</div>
+                <div className="text-5xl font-bold tabular-nums text-foreground">{formatTime(remaining)}</div>
+                <div className="text-base text-muted-foreground mt-1">осталось</div>
               </div>
             </div>
             <button onClick={() => { setActive(false); onClose(); }}
