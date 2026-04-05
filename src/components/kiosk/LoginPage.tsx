@@ -40,8 +40,8 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
 
       <div className="relative z-10 flex w-full h-full landscape:flex-row portrait:flex-col">
 
-        {/* Логотипы — landscape: левая колонка 40% | portrait: верхние 35%, логотипы внизу секции */}
-        <div className="landscape:w-[40%] portrait:h-[35%] flex flex-col items-center portrait:justify-end portrait:pb-6 justify-center gap-8 px-8">
+        {/* Логотипы — landscape: левая колонка 40% | portrait: верхние 40%, логотипы строго по центру */}
+        <div className="landscape:w-[40%] portrait:h-[40%] flex flex-col items-center justify-center gap-8 px-8">
 
           {settings.carrierLogo && (
             <>
@@ -70,9 +70,9 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         {/* Разделитель portrait */}
         <div className="portrait:block hidden w-full h-px bg-border/30" />
 
-        {/* Форма — landscape: правая колонка 60% | portrait: остаток, форма сверху по центру */}
-        <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center portrait:justify-start portrait:pt-6 justify-center px-14 portrait:px-10 portrait:pb-4">
-          <div className="w-full max-w-xl portrait:max-w-md">
+        {/* Форма — landscape: правая колонка 60% | portrait: остаток, форма на 15% ниже центра, полная ширина */}
+        <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center portrait:justify-center portrait:pt-[15%] justify-center px-14 portrait:px-6 portrait:pb-4">
+          <div className="w-full max-w-xl portrait:max-w-full">
             <div className="kiosk-surface rounded-2xl elevation-3 p-10 portrait:p-7">
               <h2 className="text-3xl portrait:text-2xl font-semibold text-foreground mb-6 portrait:mb-5 flex items-center gap-3">
                 <Icon name="LogIn" size={28} className="text-primary" />
