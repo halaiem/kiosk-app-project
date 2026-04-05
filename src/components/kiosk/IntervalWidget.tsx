@@ -55,11 +55,11 @@ export default function IntervalWidget({ isDark }: Props) {
         <div className={`transition-all duration-300 ${animating ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
           <Icon name={iconName} size={16} className="text-primary mx-auto" />
         </div>
-        <div className={`flex items-baseline gap-1.5 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-          <span className="text-2xl tablet:text-3xl font-black text-foreground tabular-nums leading-none">
+        <div className={`flex items-baseline gap-3 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+          <span className="text-4xl tablet:text-5xl font-black text-foreground tabular-nums leading-none">
             {current?.intervalMin ?? '—'}
           </span>
-          <span className="text-xs tablet:text-sm font-semibold text-muted-foreground leading-none">мин</span>
+          <span className="text-sm tablet:text-base font-semibold text-muted-foreground leading-none">мин</span>
         </div>
         <span className={`text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center transition-all duration-300 ${animating ? 'opacity-0' : 'opacity-100'}`}>
           {label}
