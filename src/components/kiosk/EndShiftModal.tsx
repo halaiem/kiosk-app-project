@@ -41,7 +41,8 @@ export default function EndShiftModal({ open, driver, dispatcherName, onClose, o
   );
 
   const timeStr = time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = time.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const weekday = time.toLocaleDateString('ru-RU', { weekday: 'long' });
+  const dayMonth = time.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 
   const dispatcher = dispatcherName || 'Смирнова Е.В.';
 
@@ -65,7 +66,8 @@ export default function EndShiftModal({ open, driver, dispatcherName, onClose, o
 
             <div className="text-center">
               <div className="font-bold text-white tabular-nums leading-none" style={{ fontSize: '80px' }}>{timeStr}</div>
-              <div className="text-white/60 text-2xl capitalize mt-3">{dateStr}</div>
+              <div className="text-white/60 text-2xl capitalize mt-3">{weekday}</div>
+              <div className="text-white/60 text-2xl mt-1">{dayMonth}</div>
             </div>
           </div>
 
