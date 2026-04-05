@@ -208,11 +208,11 @@ export default function MainPage({
             {/* Отклонение от графика */}
             <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
               <Icon name="Clock" size={16} className="text-primary" />
-              <div className="flex items-baseline gap-0.5">
-                <span className={`text-2xl tablet:text-3xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+              <div className="flex items-baseline gap-2.5">
+                <span className={`text-4xl tablet:text-5xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
                   {devSign}{deviation}
                 </span>
-                <span className={`text-xs tablet:text-sm font-semibold leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>м</span>
+                <span className={`text-sm tablet:text-base font-semibold leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>м</span>
               </div>
               <span className="text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center">от графика</span>
             </div>
