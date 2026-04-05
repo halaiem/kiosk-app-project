@@ -32,32 +32,34 @@ export default function WelcomeScreen({ driver, onStart }: Props) {
 
       <div className={`relative z-10 flex w-full h-full transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} landscape:flex-row portrait:flex-col`}>
 
-        {/* LEFT/TOP — иконка успеха + время */}
-        <div className="landscape:w-[40%] portrait:w-full portrait:flex-row portrait:py-5 portrait:px-6 portrait:border-b portrait:border-border/30 flex flex-col portrait:flex-row items-center justify-center gap-6 portrait:gap-6 px-8 portrait:px-6">
-          <div className="flex flex-col portrait:flex-row items-center gap-4 portrait:gap-4">
-            <div className="inline-flex items-center justify-center w-32 h-32 portrait:w-20 portrait:h-20 rounded-full bg-success/15 animate-scale-bounce">
-              <div className="w-24 h-24 portrait:w-14 portrait:h-14 rounded-full bg-success/25 flex items-center justify-center">
-                <Icon name="CheckCircle2" size={56} className="text-success portrait:hidden" />
-                <Icon name="CheckCircle2" size={36} className="text-success hidden portrait:block" />
+        {/* LEFT/TOP — иконка успеха + время | portrait: верхняя половина, по центру, крупно */}
+        <div className="landscape:w-[40%] portrait:h-[45%] flex flex-col items-center justify-center gap-6 px-8 portrait:gap-5">
+          <div className="flex flex-col items-center gap-4">
+            <div className="inline-flex items-center justify-center w-32 h-32 portrait:w-36 portrait:h-36 rounded-full bg-success/15 animate-scale-bounce">
+              <div className="w-24 h-24 portrait:w-28 portrait:h-28 rounded-full bg-success/25 flex items-center justify-center">
+                <Icon name="CheckCircle2" size={56} className="text-success landscape:block portrait:hidden" />
+                <Icon name="CheckCircle2" size={72} className="text-success landscape:hidden portrait:block" />
               </div>
             </div>
-            <p className="text-lg portrait:text-sm text-muted-foreground font-medium portrait:hidden">Наряд подтверждён</p>
+            <p className="text-lg text-muted-foreground font-medium">Наряд подтверждён</p>
           </div>
 
-          <div className="text-center portrait:text-left">
-            <div className="font-bold text-foreground tabular-nums leading-none landscape:text-[80px] portrait:text-5xl">
+          <div className="text-center">
+            <div className="font-bold text-foreground tabular-nums leading-none landscape:text-[80px] portrait:text-[72px]">
               {timeStr}
             </div>
-            <div className="text-base text-muted-foreground capitalize mt-2 portrait:text-sm">{dateStr}</div>
-            <p className="text-sm text-muted-foreground font-medium mt-1 hidden portrait:block">Наряд подтверждён</p>
+            <div className="text-base portrait:text-lg text-muted-foreground capitalize mt-2">{dateStr}</div>
           </div>
         </div>
 
-        {/* RIGHT/BOTTOM — заголовок + карточка + кнопка */}
-        <div className="landscape:w-[60%] portrait:w-full portrait:flex-1 portrait:overflow-y-auto flex flex-col items-center justify-center px-12 portrait:px-5 portrait:py-4">
-          <div className="w-full max-w-xl portrait:max-w-full">
-            <h1 className="text-4xl portrait:text-2xl font-bold text-foreground mb-2">Добро пожаловать!</h1>
-            <p className="text-base portrait:text-sm text-muted-foreground mb-6 portrait:mb-4">Проверьте данные и начните смену</p>
+        {/* Разделитель portrait */}
+        <div className="portrait:block hidden w-full h-px bg-border/30" />
+
+        {/* RIGHT/BOTTOM — заголовок + карточка + кнопка | portrait: нижняя половина, уже по ширине, заголовок по центру */}
+        <div className="landscape:w-[60%] portrait:flex-1 portrait:overflow-y-auto flex flex-col items-center justify-center px-12 portrait:px-8 portrait:py-5">
+          <div className="w-full max-w-xl portrait:max-w-sm">
+            <h1 className="text-4xl portrait:text-2xl font-bold text-foreground mb-2 portrait:text-center">Добро пожаловать!</h1>
+            <p className="text-base portrait:text-sm text-muted-foreground mb-6 portrait:mb-4 portrait:text-center">Проверьте данные и начните смену</p>
 
             <div className="kiosk-surface rounded-3xl elevation-4 p-8 portrait:p-5 mb-6 portrait:mb-4 space-y-4 portrait:space-y-3">
               <div className="flex items-center gap-4 portrait:gap-3">

@@ -38,50 +38,50 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         />
       </div>
 
-      {/* Landscape: two-column | Portrait: single column */}
-      <div className="relative z-10 flex w-full h-full flex-col portrait:flex-col landscape:flex-row">
+      <div className="relative z-10 flex w-full h-full landscape:flex-row portrait:flex-col">
 
-        {/* Логотипы — landscape: левая колонка 40% | portrait: верхняя полоса */}
-        <div className="landscape:w-[40%] portrait:w-full portrait:flex-row portrait:py-5 portrait:px-6 portrait:gap-6 portrait:border-b portrait:border-border/30 flex flex-col items-center justify-center gap-8 px-8 landscape:py-0">
+        {/* Логотипы — landscape: левая колонка 40% | portrait: верхняя половина, по центру, крупно */}
+        <div className="landscape:w-[40%] portrait:h-[48%] flex flex-col items-center justify-center gap-8 px-8">
 
-          {/* Логотип перевозчика */}
           {settings.carrierLogo && (
             <>
-              <div className="flex flex-col portrait:flex-row items-center gap-3 portrait:gap-3">
-                <div className="w-40 h-40 portrait:w-16 portrait:h-16 rounded-3xl portrait:rounded-2xl elevation-3 flex items-center justify-center overflow-hidden bg-white/10">
-                  <img src={settings.carrierLogo} alt={settings.carrierName} className="w-32 h-32 portrait:w-12 portrait:h-12 object-contain" />
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-40 h-40 portrait:w-36 portrait:h-36 rounded-3xl elevation-3 flex items-center justify-center overflow-hidden bg-white/10">
+                  <img src={settings.carrierLogo} alt={settings.carrierName} className="w-32 h-32 portrait:w-28 portrait:h-28 object-contain" />
                 </div>
-                <span className="text-2xl portrait:text-base font-bold text-foreground tracking-tight text-center portrait:text-left">{settings.carrierName}</span>
+                <span className="text-2xl portrait:text-xl font-bold text-foreground tracking-tight text-center">{settings.carrierName}</span>
               </div>
-              <div className="w-20 h-px portrait:w-px portrait:h-10 bg-foreground/20" />
+              <div className="w-20 h-px bg-foreground/20" />
             </>
           )}
 
-          {/* Логотип ИРИДА */}
-          <div className="flex flex-col portrait:flex-row items-center gap-3 portrait:gap-3">
-            <div className="w-40 h-40 portrait:w-16 portrait:h-16 rounded-3xl portrait:rounded-2xl elevation-3 flex items-center justify-center"
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-40 h-40 portrait:w-36 portrait:h-36 rounded-3xl elevation-3 flex items-center justify-center"
               style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
-              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-28 h-28 portrait:w-10 portrait:h-10 object-contain" />
+              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-28 h-28 portrait:w-24 portrait:h-24 object-contain" />
             </div>
-            <div className="text-center portrait:text-left">
-              <div className="text-2xl portrait:text-base font-bold text-foreground tracking-tight">ИРИДА</div>
-              <div className="text-base portrait:text-xs text-muted-foreground mt-1">Мобильные рабочие места</div>
+            <div className="text-center">
+              <div className="text-2xl portrait:text-xl font-bold text-foreground tracking-tight">ИРИДА</div>
+              <div className="text-base portrait:text-sm text-muted-foreground mt-1">Мобильные рабочие места</div>
             </div>
           </div>
         </div>
 
-        {/* Форма — landscape: правая колонка 60% | portrait: основной блок */}
-        <div className="relative z-10 landscape:w-[60%] portrait:w-full portrait:flex-1 flex flex-col items-center justify-center px-14 portrait:px-6 portrait:py-4">
-          <div className="w-full max-w-xl portrait:max-w-full">
-            <div className="kiosk-surface rounded-2xl elevation-3 p-10 portrait:p-6">
-              <h2 className="text-3xl portrait:text-2xl font-semibold text-foreground mb-6 portrait:mb-4 flex items-center gap-3">
+        {/* Разделитель portrait */}
+        <div className="portrait:block hidden w-full h-px bg-border/30" />
+
+        {/* Форма — landscape: правая колонка 60% | portrait: нижняя половина, уже по ширине */}
+        <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center justify-center px-14 portrait:px-8 portrait:py-5">
+          <div className="w-full max-w-xl portrait:max-w-sm">
+            <div className="kiosk-surface rounded-2xl elevation-3 p-10 portrait:p-7">
+              <h2 className="text-3xl portrait:text-2xl font-semibold text-foreground mb-6 portrait:mb-5 flex items-center gap-3">
                 <Icon name="LogIn" size={28} className="text-primary" />
                 Авторизация водителя
               </h2>
 
               <div className="space-y-5 portrait:space-y-4">
                 <div>
-                  <label className="text-base font-medium text-muted-foreground mb-2.5 portrait:mb-2 block">Табельный номер</label>
+                  <label className="text-base font-medium text-muted-foreground mb-2.5 block">Табельный номер</label>
                   <div className="relative">
                     <Icon name="IdCard" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
@@ -97,7 +97,7 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
                 </div>
 
                 <div>
-                  <label className="text-base font-medium text-muted-foreground mb-2.5 portrait:mb-2 block">PIN-код</label>
+                  <label className="text-base font-medium text-muted-foreground mb-2.5 block">PIN-код</label>
                   <div className="relative">
                     <Icon name="Lock" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
