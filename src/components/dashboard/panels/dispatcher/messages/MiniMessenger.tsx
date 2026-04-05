@@ -134,13 +134,10 @@ export function MiniMessenger({
               const hasUnread = thread.unreadCount > 0;
               const st = hasUnread ? CATEGORY_STYLES[cat] : CATEGORY_STYLES["none"];
               return (
-                <div
+                <button
                   key={thread.driverId}
                   onClick={() => setMiniSelectedThread(thread.driverId)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setMiniSelectedThread(thread.driverId)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-border transition-all relative group cursor-pointer ${
+                  className={`w-full text-left px-3 py-2.5 border-b border-border transition-all relative group ${
                     isSelected ? "bg-primary/10" : hasUnread ? `${st.bg} border-l-2 ${st.border}` : "hover:bg-muted/40"
                   }`}
                 >
@@ -181,7 +178,7 @@ export function MiniMessenger({
                   >
                     <Icon name="Maximize2" className="w-3 h-3 text-muted-foreground" />
                   </button>
-                </div>
+                </button>
               );
             })}
           </div>
