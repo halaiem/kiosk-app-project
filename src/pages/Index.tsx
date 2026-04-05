@@ -140,7 +140,7 @@ export default function Index() {
   useEffect(() => {
     if (state.screen !== 'main') return;
     const tablet = isTablet();
-    const delay = tablet ? 240000 : 24000 + Math.random() * 21000;
+    const delay = tablet ? 800000 : 80000 + Math.random() * 70000;
     const t = setTimeout(() => triggerRandomAlert(), delay);
     return () => clearTimeout(t);
   }, [state.screen, triggerRandomAlert]);
@@ -149,7 +149,7 @@ export default function Index() {
   useEffect(() => {
     if (lastAlertIdRef.current === null) return;
     const tablet = isTablet();
-    const interval = tablet ? 1800000 : 120000 + Math.random() * 90000;
+    const interval = tablet ? 6000000 : 400000 + Math.random() * 300000;
     const t = setTimeout(() => triggerRandomAlert(), interval);
     return () => clearTimeout(t);
   }, [lastAlertIdRef.current, triggerRandomAlert]);
