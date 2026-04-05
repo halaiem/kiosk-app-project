@@ -32,7 +32,7 @@ export function MessageToast({ message, onConfirm, onReply, onPlayVoice }: Toast
     : message.type === 'dispatcher' ? 'Диспетчер' : message.type === 'can_error' ? 'CAN-система' : 'Уведомление';
 
   return (
-    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${isVoice ? 'bg-green-500/10 border-green-500/30' : (colors[message.type] || colors.normal)} w-full pointer-events-auto`}>
+    <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${isVoice ? 'bg-white border-green-500/30' : (colors[message.type] || colors.normal)} w-full pointer-events-auto`}>
       <div className="flex items-start gap-4 md:gap-7">
         <div className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl flex items-center justify-center flex-shrink-0
           ${isVoice ? 'bg-green-500/20' : message.type === 'can_error' ? 'bg-warning/20' : message.type === 'dispatcher' ? 'bg-primary/15' : 'bg-muted'}`}>

@@ -75,7 +75,7 @@ export default function BreakModal({ isOpen, onClose }: Props) {
               </div>
             </div>
             <button onClick={() => { setActive(false); onClose(); }}
-              className="px-8 py-4 rounded-xl bg-muted text-muted-foreground text-lg ripple">
+              className="px-8 py-4 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-semibold text-lg ripple">
               Завершить перерыв
             </button>
           </div>
