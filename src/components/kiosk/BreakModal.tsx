@@ -38,7 +38,7 @@ export default function BreakModal({ isOpen, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="kiosk-surface rounded-3xl elevation-4 p-8 max-w-sm w-full mx-4 animate-scale-in">
+      <div className="kiosk-surface rounded-3xl elevation-4 p-8 max-w-md w-full mx-4 animate-scale-in">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-warning/15 flex items-center justify-center">
@@ -49,9 +49,11 @@ export default function BreakModal({ isOpen, onClose }: Props) {
               <p className="text-muted-foreground text-sm">Выберите длительность</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center ripple">
-            <Icon name="X" size={18} className="text-muted-foreground" />
-          </button>
+          {!active && (
+            <button onClick={onClose} className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center ripple">
+              <Icon name="X" size={18} className="text-muted-foreground" />
+            </button>
+          )}
         </div>
 
         {active ? (
