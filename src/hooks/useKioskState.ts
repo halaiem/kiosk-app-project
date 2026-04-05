@@ -188,7 +188,7 @@ export function useKioskState() {
             const important = fresh.find(m => m.type === 'important');
             if (important) setPendingImportant(important);
 
-            updated = [...updated, ...fresh];
+            updated = [...updated, ...fresh].slice(-50);
             cacheMessages(updated);
             return updated;
           });
