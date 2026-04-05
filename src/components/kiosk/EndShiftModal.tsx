@@ -52,8 +52,8 @@ export default function EndShiftModal({ open, driver, dispatcherName, onClose, o
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl mx-4 kiosk-surface rounded-3xl elevation-4 overflow-hidden animate-in zoom-in-95 duration-300" style={{ minHeight: '65vh' }}>
-        <div className="flex h-full" style={{ minHeight: '65vh' }}>
+      <div className="w-full max-w-4xl mx-4 kiosk-surface rounded-3xl elevation-4 overflow-hidden animate-in zoom-in-95 duration-300" style={{ minHeight: '75vh' }}>
+        <div className="flex h-full" style={{ minHeight: '75vh' }}>
 
           {/* LEFT 35% — иконка + заголовок + время */}
           <div className="w-[35%] bg-gradient-to-b from-[#152d52] to-[#1e3a5f] flex flex-col items-center justify-center gap-6 px-8 py-10">
