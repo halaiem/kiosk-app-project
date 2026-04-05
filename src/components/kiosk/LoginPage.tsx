@@ -40,14 +40,14 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
 
       <div className="relative z-10 flex w-full h-full landscape:flex-row portrait:flex-col">
 
-        {/* Логотипы — landscape: левая колонка 40% | portrait: верхние 40%, логотипы строго по центру */}
-        <div className="landscape:w-[40%] portrait:h-[40%] flex flex-col items-center justify-center gap-8 px-8">
+        {/* Логотипы — landscape: левая колонка 40% | portrait: верхние 42%, строго по центру */}
+        <div className="landscape:w-[40%] portrait:h-[42%] flex flex-col items-center justify-center gap-8 px-8">
 
           {settings.carrierLogo && (
             <>
               <div className="flex flex-col items-center gap-4">
-                <div className="w-40 h-40 portrait:w-36 portrait:h-36 rounded-3xl elevation-3 flex items-center justify-center overflow-hidden bg-white/10">
-                  <img src={settings.carrierLogo} alt={settings.carrierName} className="w-32 h-32 portrait:w-28 portrait:h-28 object-contain" />
+                <div className="w-40 h-40 portrait:w-[152px] portrait:h-[152px] rounded-3xl elevation-3 flex items-center justify-center overflow-hidden bg-white/10">
+                  <img src={settings.carrierLogo} alt={settings.carrierName} className="w-32 h-32 portrait:w-[120px] portrait:h-[120px] object-contain" />
                 </div>
                 <span className="text-2xl portrait:text-xl font-bold text-foreground tracking-tight text-center">{settings.carrierName}</span>
               </div>
@@ -56,9 +56,9 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
           )}
 
           <div className="flex flex-col items-center gap-4">
-            <div className="w-40 h-40 portrait:w-36 portrait:h-36 rounded-3xl elevation-3 flex items-center justify-center"
+            <div className="w-40 h-40 portrait:w-[152px] portrait:h-[152px] rounded-3xl elevation-3 flex items-center justify-center"
               style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))' }}>
-              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-28 h-28 portrait:w-24 portrait:h-24 object-contain" />
+              <img src="https://cdn.poehali.dev/files/99eade92-26ae-4d2a-87f8-343f497fc065.png" alt="ИРИДА" className="w-28 h-28 portrait:w-[112px] portrait:h-[112px] object-contain" />
             </div>
             <div className="text-center">
               <div className="text-2xl portrait:text-xl font-bold text-foreground tracking-tight">ИРИДА</div>
@@ -70,9 +70,9 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         {/* Разделитель portrait */}
         <div className="portrait:block hidden w-full h-px bg-border/30" />
 
-        {/* Форма — landscape: правая колонка 60% | portrait: остаток, форма на 15% ниже центра, полная ширина */}
-        <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center portrait:justify-center portrait:pt-[15%] justify-center px-14 portrait:px-6 portrait:pb-4">
-          <div className="w-full max-w-xl portrait:max-w-full">
+        {/* Форма — landscape: правая колонка 60% | portrait: остаток, форма смещена вверх на 25% */}
+        <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center portrait:justify-center portrait:pb-[25%] justify-center px-14 portrait:px-10 portrait:pt-4">
+          <div className="w-full max-w-xl portrait:max-w-[90%]">
             <div className="kiosk-surface rounded-2xl elevation-3 p-10 portrait:p-7">
               <h2 className="text-3xl portrait:text-2xl font-semibold text-foreground mb-6 portrait:mb-5 flex items-center gap-3">
                 <Icon name="LogIn" size={28} className="text-primary" />
