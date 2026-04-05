@@ -38,8 +38,8 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         />
       </div>
 
-      {/* Левая колонка 35% — логотипы */}
-      <div className="relative z-10 w-[35%] flex flex-col items-center justify-center gap-8 px-8">
+      {/* Левая колонка 40% — логотипы */}
+      <div className="relative z-10 w-[40%] flex flex-col items-center justify-center gap-8 px-8">
         {/* Логотип перевозчика */}
         {settings.carrierLogo && (
           <>
@@ -66,13 +66,10 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         </div>
       </div>
 
-      {/* Вертикальный разделитель */}
-      <div className="relative z-10 w-px self-stretch bg-foreground/10 flex-shrink-0" />
-
-      {/* Правая колонка 65% — форма авторизации (+20%) */}
-      <div className="relative z-10 w-[65%] flex flex-col items-center justify-center px-10">
-        <div className="w-full max-w-lg">
-          <div className="kiosk-surface rounded-2xl elevation-3 p-8">
+      {/* Правая колонка 60% — форма авторизации */}
+      <div className="relative z-10 w-[60%] flex flex-col items-center justify-center px-14">
+        <div className="w-full max-w-xl">
+          <div className="kiosk-surface rounded-2xl elevation-3 p-10">
             <h2 className="text-3xl font-semibold text-foreground mb-6 flex items-center gap-3">
               <Icon name="LogIn" size={28} className="text-primary" />
               Авторизация водителя

@@ -188,14 +188,6 @@ export default function Index() {
       {state.screen === 'login' && (
         <>
           <LoginPage onLogin={state.login} error={state.loginError} loading={state.loginLoading} />
-          <a
-            href="/dashboard"
-            className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white shadow-lg hover:opacity-90 active:scale-95 transition-all"
-            style={{ backgroundColor: '#1e3a5f' }}
-          >
-            <span className="text-base leading-none">🖥</span>
-            Панель управления
-          </a>
         </>
       )}
 
