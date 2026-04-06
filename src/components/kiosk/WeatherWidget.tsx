@@ -178,10 +178,10 @@ export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) 
             className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
           />
           <div className="flex items-end gap-0.5 leading-none">
-            <span className="text-5xl tablet:text-6xl font-black tabular-nums text-foreground leading-none">
+            <span className="text-4xl tablet:text-5xl font-black tabular-nums text-foreground leading-none">
               {weather.temp}
             </span>
-            <span className="text-xl font-bold text-muted-foreground mb-1">°C</span>
+            <span className="text-lg font-bold text-muted-foreground mb-0.5">°C</span>
           </div>
         </div>
         <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">
@@ -197,9 +197,9 @@ export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) 
         {timeStr && (
           <>
             <div className="w-full h-px bg-border/50 my-0.5" />
-            <span className="text-5xl tablet:text-6xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
+            <span className="text-4xl tablet:text-5xl font-black tabular-nums text-foreground leading-none">{timeStr}</span>
             {dateStr && (
-              <span className="text-xs tablet:text-sm font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+              <span className="text-[10px] tablet:text-xs text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
             )}
           </>
         )}
