@@ -205,11 +205,6 @@ export default function MainPage({
         {/* MAP + WIDGETS ROW — скрывается при открытой клавиатуре */}
         <div className={`${keyboardOpen ? 'hidden' : 'flex-[35]'} min-h-0 flex flex-col gap-2 transition-all duration-300`}>
 
-          {/* PORTRAIT: виджет погода+время над сеткой виджетов */}
-          <div className="portrait:block hidden flex-shrink-0 h-[90px]">
-            <WeatherWidget timeStr={timeStr} dateStr={dateStr} horizontal />
-          </div>
-
           {/* MAP + SIDE WIDGETS (+ LANDSCAPE weather column) */}
           <div className="flex-1 min-h-0 flex gap-2">
 
@@ -225,8 +220,15 @@ export default function MainPage({
               </button>
             </div>
 
-            {/* SIDE WIDGETS — 2x2 grid */}
-            <div className="grid grid-cols-2 gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
+            {/* SIDE WIDGETS — 2x2 grid + portrait weather above */}
+            <div className="flex flex-col gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
+
+              {/* PORTRAIT: виджет погода+время над сеткой */}
+              <div className="portrait:block hidden flex-shrink-0 h-[90px]">
+                <WeatherWidget timeStr={timeStr} dateStr={dateStr} horizontal />
+              </div>
+
+            <div className="grid grid-cols-2 gap-2 flex-1">
               {/* Отклонение от графика */}
               <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
                 <div className="flex items-center gap-1.5">
@@ -256,6 +258,8 @@ export default function MainPage({
                 <span className="text-[9px] tablet:text-[11px] text-white/70 leading-none text-center">экстренный</span>
               </button>
             </div>
+
+            </div>{/* end side widgets column */}
 
             {/* LANDSCAPE: колонка погода+время справа */}
             <div className="portrait:hidden flex-shrink-0 w-[200px] tablet:w-[260px]">
