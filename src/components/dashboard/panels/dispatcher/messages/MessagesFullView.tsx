@@ -228,19 +228,28 @@ export function MessagesView({
                 );
               }
               const msg = item.msg;
+              const replyMatch = msg.text.match(/^\[В ответ: «(.+?)»\]\s*(.*)/s);
+              const replyContext = replyMatch ? replyMatch[1] : null;
+              const mainText = replyMatch ? replyMatch[2] : msg.text;
+              const isIncoming = msg.direction === "incoming";
               return (
-                <div key={msg.id} className={`flex ${msg.direction === "outgoing" ? "justify-end" : "justify-start"} group`}>
-                  <div className="relative">
-                    <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl text-sm ${msg.direction === "outgoing" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"}`}>
-                      <p>{msg.text}</p>
-                      <div className={`flex items-center gap-1 mt-1 ${msg.direction === "outgoing" ? "justify-end" : "justify-start"}`}>
-                        <span className={`text-[10px] ${msg.direction === "outgoing" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{formatMsgTime(msg.timestamp)}</span>
-                        {msg.direction === "outgoing" && (
+                <div key={msg.id} className={`flex ${isIncoming ? "justify-start" : "justify-end"} group`}>
+                  <div className="relative max-w-[75%]">
+                    <div className={`px-3.5 py-2 rounded-2xl text-sm ${isIncoming ? "bg-muted text-foreground rounded-tl-sm" : "bg-primary text-primary-foreground rounded-tr-sm"}`}>
+                      {replyContext && (
+                        <div className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] leading-snug border-l-2 ${isIncoming ? "bg-black/5 border-foreground/20 text-foreground/60" : "bg-white/10 border-white/40 text-primary-foreground/70"}`}>
+                          <span className="font-semibold">В ответ:</span> {replyContext.length > 60 ? replyContext.slice(0, 60) + '…' : replyContext}
+                        </div>
+                      )}
+                      <p>{mainText}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${isIncoming ? "justify-start" : "justify-end"}`}>
+                        <span className={`text-[10px] ${isIncoming ? "text-muted-foreground" : "text-primary-foreground/60"}`}>{formatMsgTime(msg.timestamp)}</span>
+                        {!isIncoming && (
                           <Icon name={msg.type === "urgent" ? "CheckCheck" : "Check"} className={`w-3 h-3 ${msg.type === "urgent" ? "text-green-400" : "text-primary-foreground/50"}`} />
                         )}
                       </div>
                     </div>
-                    {msg.direction === "incoming" && (
+                    {isIncoming && (
                       <button onClick={() => setReplyTo(msg.text)} className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center bg-muted hover:bg-muted/80">
                         <Icon name="Quote" className="w-3 h-3 text-muted-foreground" />
                       </button>

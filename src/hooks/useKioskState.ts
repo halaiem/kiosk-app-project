@@ -257,14 +257,15 @@ export function useKioskState() {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, transcription } : m));
   }, []);
 
-  const sendMessage = useCallback(async (text: string, isVoice?: boolean, voiceDuration?: number, audioUrl?: string) => {
+  const sendMessage = useCallback(async (text: string, isVoice?: boolean, voiceDuration?: number, audioUrl?: string, replyTo?: string) => {
     const clientId = generateClientId();
     const isOnline = navigator.onLine;
+    const fullText = replyTo ? `[В ответ: «${replyTo}»] ${text}` : text;
 
     const tempMsg: Message = {
       id: 'tmp_' + clientId,
       type: 'dispatcher',
-      text: `[Водитель]: ${text}`,
+      text: `[Водитель]: ${fullText}`,
       timestamp: new Date(),
       read: true,
       clientId,
@@ -272,6 +273,7 @@ export function useKioskState() {
       isVoice,
       voiceDuration,
       audioUrl,
+      replyTo,
     };
     setMessages(prev => {
       const updated = [...prev, tempMsg];
@@ -281,14 +283,14 @@ export function useKioskState() {
 
     if (isOnline) {
       try {
-        const result = await apiSendMessage(text, 'normal', clientId);
+        const result = await apiSendMessage(fullText, 'normal', clientId);
         setMessages(prev => prev.map(m =>
           m.clientId === clientId
             ? { ...m, id: String(result.id), deliveryStatus: 'sent' }
             : m
         ));
       } catch {
-        addToQueue(text, 'normal');
+        addToQueue(fullText, 'normal');
         setMessages(prev => prev.map(m =>
           m.clientId === clientId
             ? { ...m, deliveryStatus: 'pending' }
@@ -297,7 +299,7 @@ export function useKioskState() {
         setPendingCount(p => p + 1);
       }
     } else {
-      addToQueue(text, 'normal');
+      addToQueue(fullText, 'normal');
       setPendingCount(p => p + 1);
     }
   }, []);
