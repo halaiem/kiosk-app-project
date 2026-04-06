@@ -220,7 +220,7 @@ export default function NewDocsScreen({ onDone }: Props) {
         <div className="portrait:block hidden w-full h-px bg-border/30" />
 
         {/* RIGHT — список документов */}
-        <div className="landscape:flex-1 portrait:flex-1 portrait:overflow-y-auto flex flex-col px-6 landscape:py-6 portrait:py-4 portrait:pb-6 gap-4 overflow-hidden">
+        <div className={`landscape:flex-1 portrait:flex-1 portrait:overflow-y-auto flex flex-col px-6 landscape:py-6 portrait:py-4 portrait:pb-6 gap-4 ${visible ? 'overflow-hidden' : ''}`}>
 
           {loading && (
             <div className="flex-1 flex items-center justify-center">
@@ -284,7 +284,7 @@ export default function NewDocsScreen({ onDone }: Props) {
           )}
 
           {/* Кнопка подтверждения */}
-          <div className="flex-shrink-0 pt-2">
+          <div className={`flex-shrink-0 pt-2 ${!visible && !loading ? 'flex-1 flex flex-col justify-end' : ''}`}>
             {visible && !allRead && (
               <p className="text-center text-xs text-muted-foreground mb-2">
                 Откройте все документы, чтобы продолжить
