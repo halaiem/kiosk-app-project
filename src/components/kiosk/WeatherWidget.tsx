@@ -234,9 +234,9 @@ export default function WeatherWidget({ timeStr, dateStr, horizontal, compact }:
             {timeStr && (
               <>
                 <div className="w-full h-px bg-border/50 my-0.5" />
-                <span className={`font-bold tabular-nums text-foreground leading-none ${compact ? 'text-3xl tablet:text-4xl' : 'text-4xl tablet:text-5xl'}`}>{timeStr}</span>
+                <span className={`font-bold tabular-nums text-foreground leading-none ${compact ? 'text-[2rem] tablet:text-[2.75rem]' : 'text-4xl tablet:text-5xl'}`}>{timeStr}</span>
                 {dateStr && (
-                  <span className={`font-semibold text-muted-foreground capitalize leading-none text-center ${compact ? 'text-xs tablet:text-sm' : 'text-sm tablet:text-base'}`}>{dateStr}</span>
+                  <span className={`font-semibold text-muted-foreground capitalize leading-none text-center ${compact ? 'text-[0.9rem] tablet:text-[1.05rem]' : 'text-sm tablet:text-base'}`}>{dateStr}</span>
                 )}
               </>
             )}
