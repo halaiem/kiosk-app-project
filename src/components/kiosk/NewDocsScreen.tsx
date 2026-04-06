@@ -41,9 +41,9 @@ function DocViewerPortal({ doc, onClose }: { doc: NewDoc; onClose: () => void })
   const [checked, setChecked] = useState(false);
 
   return createPortal(
-    <div className="fixed inset-0 z-[300] flex items-stretch">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 ml-auto w-full max-w-2xl bg-card flex flex-col shadow-2xl">
+      <div className="relative z-10 w-full max-w-2xl bg-card flex flex-col shadow-2xl rounded-3xl overflow-hidden max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30 flex-shrink-0">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${CATEGORY_COLOR[doc.category]}`}>
             <Icon name={CATEGORY_ICON[doc.category]} size={18} />
@@ -191,17 +191,17 @@ export default function NewDocsScreen({ onDone }: Props) {
 
       <div className="relative z-10 flex w-full h-full landscape:flex-row portrait:flex-col">
         {/* LEFT — заголовок */}
-        <div className="landscape:w-[35%] portrait:py-8 portrait:px-6 flex flex-col items-center justify-center gap-5 px-8 flex-shrink-0">
-          <div className="inline-flex items-center justify-center w-24 h-24 portrait:w-28 portrait:h-28 rounded-full bg-primary/15">
-            <div className="w-16 h-16 portrait:w-20 portrait:h-20 rounded-full bg-primary/25 flex items-center justify-center">
+        <div className="landscape:w-[35%] portrait:py-5 portrait:px-6 flex flex-col items-center justify-center gap-4 px-8 flex-shrink-0">
+          <div className="inline-flex items-center justify-center w-24 h-24 portrait:w-[100px] portrait:h-[100px] rounded-full bg-primary/15">
+            <div className="w-16 h-16 portrait:w-[72px] portrait:h-[72px] rounded-full bg-primary/25 flex items-center justify-center">
               <Icon name="FileCheck" size={40} className="text-primary" />
             </div>
           </div>
           <div className="text-center">
-            <h1 className="text-2xl portrait:text-3xl font-bold text-foreground mb-1">
+            <h1 className="text-2xl portrait:text-[1.7rem] font-bold text-foreground mb-1">
               Новые документы
             </h1>
-            <p className="text-sm portrait:text-base text-muted-foreground">
+            <p className="text-sm portrait:text-[0.85rem] text-muted-foreground">
               {visible
                 ? 'Ознакомьтесь с документами перед началом смены'
                 : 'Нет новых документов для ознакомления'}
@@ -220,7 +220,7 @@ export default function NewDocsScreen({ onDone }: Props) {
         <div className="portrait:block hidden w-full h-px bg-border/30" />
 
         {/* RIGHT — список документов */}
-        <div className={`landscape:flex-1 portrait:flex-1 portrait:overflow-y-auto flex flex-col px-6 landscape:py-6 portrait:py-4 portrait:pb-6 gap-4 ${visible ? 'overflow-hidden' : ''}`}>
+        <div className={`landscape:flex-1 portrait:flex-1 portrait:overflow-y-auto flex flex-col px-4 landscape:py-6 portrait:py-3 portrait:pb-5 gap-3 ${visible ? 'overflow-hidden' : ''}`}>
 
           {loading && (
             <div className="flex-1 flex items-center justify-center">
@@ -245,7 +245,7 @@ export default function NewDocsScreen({ onDone }: Props) {
                       return (
                         <div
                           key={doc.id}
-                          className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+                          className={`flex items-center gap-3 portrait:gap-2 p-4 portrait:p-3 rounded-2xl border transition-all ${
                             isRead
                               ? 'bg-success/8 border-success/30'
                               : 'bg-card border-border'
@@ -293,7 +293,7 @@ export default function NewDocsScreen({ onDone }: Props) {
             <button
               onClick={handleConfirm}
               disabled={!allRead || confirming}
-              className={`w-full h-14 md:h-16 rounded-2xl font-bold text-base md:text-xl transition-all ripple ${
+              className={`w-full h-12 portrait:h-12 md:h-16 rounded-2xl font-bold text-sm portrait:text-sm md:text-xl transition-all ripple ${
                 allRead && !confirming
                   ? 'bg-primary text-primary-foreground active:scale-[0.98] shadow-lg'
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
