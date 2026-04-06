@@ -166,48 +166,42 @@ export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) 
 
   return (
     <>
-      <button
+      <button className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all py-1 my-0 mx-0 px-1"
         onClick={() => setOpen(true)}
-        className="flex rounded-2xl bg-card border border-border elevation-2 h-full w-full ripple active:scale-95 transition-all overflow-hidden"
+        className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all"
       >
-        {/* ПОГОДА — левая часть */}
-        <div className="flex flex-col items-center justify-center gap-1 p-3 flex-1">
-          <div className="flex items-center gap-2">
-            <Icon
-              name={loading ? 'Loader2' : weather.icon}
-              size={36}
-              className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
-            />
-            <div className="flex items-end gap-0.5 leading-none">
-              <span className="text-5xl tablet:text-6xl font-bold tabular-nums text-foreground leading-none">
-                {weather.temp}
-              </span>
-              <span className="text-xl font-bold text-muted-foreground mb-1">°C</span>
-            </div>
-          </div>
-          <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">
-            {weather.condition}
-          </span>
-          <div className="flex items-center gap-1.5 text-xs tablet:text-sm text-muted-foreground">
-            <Icon name="Wind" size={12} />
-            <span>{weather.wind} м/с</span>
-            <span className="opacity-40">·</span>
-            <Icon name="Droplets" size={12} />
-            <span>{weather.humidity}%</span>
+        {/* Иконка + температура в одну строку */}
+        <div className="flex items-center gap-2">
+          <Icon
+            name={loading ? 'Loader2' : weather.icon}
+            size={36}
+            className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
+          />
+          <div className="flex items-end gap-0.5 leading-none">
+            <span className="text-5xl tablet:text-6xl font-bold tabular-nums text-foreground leading-none">
+              {weather.temp}
+            </span>
+            <span className="text-xl font-bold text-muted-foreground mb-1">°C</span>
           </div>
         </div>
-
-        {/* Разделитель */}
-        {timeStr && <div className="w-px bg-border/50 self-stretch my-3" />}
-
-        {/* ВРЕМЯ — правая часть */}
+        <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">
+          {weather.condition}
+        </span>
+        <div className="flex items-center gap-1.5 text-xs tablet:text-sm text-muted-foreground">
+          <Icon name="Wind" size={12} />
+          <span>{weather.wind} м/с</span>
+          <span className="opacity-40">·</span>
+          <Icon name="Droplets" size={12} />
+          <span>{weather.humidity}%</span>
+        </div>
         {timeStr && (
-          <div className="flex flex-col items-center justify-center gap-1 p-3 flex-1">
+          <>
+            <div className="w-full h-px bg-border/50 my-0.5" />
             <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
             {dateStr && (
               <span className="text-sm tablet:text-base font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
             )}
-          </div>
+          </>
         )}
       </button>
 
