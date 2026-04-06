@@ -203,59 +203,68 @@ export default function MainPage({
       <div className="flex-1 min-h-0 flex flex-col gap-2 px-2 pt-2 pb-2">
 
         {/* MAP + WIDGETS ROW — скрывается при открытой клавиатуре */}
-        <div className={`${keyboardOpen ? 'hidden' : 'flex-[35]'} min-h-0 flex gap-2 transition-all duration-300`}>
+        <div className={`${keyboardOpen ? 'hidden' : 'flex-[35]'} min-h-0 flex flex-col gap-2 transition-all duration-300`}>
 
-          {/* MAP */}
-          <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
-            <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
-            <button
-              onClick={() => onSetMapFullscreen(true)}
-              className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
-              title="Карта на весь экран"
-            >
-              <Icon name="Maximize2" size={15} className="text-foreground" />
-            </button>
+          {/* PORTRAIT: виджет погода+время над двумя колонками */}
+          <div className="portrait:block hidden flex-shrink-0 h-[90px]">
+            <WeatherWidget timeStr={timeStr} dateStr={dateStr} />
           </div>
 
-          {/* SIDE WIDGETS — 2x2 grid */}
-          <div className="grid grid-cols-2 gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
-            {/* Отклонение от графика */}
-            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
-              <div className="flex items-center gap-1.5">
-                <span className={`text-4xl tablet:text-5xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
-                  {devSign}{deviation}
-                </span>
-                <div className="flex flex-col items-center gap-0.5">
-                  <Icon name="Clock" size={14} className="text-primary" />
-                  <span className={`text-[10px] tablet:text-xs font-semibold leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>мин</span>
+          {/* MAP + SIDE WIDGETS */}
+          <div className="flex-1 min-h-0 flex gap-2">
+
+            {/* MAP */}
+            <div className="relative flex-1 min-h-0 rounded-2xl overflow-hidden elevation-2" style={{ isolation: 'isolate' }}>
+              <MapWidget currentStopIndex={currentStopIndex} speed={speed} />
+              <button
+                onClick={() => onSetMapFullscreen(true)}
+                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg bg-card/80 backdrop-blur border border-border hover:bg-card flex items-center justify-center active:scale-95 transition-all shadow"
+                title="Карта на весь экран"
+              >
+                <Icon name="Maximize2" size={15} className="text-foreground" />
+              </button>
+            </div>
+
+            {/* SIDE WIDGETS — 2x2 grid */}
+            <div className="grid grid-cols-2 gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
+              {/* Отклонение от графика */}
+              <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-4xl tablet:text-5xl font-black tabular-nums leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>
+                    {devSign}{deviation}
+                  </span>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <Icon name="Clock" size={14} className="text-primary" />
+                    <span className={`text-[10px] tablet:text-xs font-semibold leading-none ${Math.abs(deviation) <= 1 ? 'text-success' : Math.abs(deviation) <= 3 ? 'text-warning' : 'text-destructive'}`}>мин</span>
+                  </div>
                 </div>
+                <span className="text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center">от графика</span>
               </div>
-              <span className="text-[10px] tablet:text-xs font-medium text-muted-foreground leading-none text-center">от графика</span>
+              {/* Интервал */}
+              <IntervalWidget isDark={isDark} />
+              {/* Статус транспортного средства */}
+              <div className="flex flex-col">
+                <VehicleStatusWidget isDark={isDark} compact />
+              </div>
+              {/* SOS */}
+              <button
+                onClick={onSos}
+                className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-red-600 border-2 border-red-500 elevation-2 p-2 active:scale-95 transition-all ripple animate-pulse"
+              >
+                <Icon name="Siren" size={16} className="text-white" />
+                <span className="text-base tablet:text-xl font-black text-white leading-none">SOS</span>
+                <span className="text-[9px] tablet:text-[11px] text-white/70 leading-none text-center">экстренный</span>
+              </button>
             </div>
-            {/* Интервал */}
-            <IntervalWidget isDark={isDark} />
-            {/* Статус транспортного средства */}
-            <div className="flex flex-col">
-              <VehicleStatusWidget isDark={isDark} compact />
-            </div>
-            {/* SOS */}
-            <button
-              onClick={onSos}
-              className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-red-600 border-2 border-red-500 elevation-2 p-2 active:scale-95 transition-all ripple animate-pulse"
-            >
-              <Icon name="Siren" size={16} className="text-white" />
-              <span className="text-base tablet:text-xl font-black text-white leading-none">SOS</span>
-              <span className="text-[9px] tablet:text-[11px] text-white/70 leading-none text-center">экстренный</span>
-            </button>
-          </div>
 
-          {/* RIGHT COLUMN — погода + время */}
-          <div className="flex flex-col gap-2 flex-shrink-0 w-[200px] tablet:w-[260px]">
-            <div className="flex-1 min-h-0">
-              <WeatherWidget timeStr={timeStr} dateStr={dateStr} />
+            {/* LANDSCAPE: колонка погода+время справа */}
+            <div className="portrait:hidden flex flex-col gap-2 flex-shrink-0 w-[200px] tablet:w-[260px]">
+              <div className="flex-1 min-h-0">
+                <WeatherWidget timeStr={timeStr} dateStr={dateStr} />
+              </div>
             </div>
-          </div>
 
+          </div>
         </div>
 
         {/* STOPS — скрывается при открытой клавиатуре на планшете */}
