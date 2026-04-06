@@ -69,16 +69,14 @@ export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayV
           <>
             <button
               onClick={onPlayVoice || onReply}
-              className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="Play" size={24} className="md:!w-9 md:!h-9" />
               Прослушать
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+              className="flex-1 h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
               Принято
             </button>
           </>
@@ -86,34 +84,30 @@ export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayV
           <div className="flex gap-3 md:gap-4 w-full">
             <button
               onClick={onConfirm}
-              className="flex-[2] h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all ripple"
+              className="flex-[2] h-14 md:h-24 rounded-2xl bg-primary text-primary-foreground font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="CheckCircle" size={20} className="md:!w-8 md:!h-8" />
               Принято
             </button>
             {onYes && (
               <button
                 onClick={onYes}
-                className="flex-[1] h-14 md:h-24 rounded-2xl bg-emerald-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all ripple"
+                className="flex-[1] h-14 md:h-24 rounded-2xl bg-emerald-500 text-white font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
               >
-                <Icon name="ThumbsUp" size={20} className="md:!w-8 md:!h-8" />
                 Да
               </button>
             )}
             {onNo && (
               <button
                 onClick={onNo}
-                className="flex-[1] h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all ripple"
+                className="flex-[1] h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
               >
-                <Icon name="ThumbsDown" size={20} className="md:!w-8 md:!h-8" />
                 Нет
               </button>
             )}
             <button
               onClick={onReply}
-              className="flex-[2] h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 md:gap-3 active:scale-[0.98] transition-all ripple"
+              className="flex-[2] h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="MessageSquare" size={20} className="md:!w-8 md:!h-8" />
               Ответить
             </button>
           </div>
@@ -175,34 +169,30 @@ export function ImportantMessageOverlay({ message, onConfirm, onReply, onYes, on
           <div className="flex gap-3 md:gap-4">
             <button
               onClick={() => dismiss(onConfirm)}
-              className="flex-[2] py-5 md:py-9 rounded-2xl bg-destructive text-white font-bold text-xl md:text-3xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple animate-scale-bounce"
+              className="flex-[2] py-5 md:py-9 rounded-2xl bg-destructive text-white font-bold text-xl md:text-3xl flex items-center justify-center active:scale-[0.98] transition-all ripple animate-scale-bounce"
             >
-              <Icon name="CheckCircle2" size={28} className="md:!w-11 md:!h-11" />
               Принял
             </button>
             {onYes && (
               <button
                 onClick={() => dismiss(onYes)}
-                className="flex-[1] py-5 md:py-9 rounded-2xl bg-emerald-500 text-white font-bold text-xl md:text-3xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+                className="flex-[1] py-5 md:py-9 rounded-2xl bg-emerald-500 text-white font-bold text-xl md:text-3xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
               >
-                <Icon name="ThumbsUp" size={28} className="md:!w-11 md:!h-11" />
                 Да
               </button>
             )}
             {onNo && (
               <button
                 onClick={() => dismiss(onNo)}
-                className="flex-[1] py-5 md:py-9 rounded-2xl bg-rose-500 text-white font-bold text-xl md:text-3xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+                className="flex-[1] py-5 md:py-9 rounded-2xl bg-rose-500 text-white font-bold text-xl md:text-3xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
               >
-                <Icon name="ThumbsDown" size={28} className="md:!w-11 md:!h-11" />
                 Нет
               </button>
             )}
             <button
               onClick={() => dismiss(onReply)}
-              className="flex-[2] py-5 md:py-9 rounded-2xl bg-green-600 text-white font-bold text-xl md:text-3xl flex items-center justify-center gap-2 md:gap-4 active:scale-[0.98] transition-all ripple"
+              className="flex-[2] py-5 md:py-9 rounded-2xl bg-green-600 text-white font-bold text-xl md:text-3xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
             >
-              <Icon name="MessageSquare" size={28} className="md:!w-11 md:!h-11" />
               Ответить
             </button>
           </div>
