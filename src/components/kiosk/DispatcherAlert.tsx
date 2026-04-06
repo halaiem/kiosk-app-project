@@ -68,7 +68,7 @@ export default function DispatcherAlert({ alert, onConfirm, onReply, onYes, onNo
           <div className="px-6 md:px-10 pb-6 md:pb-10 flex gap-3 md:gap-4">
             <button
               onClick={handleConfirm}
-              className="flex-[1] h-14 md:h-24 rounded-2xl bg-orange-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+              className="flex-[2] h-14 md:h-24 rounded-2xl bg-orange-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
             >
               <Icon name="CheckCircle" size={24} className="md:!w-9 md:!h-9" />
               Принято
@@ -76,7 +76,7 @@ export default function DispatcherAlert({ alert, onConfirm, onReply, onYes, onNo
             {onYes && (
               <button
                 onClick={() => { handleConfirm(); setTimeout(() => onYes(), 300); }}
-                className="flex-[2] h-14 md:h-24 rounded-2xl bg-emerald-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                className="flex-[1] h-14 md:h-24 rounded-2xl bg-emerald-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
               >
                 <Icon name="ThumbsUp" size={24} className="md:!w-9 md:!h-9" />
                 Да
@@ -85,7 +85,7 @@ export default function DispatcherAlert({ alert, onConfirm, onReply, onYes, onNo
             {onNo && (
               <button
                 onClick={() => { handleConfirm(); setTimeout(() => onNo(), 300); }}
-                className="flex-[2] h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                className="flex-[1] h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
               >
                 <Icon name="ThumbsDown" size={24} className="md:!w-9 md:!h-9" />
                 Нет
@@ -94,7 +94,7 @@ export default function DispatcherAlert({ alert, onConfirm, onReply, onYes, onNo
             {onReply && (
               <button
                 onClick={() => { handleConfirm(); setTimeout(() => onReply(), 350); }}
-                className="flex-[1] h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                className="flex-[2] h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
               >
                 <Icon name="MessageSquare" size={24} className="md:!w-9 md:!h-9" />
                 Ответить
