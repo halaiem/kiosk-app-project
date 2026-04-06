@@ -66,6 +66,20 @@ export default function MainPage({
   const [messengerAutoRecord, setMessengerAutoRecord] = useState(false);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const headerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showHeader = useCallback(() => {
+    setHeaderVisible(true);
+    if (headerTimerRef.current) clearTimeout(headerTimerRef.current);
+    headerTimerRef.current = setTimeout(() => setHeaderVisible(false), 5000);
+  }, []);
+
+  useEffect(() => {
+    headerTimerRef.current = setTimeout(() => setHeaderVisible(false), 5000);
+    return () => { if (headerTimerRef.current) clearTimeout(headerTimerRef.current); };
+  }, []);
+
   const handleInputFocus = useCallback(() => {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setKeyboardOpen(true);
@@ -86,11 +100,18 @@ export default function MainPage({
   const devSign = deviation >= 0 ? '+' : '';
 
   return (
-    <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden">
+    <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden" onClick={showHeader}>
 
       {/* ═══ TOP BAR ═══ */}
-      <div className="flex items-center gap-2 flex-shrink-0 px-[15px] py-2.5"
-        style={{ backgroundColor: 'hsl(var(--kiosk-header-bg))', color: 'hsl(var(--kiosk-header-text))' }}>
+      <div
+        className="flex items-center gap-2 flex-shrink-0 px-[15px] py-2.5 transition-transform duration-300"
+        style={{
+          backgroundColor: 'hsl(var(--kiosk-header-bg))',
+          color: 'hsl(var(--kiosk-header-text))',
+          transform: headerVisible ? 'translateY(0)' : 'translateY(-100%)',
+          marginBottom: headerVisible ? 0 : '-56px',
+        }}
+      >
 
         {/* LEFT: Menu + route info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
