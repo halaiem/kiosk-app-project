@@ -52,9 +52,7 @@ function DocViewerPortal({ doc, onClose }: { doc: NewDoc; onClose: () => void })
             <p className="font-bold text-foreground text-sm md:text-base truncate">{doc.title}</p>
             <p className="text-xs text-muted-foreground">{CATEGORY_LABELS[doc.category]} · {doc.file_size}</p>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
-            <Icon name="X" size={16} className="text-muted-foreground" />
-          </button>
+
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
