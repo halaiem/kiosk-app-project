@@ -6,6 +6,7 @@ import RouteStops from './RouteStops';
 import Messenger from './Messenger';
 import VehicleStatusWidget from './VehicleStatusWidget';
 import IntervalWidget from './IntervalWidget';
+import WeatherWidget from './WeatherWidget';
 import { Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
 
 
@@ -182,14 +183,6 @@ export default function MainPage({
             </span>
           </button>
 
-          {/* Date + Time */}
-          <div className="flex flex-col items-end justify-center pl-1">
-            <span className="text-white font-black tabular-nums text-xl leading-none">{timeStr}</span>
-            <span className="text-white/50 text-[10px] capitalize leading-none mt-0.5">{dateStr}</span>
-          </div>
-
-          <div className="w-px h-8 bg-white/20" />
-
           {/* Break */}
           <button onClick={onBreak}
             className="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 flex items-center justify-center ripple active:scale-95 transition-all"
@@ -224,7 +217,7 @@ export default function MainPage({
             </button>
           </div>
 
-          {/* SIDE WIDGETS — 2x2 grid, все одинаковые */}
+          {/* SIDE WIDGETS — 2x2 grid */}
           <div className="grid grid-cols-2 gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
             {/* Отклонение от графика */}
             <div className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2">
@@ -254,6 +247,19 @@ export default function MainPage({
               <span className="text-base tablet:text-xl font-black text-white leading-none">SOS</span>
               <span className="text-[9px] tablet:text-[11px] text-white/70 leading-none text-center">экстренный</span>
             </button>
+          </div>
+
+          {/* RIGHT COLUMN — погода + время */}
+          <div className="flex flex-col gap-2 flex-shrink-0 w-[100px] tablet:w-[130px]">
+            {/* Погода */}
+            <div className="flex-1 min-h-0">
+              <WeatherWidget />
+            </div>
+            {/* Время и дата */}
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-card border border-border elevation-2 p-2 flex-shrink-0">
+              <span className="text-3xl tablet:text-4xl font-black tabular-nums text-foreground leading-none">{timeStr.slice(0, 5)}</span>
+              <span className="text-[10px] tablet:text-xs text-muted-foreground capitalize leading-none mt-1 text-center">{dateStr}</span>
+            </div>
           </div>
 
         </div>
