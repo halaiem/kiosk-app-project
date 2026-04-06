@@ -224,8 +224,8 @@ export default function MainPage({
             <div className="flex flex-col gap-2 flex-shrink-0 w-[180px] tablet:w-[240px]">
 
               {/* PORTRAIT: виджет погода+время над сеткой */}
-              <div className="portrait:block hidden flex-shrink-0 h-[90px]">
-                <WeatherWidget timeStr={timeStr} dateStr={dateStr} horizontal />
+              <div className="portrait:block hidden flex-shrink-0 h-[160px]">
+                <WeatherWidget timeStr={timeStr} dateStr={dateStr} />
               </div>
 
             <div className="grid grid-cols-2 gap-2 flex-1">
