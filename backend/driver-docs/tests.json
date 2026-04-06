@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "GET docs without token returns 401",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Add new doc for driver 1",
+      "method": "POST",
+      "path": "/",
+      "body": {"driver_id": 1, "title": "Тестовый документ", "category": "document", "content": "Содержимое тестового документа", "file_size": "0.1 МБ"},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

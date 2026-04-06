@@ -2,6 +2,7 @@ const URLS = {
   auth: 'https://functions.poehali.dev/b5ce54b6-0bb0-4452-b25b-d6a3ea35aad0',
   messages: 'https://functions.poehali.dev/29b782fe-206c-496b-8e16-1d7cf4338395',
   manage: 'https://functions.poehali.dev/1357aa6d-31b9-4e7c-8b5a-e5baa000e171',
+  docs: 'https://functions.poehali.dev/504848fa-a424-4824-9e20-36c9d190a109',
 };
 
 const TOKEN_KEY = 'driver_session_token';
@@ -168,4 +169,32 @@ export async function fetchOnlineDrivers() {
   const res = await fetch(URLS.auth);
   const data = await res.json();
   return data.drivers || [];
+}
+
+export async function fetchNewDocs() {
+  const token = getStoredToken();
+  if (!token) return [];
+  const res = await fetch(URLS.docs, { headers: { 'X-Auth-Token': token } });
+  const data = await res.json();
+  return data.docs || [];
+}
+
+export async function markDocRead(docId: number) {
+  const token = getStoredToken();
+  if (!token) return;
+  await fetch(`${URLS.docs}/?action=mark_read`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+    body: JSON.stringify({ doc_id: docId }),
+  }).catch(() => {});
+}
+
+export async function confirmNewDocs(docIds: number[]) {
+  const token = getStoredToken();
+  if (!token) return;
+  await fetch(`${URLS.docs}/?action=confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+    body: JSON.stringify({ doc_ids: docIds }),
+  }).catch(() => {});
 }

@@ -15,6 +15,7 @@ import SosModal from '@/components/kiosk/SosModal';
 import EndShiftModal from '@/components/kiosk/EndShiftModal';
 import GoodbyeScreen from '@/components/kiosk/GoodbyeScreen';
 import LoginLoadingScreen from '@/components/kiosk/LoginLoadingScreen';
+import NewDocsScreen from '@/components/kiosk/NewDocsScreen';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
 import { MenuSection } from '@/types/kiosk';
 import type { Message } from '@/types/kiosk';
@@ -215,7 +216,11 @@ export default function Index() {
       )}
 
       {state.screen === 'welcome' && state.driver && !loginLoading && (
-        <WelcomeScreen driver={state.driver} onStart={state.startShift} />
+        <WelcomeScreen driver={state.driver} onStart={() => state.setScreen('new_docs')} />
+      )}
+
+      {state.screen === 'new_docs' && state.driver && (
+        <NewDocsScreen onDone={state.startShift} />
       )}
 
       {state.screen === 'main' && state.driver && (
