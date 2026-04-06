@@ -163,27 +163,30 @@ export default function WeatherWidget() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2 h-full w-full ripple active:scale-95 transition-all"
+        className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all"
       >
-        <Icon
-          name={loading ? 'Loader2' : weather.icon}
-          size={28}
-          className={`text-primary ${loading ? 'animate-spin' : ''}`}
-        />
-        <div className="flex items-end gap-0.5 leading-none">
-          <span className="text-3xl tablet:text-4xl font-black tabular-nums text-foreground leading-none">
-            {weather.temp}
-          </span>
-          <span className="text-base font-bold text-muted-foreground mb-0.5">°C</span>
+        {/* Иконка + температура в одну строку */}
+        <div className="flex items-center gap-2">
+          <Icon
+            name={loading ? 'Loader2' : weather.icon}
+            size={36}
+            className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
+          />
+          <div className="flex items-end gap-0.5 leading-none">
+            <span className="text-4xl tablet:text-5xl font-black tabular-nums text-foreground leading-none">
+              {weather.temp}
+            </span>
+            <span className="text-lg font-bold text-muted-foreground mb-0.5">°C</span>
+          </div>
         </div>
-        <span className="text-[9px] tablet:text-[10px] text-muted-foreground font-medium text-center leading-tight line-clamp-2">
+        <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">
           {weather.condition}
         </span>
-        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-          <Icon name="Wind" size={9} />
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Icon name="Wind" size={10} />
           <span>{weather.wind} м/с</span>
           <span className="opacity-40">·</span>
-          <Icon name="Droplets" size={9} />
+          <Icon name="Droplets" size={10} />
           <span>{weather.humidity}%</span>
         </div>
       </button>

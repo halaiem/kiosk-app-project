@@ -250,14 +250,14 @@ export default function MainPage({
           </div>
 
           {/* RIGHT COLUMN — погода + время */}
-          <div className="flex flex-col gap-2 flex-shrink-0 w-[100px] tablet:w-[130px]">
+          <div className="flex flex-col gap-2 flex-shrink-0 w-[200px] tablet:w-[260px]">
             {/* Погода */}
             <div className="flex-1 min-h-0">
               <WeatherWidget />
             </div>
             {/* Время и дата */}
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-card border border-border elevation-2 p-2 flex-shrink-0">
-              <span className="text-3xl tablet:text-4xl font-black tabular-nums text-foreground leading-none">{timeStr.slice(0, 5)}</span>
+            <div className="flex flex-col items-center justify-center p-2 flex-shrink-0">
+              <span className="text-3xl tablet:text-4xl font-black tabular-nums text-foreground leading-none">{timeStr}</span>
               <span className="text-[10px] tablet:text-xs text-muted-foreground capitalize leading-none mt-1 text-center">{dateStr}</span>
             </div>
           </div>
