@@ -1,0 +1,1 @@
+UPDATE t_p25163990_kiosk_app_project.messages SET is_read = true, delivered_at = NOW() WHERE is_read = false;

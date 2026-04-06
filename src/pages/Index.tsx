@@ -143,23 +143,24 @@ export default function Index() {
     setQueue(prev => [...prev, { id: `alert-${pick.id}-${Date.now()}`, kind: pick.isVoice ? 'message' : 'alert', alert: pick, message: pick.isVoice ? { id: `voice-${Date.now()}`, type: 'dispatcher' as const, text: pick.text, timestamp: new Date(), read: false, isVoice: true, voiceDuration: pick.voiceDuration } : undefined }]);
   }, [state.addDispatcherMessage]);
 
+  // ДЕМО ОТКЛЮЧЕНО — для включения раскомментировать блоки ниже
   // Первое уведомление через ~3 мин (планшет) / ~2 мин (десктоп)
-  useEffect(() => {
-    if (state.screen !== 'main') return;
-    const tablet = isTablet();
-    const delay = tablet ? 180000 : 120000 + Math.random() * 30000;
-    const t = setTimeout(() => triggerRandomAlert(), delay);
-    return () => clearTimeout(t);
-  }, [state.screen, triggerRandomAlert]);
+  // useEffect(() => {
+  //   if (state.screen !== 'main') return;
+  //   const tablet = isTablet();
+  //   const delay = tablet ? 180000 : 120000 + Math.random() * 30000;
+  //   const t = setTimeout(() => triggerRandomAlert(), delay);
+  //   return () => clearTimeout(t);
+  // }, [state.screen, triggerRandomAlert]);
 
   // Следующие через ~9 мин (планшет) / ~8 мин (десктоп)
-  useEffect(() => {
-    if (lastAlertIdRef.current === null) return;
-    const tablet = isTablet();
-    const interval = tablet ? 540000 : 480000 + Math.random() * 60000;
-    const t = setTimeout(() => triggerRandomAlert(), interval);
-    return () => clearTimeout(t);
-  }, [lastAlertIdRef.current, triggerRandomAlert]);
+  // useEffect(() => {
+  //   if (lastAlertIdRef.current === null) return;
+  //   const tablet = isTablet();
+  //   const interval = tablet ? 540000 : 480000 + Math.random() * 60000;
+  //   const t = setTimeout(() => triggerRandomAlert(), interval);
+  //   return () => clearTimeout(t);
+  // }, [lastAlertIdRef.current, triggerRandomAlert]);
 
   const handleLogoTap = () => {
     state.handleLogoTap();
