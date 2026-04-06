@@ -106,9 +106,10 @@ function WeatherPopup({ weather, loading, onClose }: { weather: WeatherData; loa
 interface WeatherWidgetProps {
   timeStr?: string;
   dateStr?: string;
+  horizontal?: boolean;
 }
 
-export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) {
+export default function WeatherWidget({ timeStr, dateStr, horizontal }: WeatherWidgetProps) {
   const [weather, setWeather] = useState<WeatherData>(DEMO);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -166,42 +167,79 @@ export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) 
 
   return (
     <>
-      <button className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all py-1 my-0 mx-0 px-1"
+      <button
         onClick={() => setOpen(true)}
-        className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all"
+        className="rounded-2xl bg-card border border-border elevation-2 h-full w-full ripple active:scale-95 transition-all overflow-hidden flex"
       >
-        {/* Иконка + температура в одну строку */}
-        <div className="flex items-center gap-2">
-          <Icon
-            name={loading ? 'Loader2' : weather.icon}
-            size={36}
-            className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
-          />
-          <div className="flex items-end gap-0.5 leading-none">
-            <span className="text-5xl tablet:text-6xl font-bold tabular-nums text-foreground leading-none">
-              {weather.temp}
-            </span>
-            <span className="text-xl font-bold text-muted-foreground mb-1">°C</span>
-          </div>
-        </div>
-        <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">
-          {weather.condition}
-        </span>
-        <div className="flex items-center gap-1.5 text-xs tablet:text-sm text-muted-foreground">
-          <Icon name="Wind" size={12} />
-          <span>{weather.wind} м/с</span>
-          <span className="opacity-40">·</span>
-          <Icon name="Droplets" size={12} />
-          <span>{weather.humidity}%</span>
-        </div>
-        {timeStr && (
+        {horizontal ? (
+          /* ── HORIZONTAL (portrait): погода слева | разделитель | время справа ── */
           <>
-            <div className="w-full h-px bg-border/50 my-0.5" />
-            <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
-            {dateStr && (
-              <span className="text-sm tablet:text-base font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+            {/* Погода */}
+            <div className="flex flex-col items-center justify-center gap-1 p-3 flex-1">
+              <div className="flex items-center gap-2">
+                <Icon
+                  name={loading ? 'Loader2' : weather.icon}
+                  size={32}
+                  className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
+                />
+                <div className="flex items-end gap-0.5 leading-none">
+                  <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{weather.temp}</span>
+                  <span className="text-lg font-bold text-muted-foreground mb-0.5">°C</span>
+                </div>
+              </div>
+              <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">{weather.condition}</span>
+              <div className="flex items-center gap-1.5 text-xs tablet:text-sm text-muted-foreground">
+                <Icon name="Wind" size={12} />
+                <span>{weather.wind} м/с</span>
+                <span className="opacity-40">·</span>
+                <Icon name="Droplets" size={12} />
+                <span>{weather.humidity}%</span>
+              </div>
+            </div>
+            {/* Разделитель */}
+            {timeStr && <div className="w-px bg-border/60 self-stretch my-3" />}
+            {/* Время */}
+            {timeStr && (
+              <div className="flex flex-col items-center justify-center gap-1 p-3 flex-1">
+                <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
+                {dateStr && (
+                  <span className="text-sm tablet:text-base font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+                )}
+              </div>
             )}
           </>
+        ) : (
+          /* ── VERTICAL (landscape): вертикальная колонка ── */
+          <div className="flex flex-col items-center justify-center gap-1 p-3 w-full">
+            <div className="flex items-center gap-2">
+              <Icon
+                name={loading ? 'Loader2' : weather.icon}
+                size={36}
+                className={`text-primary flex-shrink-0 ${loading ? 'animate-spin' : ''}`}
+              />
+              <div className="flex items-end gap-0.5 leading-none">
+                <span className="text-5xl tablet:text-6xl font-bold tabular-nums text-foreground leading-none">{weather.temp}</span>
+                <span className="text-xl font-bold text-muted-foreground mb-1">°C</span>
+              </div>
+            </div>
+            <span className="text-[10px] tablet:text-xs text-muted-foreground font-medium text-center leading-tight line-clamp-1">{weather.condition}</span>
+            <div className="flex items-center gap-1.5 text-xs tablet:text-sm text-muted-foreground">
+              <Icon name="Wind" size={12} />
+              <span>{weather.wind} м/с</span>
+              <span className="opacity-40">·</span>
+              <Icon name="Droplets" size={12} />
+              <span>{weather.humidity}%</span>
+            </div>
+            {timeStr && (
+              <>
+                <div className="w-full h-px bg-border/50 my-0.5" />
+                <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
+                {dateStr && (
+                  <span className="text-sm tablet:text-base font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+                )}
+              </>
+            )}
+          </div>
         )}
       </button>
 
