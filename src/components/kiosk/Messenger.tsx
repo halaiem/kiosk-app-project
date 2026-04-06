@@ -192,14 +192,28 @@ export default function Messenger({
   const isOffline = connection === 'offline';
   const recording = mode !== 'idle';
 
+  const [autoPlayMsgId, setAutoPlayMsgId] = useState<string | null>(null);
+  const lastIncomingVoiceId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const lastIncoming = [...chats].reverse().find(m => m.isVoice && !m.text.startsWith('[Водитель]'));
+    if (lastIncoming && lastIncoming.id !== lastIncomingVoiceId.current) {
+      lastIncomingVoiceId.current = lastIncoming.id;
+      setAutoPlayMsgId(lastIncoming.id);
+      setTimeout(() => setAutoPlayMsgId(null), 500);
+    }
+  }, [chats.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveVoiceMsgId = activeVoiceMsgId || autoPlayMsgId;
+
   const scrollBottom = useCallback(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, []);
   useLayoutEffect(() => { scrollBottom(); }, [chats.length, scrollBottom]);
   useEffect(() => { scrollBottom(); const i = setInterval(scrollBottom, 500); return () => clearInterval(i); }, [scrollBottom]);
   useEffect(() => {
-    if (activeVoiceMsgId) setTimeout(() => {
-      scrollRef.current?.querySelector(`[data-msg-id="${activeVoiceMsgId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (effectiveVoiceMsgId) setTimeout(() => {
+      scrollRef.current?.querySelector(`[data-msg-id="${effectiveVoiceMsgId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
-  }, [activeVoiceMsgId]);
+  }, [effectiveVoiceMsgId]);
 
   // ── Запись микрофона ──────────────────────────────────────────────────────
   const stopTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
@@ -350,7 +364,7 @@ export default function Messenger({
           return (
             <div key={msg.id} data-msg-id={msg.id} className={`flex ${out ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 transition-all ${
-                activeVoiceMsgId === msg.id ? 'ring-2 ring-yellow-400 ring-offset-1' : ''
+                effectiveVoiceMsgId === msg.id ? 'ring-2 ring-yellow-400 ring-offset-1' : ''
               } ${msg.type === 'important' ? 'bg-destructive/15 border border-destructive/30'
                 : out ? ((msg.deliveryStatus === 'pending' || msg.deliveryStatus === 'failed') ? 'bg-primary/60' : 'bg-primary') + ' text-primary-foreground rounded-br-sm'
                 : 'bg-muted text-foreground rounded-bl-sm'}`}>
@@ -363,7 +377,7 @@ export default function Messenger({
                 {msg.isVoice ? (
                   <VoiceBubble msgId={msg.id} duration={msg.voiceDuration || 5} isOutgoing={out}
                     transcription={msg.transcription} audioUrl={msg.audioUrl}
-                    autoPlay={activeVoiceMsgId === msg.id} onTranscribed={onTranscribed} />
+                    autoPlay={effectiveVoiceMsgId === msg.id} onTranscribed={onTranscribed} />
                 ) : (
                   <p className="text-3xl leading-snug">{msg.text}</p>
                 )}
