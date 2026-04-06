@@ -64,12 +64,30 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
     if (audioUrl && audioElRef.current) {
       const el = audioElRef.current;
       el.currentTime = 0;
-      el.play().catch(err => console.error('audio play error:', err));
+      el.load();
+      const doPlay = () => {
+        el.play().then(() => {
+          progressTimer.current = setInterval(() => {
+            if (el.duration && el.duration > 0) {
+              setProgress((el.currentTime / el.duration) * 100);
+            }
+          }, 100);
+        }).catch(err => {
+          console.error('audio play error:', err);
+          setPlaying(false);
+        });
+      };
+      if (el.readyState >= 2) {
+        doPlay();
+      } else {
+        el.oncanplay = () => { el.oncanplay = null; doPlay(); };
+      }
+    } else {
+      const step = 100 / (Math.max(duration, 1) * 10);
+      progressTimer.current = setInterval(() => {
+        setProgress(p => { if (p >= 100) { stopProgress(); setPlaying(false); return 0; } return p + step; });
+      }, 100);
     }
-    const step = 100 / (Math.max(duration, 1) * 10);
-    progressTimer.current = setInterval(() => {
-      setProgress(p => { if (p >= 100) { stopProgress(); setPlaying(false); return 0; } return p + step; });
-    }, 100);
   }, [audioUrl, duration]);
 
   const stop = useCallback(() => {
@@ -101,7 +119,7 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
   return (
     <div className="min-w-[150px]">
       {/* Скрытый audio элемент — нужен для мобильного Chrome */}
-      {audioUrl && <audio ref={audioElRef} src={audioUrl} preload="none"
+      {audioUrl && <audio ref={audioElRef} src={audioUrl} preload="metadata"
         onEnded={() => { stopProgress(); setPlaying(false); setProgress(0); }} />}
       <div className="flex items-center gap-3">
         {/* Play/Pause — простой onClick */}
