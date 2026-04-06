@@ -7,6 +7,7 @@ const URLS = {
 
 const TOKEN_KEY = 'driver_session_token';
 const DRIVER_KEY = 'driver_info';
+const SESSION_START_KEY = 'driver_session_start';
 
 export function getStoredToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -20,11 +21,18 @@ export function getStoredDriver() {
 function storeSession(token: string, driver: object) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(DRIVER_KEY, JSON.stringify(driver));
+  localStorage.setItem(SESSION_START_KEY, String(Date.now()));
 }
 
 function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(DRIVER_KEY);
+  localStorage.removeItem(SESSION_START_KEY);
+}
+
+export function getSessionStart(): number | null {
+  const v = localStorage.getItem(SESSION_START_KEY);
+  return v ? Number(v) : null;
 }
 
 export async function loginByPin(employeeId: string, pin: string) {

@@ -14,6 +14,8 @@ import { SupportContactModal, SupportEquipmentModal } from '@/components/kiosk/S
 import SosModal from '@/components/kiosk/SosModal';
 import EndShiftModal from '@/components/kiosk/EndShiftModal';
 import GoodbyeScreen from '@/components/kiosk/GoodbyeScreen';
+import SessionWarningModal from '@/components/kiosk/SessionWarningModal';
+import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import LoginLoadingScreen from '@/components/kiosk/LoginLoadingScreen';
 import NewDocsScreen from '@/components/kiosk/NewDocsScreen';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
@@ -74,6 +76,13 @@ export default function Index() {
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
+
+  const handleSessionExpire = useCallback(() => {
+    setGoodbyeScreen(true);
+  }, []);
+
+  const isSessionActive = state.screen === 'main' || state.screen === 'welcome' || state.screen === 'new_docs';
+  const { showWarning, countdown } = useSessionTimeout(isSessionActive, handleSessionExpire);
 
   // Единая очередь уведомлений
   const [queue, setQueue] = useState<NotifItem[]>([]);
@@ -362,6 +371,10 @@ export default function Index() {
             />
           )}
         </>
+      )}
+
+      {showWarning && !goodbyeScreen && (
+        <SessionWarningModal countdown={countdown} />
       )}
 
       {goodbyeScreen && (
