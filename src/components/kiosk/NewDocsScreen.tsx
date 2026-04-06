@@ -230,47 +230,47 @@ export default function NewDocsScreen({ onDone }: Props) {
             <div className="flex-1 overflow-y-auto space-y-5 pr-1">
               {grouped.map(({ cat, items }) => (
                 <div key={cat}>
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${CATEGORY_COLOR[cat]}`}>
-                      <Icon name={CATEGORY_ICON[cat]} size={14} />
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${CATEGORY_COLOR[cat]}`}>
+                      <Icon name={CATEGORY_ICON[cat]} size={22} />
                     </div>
-                    <span className="text-sm font-bold text-foreground">{CATEGORY_LABELS[cat]}</span>
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{items.length}</span>
+                    <span className="text-xl font-bold text-foreground">{CATEGORY_LABELS[cat]}</span>
+                    <span className="text-base text-muted-foreground bg-muted px-3 py-0.5 rounded-full">{items.length}</span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {items.map(doc => {
                       const isRead = readIds.has(doc.id);
                       return (
                         <div
                           key={doc.id}
-                          className={`flex items-center gap-3 portrait:gap-2 p-4 portrait:p-3 rounded-2xl border transition-all ${
+                          className={`flex items-center gap-4 p-5 rounded-2xl border transition-all ${
                             isRead
                               ? 'bg-success/8 border-success/30'
                               : 'bg-card border-border'
                           }`}
                         >
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
                             isRead ? 'bg-success/20' : CATEGORY_COLOR[cat]
                           }`}>
                             <Icon
                               name={isRead ? 'CheckCircle2' : CATEGORY_ICON[cat]}
-                              size={18}
+                              size={28}
                               className={isRead ? 'text-success' : ''}
                             />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-foreground truncate">{doc.title}</div>
-                            <div className="text-xs text-muted-foreground">{doc.file_size}</div>
+                            <div className="text-xl font-semibold text-foreground truncate">{doc.title}</div>
+                            <div className="text-base text-muted-foreground">{doc.file_size}</div>
                           </div>
                           <button
                             onClick={() => handleOpen(doc)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold ripple flex-shrink-0 transition-all ${
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xl font-bold ripple flex-shrink-0 transition-all ${
                               isRead
                                 ? 'bg-success/15 text-success'
                                 : 'bg-primary text-primary-foreground'
                             }`}
                           >
-                            {isRead ? 'Открыть' : 'Открыть'}
+                            Открыть
                           </button>
                         </div>
                       );
@@ -284,14 +284,14 @@ export default function NewDocsScreen({ onDone }: Props) {
           {/* Кнопка подтверждения */}
           <div className={`flex-shrink-0 pt-2 ${!visible && !loading ? 'flex-1 flex flex-col justify-end' : ''}`}>
             {visible && !allRead && (
-              <p className="text-center text-xs text-muted-foreground mb-2">
+              <p className="text-center text-lg text-muted-foreground mb-2">
                 Откройте все документы, чтобы продолжить
               </p>
             )}
             <button
               onClick={handleConfirm}
               disabled={!allRead || confirming}
-              className={`w-full h-12 portrait:h-12 md:h-16 rounded-2xl font-bold text-sm portrait:text-sm md:text-xl transition-all ripple ${
+              className={`w-full h-16 rounded-2xl font-bold text-2xl transition-all ripple ${
                 allRead && !confirming
                   ? 'bg-primary text-primary-foreground active:scale-[0.98] shadow-lg'
                   : 'bg-muted text-muted-foreground cursor-not-allowed'
