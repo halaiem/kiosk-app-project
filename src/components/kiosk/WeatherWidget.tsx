@@ -166,7 +166,7 @@ export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) 
 
   return (
     <>
-      <button
+      <button className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all py-1 my-0 mx-0 px-1"
         onClick={() => setOpen(true)}
         className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-3 h-full w-full ripple active:scale-95 transition-all"
       >
