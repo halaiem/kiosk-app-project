@@ -103,7 +103,12 @@ function WeatherPopup({ weather, loading, onClose }: { weather: WeatherData; loa
   );
 }
 
-export default function WeatherWidget() {
+interface WeatherWidgetProps {
+  timeStr?: string;
+  dateStr?: string;
+}
+
+export default function WeatherWidget({ timeStr, dateStr }: WeatherWidgetProps) {
   const [weather, setWeather] = useState<WeatherData>(DEMO);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -189,6 +194,15 @@ export default function WeatherWidget() {
           <Icon name="Droplets" size={10} />
           <span>{weather.humidity}%</span>
         </div>
+        {timeStr && (
+          <>
+            <div className="w-full h-px bg-border/50 my-0.5" />
+            <span className="text-4xl tablet:text-5xl font-black tabular-nums text-foreground leading-none">{timeStr}</span>
+            {dateStr && (
+              <span className="text-[10px] tablet:text-xs text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+            )}
+          </>
+        )}
       </button>
 
       {open && <WeatherPopup weather={weather} loading={loading} onClose={() => setOpen(false)} />}
