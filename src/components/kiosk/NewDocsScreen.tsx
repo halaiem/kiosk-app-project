@@ -45,12 +45,12 @@ function DocViewerPortal({ doc, onClose }: { doc: NewDoc; onClose: () => void })
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-2xl bg-card flex flex-col shadow-2xl rounded-3xl overflow-hidden max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30 flex-shrink-0">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${CATEGORY_COLOR[doc.category]}`}>
-            <Icon name={CATEGORY_ICON[doc.category]} size={18} />
+          <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${CATEGORY_COLOR[doc.category]}`}>
+            <Icon name={CATEGORY_ICON[doc.category]} size={30} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-foreground text-sm md:text-base truncate">{doc.title}</p>
-            <p className="text-xs text-muted-foreground">{CATEGORY_LABELS[doc.category]} · {doc.file_size}</p>
+            <p className="font-bold text-foreground text-2xl md:text-3xl truncate">{doc.title}</p>
+            <p className="text-lg text-muted-foreground">{CATEGORY_LABELS[doc.category]} · {doc.file_size}</p>
           </div>
 
         </div>
@@ -62,21 +62,21 @@ function DocViewerPortal({ doc, onClose }: { doc: NewDoc; onClose: () => void })
         </div>
 
         <div className="px-5 py-4 border-t border-border flex-shrink-0 space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer select-none">
+          <label className="flex items-center gap-4 cursor-pointer select-none">
             <div
               onClick={() => setChecked(c => !c)}
-              className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+              className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                 checked ? 'bg-primary border-primary' : 'border-border bg-background'
               }`}
             >
-              {checked && <Icon name="Check" size={14} className="text-primary-foreground" />}
+              {checked && <Icon name="Check" size={22} className="text-primary-foreground" />}
             </div>
-            <span className="text-sm text-foreground font-medium">Я прочитал данный документ</span>
+            <span className="text-xl text-foreground font-medium">Я прочитал данный документ</span>
           </label>
           <button
             disabled={!checked}
             onClick={onClose}
-            className={`w-full h-12 rounded-2xl font-bold text-base transition-all ${
+            className={`w-full h-16 rounded-2xl font-bold text-2xl transition-all ${
               checked
                 ? 'bg-primary text-primary-foreground active:scale-[0.98]'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
