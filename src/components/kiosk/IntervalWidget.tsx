@@ -53,7 +53,7 @@ export default function IntervalWidget({ isDark }: Props) {
         className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-card border border-border elevation-2 p-2 active:scale-95 transition-all w-full h-full"
       >
         <div className={`flex items-center gap-1.5 transition-all duration-300 ${animating ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-          <span className="text-4xl tablet:text-5xl font-black text-foreground tabular-nums leading-none">
+          <span className="tablet:text-5xl text-foreground tabular-nums leading-none text-5xl font-bold">
             {current?.intervalMin ?? '—'}
           </span>
           <div className="flex flex-col items-center gap-0.5">
