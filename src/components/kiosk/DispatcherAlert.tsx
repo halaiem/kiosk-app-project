@@ -13,9 +13,11 @@ interface Props {
   alert: AlertData;
   onConfirm: () => void;
   onReply?: () => void;
+  onYes?: () => void;
+  onNo?: () => void;
 }
 
-export default function DispatcherAlert({ alert, onConfirm, onReply }: Props) {
+export default function DispatcherAlert({ alert, onConfirm, onReply, onYes, onNo }: Props) {
   const [visible, setVisible] = useState(false);
   const [now, setNow] = useState(new Date());
 
@@ -63,23 +65,47 @@ export default function DispatcherAlert({ alert, onConfirm, onReply }: Props) {
             <p className="text-muted-foreground text-base md:text-2xl">{alert.sub}</p>
           </div>
 
-          <div className="px-6 md:px-10 pb-6 md:pb-10 flex gap-3 md:gap-5">
-            <button
-              onClick={handleConfirm}
-              className="flex-1 h-16 md:h-28 rounded-2xl bg-orange-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
-            >
-              <Icon name="CheckCircle" size={28} className="md:!w-11 md:!h-11" />
-              Принято
-            </button>
-            {onReply && (
-              <button
-                onClick={() => { handleConfirm(); setTimeout(() => onReply(), 350); }}
-                className="flex-1 h-16 md:h-28 rounded-2xl bg-green-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
-              >
-                <Icon name="MessageSquare" size={28} className="md:!w-11 md:!h-11" />
-                Ответить
-              </button>
+          <div className="px-6 md:px-10 pb-6 md:pb-10 flex flex-col gap-3 md:gap-4">
+            {(onYes || onNo) && (
+              <div className="flex gap-3 md:gap-4">
+                {onYes && (
+                  <button
+                    onClick={() => { handleConfirm(); setTimeout(() => onYes(), 300); }}
+                    className="flex-1 h-14 md:h-24 rounded-2xl bg-emerald-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                  >
+                    <Icon name="ThumbsUp" size={24} className="md:!w-9 md:!h-9" />
+                    Да
+                  </button>
+                )}
+                {onNo && (
+                  <button
+                    onClick={() => { handleConfirm(); setTimeout(() => onNo(), 300); }}
+                    className="flex-1 h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                  >
+                    <Icon name="ThumbsDown" size={24} className="md:!w-9 md:!h-9" />
+                    Нет
+                  </button>
+                )}
+              </div>
             )}
+            <div className="flex gap-3 md:gap-4">
+              <button
+                onClick={handleConfirm}
+                className="flex-1 h-14 md:h-24 rounded-2xl bg-orange-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+              >
+                <Icon name="CheckCircle" size={28} className="md:!w-10 md:!h-10" />
+                Принято
+              </button>
+              {onReply && (
+                <button
+                  onClick={() => { handleConfirm(); setTimeout(() => onReply(), 350); }}
+                  className="flex-1 h-14 md:h-24 rounded-2xl bg-green-500 text-white font-bold text-lg md:text-3xl ripple active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2 md:gap-4"
+                >
+                  <Icon name="MessageSquare" size={28} className="md:!w-10 md:!h-10" />
+                  Ответить
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

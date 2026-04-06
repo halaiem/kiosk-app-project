@@ -95,6 +95,11 @@ export default function Index() {
     setTimeout(() => setMessengerFullscreen(true), 350);
   }, []);
 
+  const dismissTopWithAnswer = useCallback((answer: string) => {
+    setQueue(prev => prev.slice(1));
+    state.sendMessage(answer);
+  }, [state.sendMessage]);
+
   const handlePlayVoiceInNotif = useCallback((msgId: string) => {
     setQueue(prev => prev.slice(1));
     setActiveVoiceMsgId(msgId);
@@ -297,22 +302,28 @@ export default function Index() {
                   {top.kind === 'important' && top.message && (
                     <ImportantMessageOverlay
                       message={top.message}
-                      onConfirm={() => { state.confirmImportant(top.message!.id); dismissTop(); }}
+                      onConfirm={() => { state.confirmImportant(top.message!.id); dismissTopWithAnswer('Принято'); }}
                       onReply={() => { state.confirmImportant(top.message!.id); dismissTopAndReply(); }}
+                      onYes={() => { state.confirmImportant(top.message!.id); dismissTopWithAnswer('Да'); }}
+                      onNo={() => { state.confirmImportant(top.message!.id); dismissTopWithAnswer('Нет'); }}
                     />
                   )}
                   {top.kind === 'alert' && top.alert && (
                     <DispatcherAlert
                       alert={top.alert}
-                      onConfirm={dismissTop}
+                      onConfirm={() => { dismissTopWithAnswer('Принято'); }}
                       onReply={dismissTopAndReply}
+                      onYes={() => dismissTopWithAnswer('Да')}
+                      onNo={() => dismissTopWithAnswer('Нет')}
                     />
                   )}
                   {top.kind === 'message' && top.message && (
                     <MessageToast
                       message={top.message}
-                      onConfirm={() => { state.markRead(top.message!.id); dismissTop(); }}
+                      onConfirm={() => { state.markRead(top.message!.id); dismissTopWithAnswer('Принято'); }}
                       onReply={() => { state.markRead(top.message!.id); dismissTopAndReply(); }}
+                      onYes={() => { state.markRead(top.message!.id); dismissTopWithAnswer('Да'); }}
+                      onNo={() => { state.markRead(top.message!.id); dismissTopWithAnswer('Нет'); }}
                       onPlayVoice={top.message.isVoice ? () => { state.markRead(top.message!.id); handlePlayVoiceInNotif(top.message!.id); } : undefined}
                     />
                   )}
