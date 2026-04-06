@@ -107,9 +107,10 @@ interface WeatherWidgetProps {
   timeStr?: string;
   dateStr?: string;
   horizontal?: boolean;
+  compact?: boolean;
 }
 
-export default function WeatherWidget({ timeStr, dateStr, horizontal }: WeatherWidgetProps) {
+export default function WeatherWidget({ timeStr, dateStr, horizontal, compact }: WeatherWidgetProps) {
   const [weather, setWeather] = useState<WeatherData>(DEMO);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -233,9 +234,9 @@ export default function WeatherWidget({ timeStr, dateStr, horizontal }: WeatherW
             {timeStr && (
               <>
                 <div className="w-full h-px bg-border/50 my-0.5" />
-                <span className="text-4xl tablet:text-5xl font-bold tabular-nums text-foreground leading-none">{timeStr}</span>
+                <span className={`font-bold tabular-nums text-foreground leading-none ${compact ? 'text-3xl tablet:text-4xl' : 'text-4xl tablet:text-5xl'}`}>{timeStr}</span>
                 {dateStr && (
-                  <span className="text-sm tablet:text-base font-semibold text-muted-foreground capitalize leading-none text-center">{dateStr}</span>
+                  <span className={`font-semibold text-muted-foreground capitalize leading-none text-center ${compact ? 'text-xs tablet:text-sm' : 'text-sm tablet:text-base'}`}>{dateStr}</span>
                 )}
               </>
             )}
