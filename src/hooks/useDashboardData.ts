@@ -168,8 +168,8 @@ function mapLog(l: Record<string, unknown>): AuditLog {
   };
 }
 
-const MSG_FAST_INTERVAL = 5000;   // 5 сек — активный режим после отправки
-const MSG_IDLE_INTERVAL = 30000;  // 30 сек — обычный режим
+const MSG_FAST_INTERVAL = 15000;  // 15 сек — активный режим после отправки
+const MSG_IDLE_INTERVAL = 60000;  // 60 сек — обычный режим
 const ISSUES_INTERVAL = 3600000;  // 60 мин — диагностика ТС
 
 export function useDashboardData(user?: DashboardUser | null) {

@@ -76,7 +76,7 @@ export function useKioskState() {
   useEffect(() => {
     if (screen !== 'main') return;
     sendHeartbeat(undefined, undefined, speed);
-    const interval = setInterval(() => sendHeartbeat(undefined, undefined, speed), 30000);
+    const interval = setInterval(() => sendHeartbeat(undefined, undefined, speed), 60000);
     return () => clearInterval(interval);
   }, [screen, speed]);
 
@@ -200,7 +200,7 @@ export function useKioskState() {
       }
     };
     poll();
-    const interval = setInterval(poll, 15000);
+    const interval = setInterval(poll, 45000);
     return () => clearInterval(interval);
   }, [screen, syncOfflineQueue]);
 
