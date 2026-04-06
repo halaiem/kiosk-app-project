@@ -56,7 +56,7 @@ function DocViewerPortal({ doc, onClose }: { doc: NewDoc; onClose: () => void })
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="bg-muted/30 rounded-2xl p-5 text-sm text-foreground leading-relaxed whitespace-pre-wrap font-mono min-h-[200px]">
+          <div className="bg-muted/30 rounded-2xl p-5 text-4xl text-foreground leading-relaxed whitespace-pre-wrap font-mono min-h-[200px]">
             {doc.content || 'Содержимое документа недоступно.'}
           </div>
         </div>
