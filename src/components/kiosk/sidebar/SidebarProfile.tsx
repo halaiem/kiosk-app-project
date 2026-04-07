@@ -101,19 +101,19 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
         )}
 
         {activeTab === 'schedule' && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {DOCUMENTS.map(doc => (
-              <div key={doc.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={22} className="text-primary shrink-0" />
+              <div key={doc.name} className="flex items-center gap-6 p-8 rounded-xl bg-card border border-border">
+                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={66} className="text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{doc.name}</div>
-                  <div className="text-xs text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
+                  <div className="text-3xl font-medium text-foreground truncate">{doc.name}</div>
+                  <div className="text-xl text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
                 </div>
                 <button
                   onClick={() => setViewDoc(doc)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
+                  className="flex items-center gap-3 px-6 py-4 rounded-lg bg-primary/15 text-primary text-3xl font-medium ripple shrink-0"
                 >
-                  <Icon name="Eye" size={14} />
+                  <Icon name="Eye" size={42} />
                   Открыть
                 </button>
               </div>
@@ -122,19 +122,19 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
         )}
 
         {activeTab === 'docs' && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {DOCUMENTS.map(doc => (
-              <div key={doc.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={22} className="text-primary shrink-0" />
+              <div key={doc.name} className="flex items-center gap-6 p-8 rounded-xl bg-card border border-border">
+                <Icon name={doc.type === 'pdf' ? 'FileText' : 'File'} size={66} className="text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{doc.name}</div>
-                  <div className="text-xs text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
+                  <div className="text-3xl font-medium text-foreground truncate">{doc.name}</div>
+                  <div className="text-xl text-muted-foreground">{doc.type.toUpperCase()} · {doc.size}</div>
                 </div>
                 <button
                   onClick={() => setViewDoc(doc)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
+                  className="flex items-center gap-3 px-6 py-4 rounded-lg bg-primary/15 text-primary text-3xl font-medium ripple shrink-0"
                 >
-                  <Icon name="Eye" size={14} />
+                  <Icon name="Eye" size={42} />
                   Открыть
                 </button>
               </div>
@@ -143,19 +143,19 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
         )}
 
         {activeTab === 'equip' && (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {EQUIPMENT.map(eq => (
-              <div key={eq.name} className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border">
-                <Icon name="Cpu" size={22} className="text-primary shrink-0" />
+              <div key={eq.name} className="flex items-center gap-6 p-8 rounded-xl bg-card border border-border">
+                <Icon name="Cpu" size={66} className="text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{eq.name}</div>
-                  <div className="text-xs text-muted-foreground">{eq.type.toUpperCase()} · {eq.size}</div>
+                  <div className="text-3xl font-medium text-foreground truncate">{eq.name}</div>
+                  <div className="text-xl text-muted-foreground">{eq.type.toUpperCase()} · {eq.size}</div>
                 </div>
                 <button
                   onClick={() => setViewDoc(eq)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium ripple shrink-0"
+                  className="flex items-center gap-3 px-6 py-4 rounded-lg bg-primary/15 text-primary text-3xl font-medium ripple shrink-0"
                 >
-                  <Icon name="Eye" size={14} />
+                  <Icon name="Eye" size={42} />
                   Открыть
                 </button>
               </div>
