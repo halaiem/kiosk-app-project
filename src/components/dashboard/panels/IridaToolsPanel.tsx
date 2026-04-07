@@ -370,6 +370,13 @@ function TerminalSection() {
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [customDirs, setCustomDirs] = useState<string[]>([]);
+  const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
+  const [renamingDir, setRenamingDir] = useState<string | null>(null);
+  const [renameDirValue, setRenameDirValue] = useState('');
+  const renameDirInputRef = useRef<HTMLInputElement>(null);
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
     `> ${PROJECT_FILES.length} файлов проекта`,
@@ -383,7 +390,7 @@ function TerminalSection() {
 
   const allFiles = [...new Set([...PROJECT_FILES, ...customFiles])].sort();
   const tree = buildTree(allFiles);
-  const allDirs = [...new Set(Object.keys(tree))].sort();
+  const allDirs = [...new Set([...Object.keys(tree), ...customDirs])].sort();
 
   const filteredFiles = search.trim()
     ? allFiles.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
@@ -640,6 +647,102 @@ function TerminalSection() {
     setRenamingFile(null);
   }, [renamingFile, renameValue, fileContents, activeTab, openDirs]);
 
+  const handleCreateFolder = useCallback((parentDir: string) => {
+    setNewFolderParent(parentDir);
+    setNewFolderName('');
+    const newDirs = new Set(openDirs);
+    newDirs.add(parentDir);
+    setOpenDirs(newDirs);
+    setTimeout(() => newFolderInputRef.current?.focus(), 50);
+  }, [openDirs]);
+
+  const confirmCreateFolder = useCallback(() => {
+    if (!newFolderParent || !newFolderName.trim()) {
+      setNewFolderParent(null);
+      return;
+    }
+    const fullPath = `${newFolderParent}/${newFolderName.trim()}`;
+    const now = new Date().toLocaleTimeString();
+    setCustomDirs((prev) => [...new Set([...prev, fullPath])]);
+    const newDirs = new Set(openDirs);
+    newDirs.add(fullPath);
+    setOpenDirs(newDirs);
+    setOutput((prev) => [...prev, ``, `> [${now}] Создана папка: ${fullPath}`]);
+    setNewFolderParent(null);
+    setNewFolderName('');
+  }, [newFolderParent, newFolderName, openDirs]);
+
+  const startRenameDir = useCallback((dir: string) => {
+    setRenamingDir(dir);
+    setRenameDirValue(dir);
+    setTimeout(() => {
+      const input = renameDirInputRef.current;
+      if (input) {
+        input.focus();
+        const lastSlash = dir.lastIndexOf('/');
+        input.setSelectionRange(lastSlash + 1, dir.length);
+      }
+    }, 50);
+  }, []);
+
+  const handleRenameDir = useCallback(() => {
+    if (!renamingDir || !renameDirValue.trim() || renameDirValue === renamingDir) {
+      setRenamingDir(null);
+      return;
+    }
+    const oldDir = renamingDir;
+    const newDir = renameDirValue.trim();
+    const now = new Date().toLocaleTimeString();
+
+    setCustomDirs((prev) => prev.map((d) => {
+      if (d === oldDir) return newDir;
+      if (d.startsWith(oldDir + '/')) return newDir + d.slice(oldDir.length);
+      return d;
+    }));
+    setCustomFiles((prev) => prev.map((f) =>
+      f.startsWith(oldDir + '/') ? newDir + f.slice(oldDir.length) : f
+    ));
+    setFileContents((c) => {
+      const next: Record<string, string> = {};
+      for (const [k, v] of Object.entries(c)) {
+        next[k.startsWith(oldDir + '/') ? newDir + k.slice(oldDir.length) : k] = v;
+      }
+      return next;
+    });
+    setOpenTabs((tabs) => tabs.map((t) =>
+      t.startsWith(oldDir + '/') ? newDir + t.slice(oldDir.length) : t
+    ));
+    if (activeTab.startsWith(oldDir + '/')) {
+      setActiveTab(newDir + activeTab.slice(oldDir.length));
+    }
+
+    const newOpenDirs = new Set<string>();
+    openDirs.forEach((d) => {
+      if (d === oldDir) newOpenDirs.add(newDir);
+      else if (d.startsWith(oldDir + '/')) newOpenDirs.add(newDir + d.slice(oldDir.length));
+      else newOpenDirs.add(d);
+    });
+    setOpenDirs(newOpenDirs);
+
+    setOutput((prev) => [...prev, ``, `> [${now}] Переименована папка: ${oldDir} → ${newDir}`]);
+    setRenamingDir(null);
+  }, [renamingDir, renameDirValue, activeTab, openDirs]);
+
+  const handleDeleteDir = useCallback((dir: string) => {
+    const now = new Date().toLocaleTimeString();
+    setCustomDirs((prev) => prev.filter((d) => d !== dir && !d.startsWith(dir + '/')));
+    const filesToRemove = customFiles.filter((f) => f.startsWith(dir + '/'));
+    setCustomFiles((prev) => prev.filter((f) => !f.startsWith(dir + '/')));
+    setFileContents((c) => {
+      const next = { ...c };
+      filesToRemove.forEach((f) => delete next[f]);
+      return next;
+    });
+    setOpenTabs((tabs) => tabs.filter((t) => !t.startsWith(dir + '/')));
+    if (activeTab.startsWith(dir + '/')) setActiveTab('');
+    setOutput((prev) => [...prev, ``, `> [${now}] Удалена папка: ${dir} (${filesToRemove.length} файлов)`]);
+  }, [customFiles, activeTab]);
+
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -678,19 +781,74 @@ function TerminalSection() {
       const files = tree[dir] || [];
       const isOpen = openDirs.has(dir);
       const name = dir.split('/').pop();
+      const isDirCustom = customDirs.includes(dir);
+      if (renamingDir === dir) {
+        return (
+          <div key={dir} style={{ paddingLeft: `${8 + depth * 12}px` }} className="py-0.5 pr-1">
+            <input
+              ref={renameDirInputRef}
+              value={renameDirValue}
+              onChange={(e) => setRenameDirValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameDir();
+                if (e.key === 'Escape') setRenamingDir(null);
+              }}
+              onBlur={() => handleRenameDir()}
+              className="w-full bg-black/50 text-xs text-white/80 px-1.5 py-0.5 rounded border border-blue-500/50 font-mono focus:outline-none"
+            />
+          </div>
+        );
+      }
       return (
         <div key={dir}>
-          <button
-            onClick={() => toggleDir(dir)}
-            className="w-full flex items-center gap-1.5 py-0.5 px-2 hover:bg-white/5 rounded text-left group"
-            style={{ paddingLeft: `${8 + depth * 12}px` }}
-          >
-            <Icon name={isOpen ? 'ChevronDown' : 'ChevronRight'} className="w-3 h-3 text-white/30 shrink-0" />
-            <Icon name="Folder" className="w-3.5 h-3.5 text-yellow-400/70 shrink-0" />
-            <span className="text-xs text-white/60 truncate">{name}</span>
-          </button>
+          <div className="flex items-center group hover:bg-white/5 rounded">
+            <button
+              onClick={() => toggleDir(dir)}
+              className="flex items-center gap-1.5 py-0.5 px-2 flex-1 min-w-0 text-left"
+              style={{ paddingLeft: `${8 + depth * 12}px` }}
+            >
+              <Icon name={isOpen ? 'ChevronDown' : 'ChevronRight'} className="w-3 h-3 text-white/30 shrink-0" />
+              <Icon name={isOpen ? 'FolderOpen' : 'Folder'} className="w-3.5 h-3.5 text-yellow-400/70 shrink-0" />
+              <span className="text-xs text-white/60 truncate">{name}</span>
+            </button>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all mr-1 shrink-0">
+              <button onClick={() => handleCreateFolder(dir)} className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20" title="Новая папка">
+                <Icon name="FolderPlus" className="w-2.5 h-2.5 text-white/40" />
+              </button>
+              <button onClick={() => { setNewFilePath(dir + '/'); setShowNewFile(true); setTimeout(() => newFileInputRef.current?.focus(), 100); }} className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20" title="Новый файл">
+                <Icon name="FilePlus" className="w-2.5 h-2.5 text-white/40" />
+              </button>
+              {isDirCustom && (
+                <>
+                  <button onClick={() => startRenameDir(dir)} className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20" title="Переименовать">
+                    <Icon name="Pencil" className="w-2.5 h-2.5 text-white/40" />
+                  </button>
+                  <button onClick={() => handleDeleteDir(dir)} className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-500/30" title="Удалить папку">
+                    <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           {isOpen && (
             <>
+              {newFolderParent === dir && (
+                <div style={{ paddingLeft: `${20 + depth * 12}px` }} className="py-0.5 pr-1 flex items-center gap-1.5">
+                  <Icon name="FolderPlus" className="w-3 h-3 text-yellow-400/50 shrink-0" />
+                  <input
+                    ref={newFolderInputRef}
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') confirmCreateFolder();
+                      if (e.key === 'Escape') setNewFolderParent(null);
+                    }}
+                    onBlur={() => { if (newFolderName.trim()) confirmCreateFolder(); else setNewFolderParent(null); }}
+                    placeholder="имя папки"
+                    className="flex-1 bg-black/50 text-xs text-white/80 px-1.5 py-0.5 rounded border border-yellow-500/40 font-mono focus:outline-none placeholder:text-white/20 min-w-0"
+                  />
+                </div>
+              )}
               {files.map((f) => {
                 const fname = f.split('/').pop();
                 const isCustom = customFiles.includes(f);
@@ -766,7 +924,14 @@ function TerminalSection() {
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-500 transition-colors font-medium"
           >
             <Icon name="FilePlus" className="w-3.5 h-3.5" />
-            Новый файл
+            Файл
+          </button>
+          <button
+            onClick={() => handleCreateFolder('src')}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-amber-600 text-white hover:bg-amber-500 transition-colors font-medium"
+          >
+            <Icon name="FolderPlus" className="w-3.5 h-3.5" />
+            Папка
           </button>
           <button
             onClick={handleSync}
