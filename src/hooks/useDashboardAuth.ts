@@ -58,6 +58,7 @@ export function useDashboardAuth() {
       dispatcher: 'Диспетчер',
       technician: 'Техник',
       admin: 'Администратор',
+      irida_tools: 'Irida-Tools',
     };
     return names[role];
   }, []);

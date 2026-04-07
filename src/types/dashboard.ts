@@ -1,4 +1,4 @@
-export type UserRole = 'dispatcher' | 'technician' | 'admin';
+export type UserRole = 'dispatcher' | 'technician' | 'admin' | 'irida_tools';
 
 export interface DashboardUser {
   id: string;
@@ -12,7 +12,8 @@ export interface DashboardUser {
 export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues';
 export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'daily_assignment' | 'diagnostics';
 export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles';
-export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab;
+export type IridaToolsTab = 'cities' | 'it_settings' | 'ui_design' | 'software' | 'connection' | 'server' | 'equipment' | 'instructions';
+export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab | IridaToolsTab;
 
 export type AlertLevel = 'info' | 'warning' | 'critical';
 export type VehicleStatus = 'active' | 'maintenance' | 'idle' | 'offline';

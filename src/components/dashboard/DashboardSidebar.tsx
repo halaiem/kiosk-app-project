@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import type { DashboardUser, DashboardTab, UserRole } from "@/types/dashboard";
+import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab } from "@/types/dashboard";
 import { useAppSettings } from '@/context/AppSettingsContext';
 
 function useSidebarLight() {
@@ -55,16 +55,29 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
 ];
 
+const IRIDA_TOOLS_NAV: NavItem[] = [
+  { tab: "cities" as IridaToolsTab, icon: "Building2", label: "Города" },
+  { tab: "it_settings" as IridaToolsTab, icon: "Settings2", label: "Настройки" },
+  { tab: "ui_design" as IridaToolsTab, icon: "Palette", label: "UI-дизайн" },
+  { tab: "software" as IridaToolsTab, icon: "Package", label: "ПО" },
+  { tab: "connection" as IridaToolsTab, icon: "Wifi", label: "Подключение" },
+  { tab: "server" as IridaToolsTab, icon: "Server", label: "Сервер" },
+  { tab: "equipment" as IridaToolsTab, icon: "Cpu", label: "Оборудование" },
+  { tab: "instructions" as IridaToolsTab, icon: "BookOpen", label: "Инструкции" },
+];
+
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   dispatcher: DISPATCHER_NAV,
   technician: TECHNICIAN_NAV,
   admin: ADMIN_NAV,
+  irida_tools: IRIDA_TOOLS_NAV,
 };
 
 const ROLE_BADGE_BG: Record<UserRole, string> = {
   dispatcher: "bg-black/15",
   technician: "bg-black/15",
   admin: "bg-black/15",
+  irida_tools: "bg-black/15",
 };
 
 interface DashboardSidebarProps {

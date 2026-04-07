@@ -8,18 +8,23 @@ import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
 import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
 import AdminPanel from '@/components/dashboard/panels/AdminPanel';
+import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import Icon from '@/components/ui/icon';
-import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab } from '@/types/dashboard';
+import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab } from '@/types/dashboard';
+import type { DashboardUser } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
   dispatcher: 'overview',
   technician: 'routes',
   admin: 'settings',
+  irida_tools: 'cities',
 };
 
 export default function Dashboard() {
   const { user, error, loading, login, logout, getRoleName } = useDashboardAuth();
-  const data = useDashboardData(user);
+  const [iridaToolsUser, setIridaToolsUser] = useState<DashboardUser | null>(null);
+  const activeUser = iridaToolsUser || user;
+  const data = useDashboardData(activeUser);
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
@@ -34,17 +39,33 @@ export default function Dashboard() {
   }, [settings.dashboardTheme]);
 
   useEffect(() => {
-    if (user?.role) {
-      setActiveTab(DEFAULT_TABS[user.role] || 'overview');
+    if (activeUser?.role) {
+      setActiveTab(DEFAULT_TABS[activeUser.role] || 'overview');
     }
-  }, [user?.role]);
+  }, [activeUser?.role]);
 
   const handleLogin = async (id: string, password: string) => {
     const success = await login(id, password);
     return success;
   };
 
+  const handleIridaToolsLogin = () => {
+    const itUser: DashboardUser = {
+      id: 'tp-tds',
+      name: 'Irida-Tools',
+      role: 'irida_tools',
+      isActive: true,
+    };
+    setIridaToolsUser(itUser);
+    setActiveTab('cities');
+  };
+
   const handleLogout = async () => {
+    if (iridaToolsUser) {
+      setIridaToolsUser(null);
+      setActiveTab('overview');
+      return;
+    }
     await logout();
     setActiveTab('overview');
   };
@@ -53,7 +74,7 @@ export default function Dashboard() {
     updateSettings({ dashboardTheme: settings.dashboardTheme === 'dark' ? 'light' : 'dark' });
   };
 
-  useNewMessageNotifier(user?.role === 'dispatcher' ? data.messages : []);
+  useNewMessageNotifier(activeUser?.role === 'dispatcher' ? data.messages : []);
 
   const counts = useMemo(() => ({
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
@@ -70,8 +91,8 @@ export default function Dashboard() {
     );
   }
 
-  if (!user) {
-    return <DashboardLogin onLogin={handleLogin} error={error} />;
+  if (!activeUser) {
+    return <DashboardLogin onLogin={handleLogin} onIridaToolsLogin={handleIridaToolsLogin} error={error} />;
   }
 
   const isLight = settings.dashboardTheme === 'light';
@@ -79,7 +100,7 @@ export default function Dashboard() {
   return (
     <div className="flex h-full bg-background text-foreground overflow-hidden">
       <DashboardSidebar
-        user={user}
+        user={activeUser}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onLogout={handleLogout}
@@ -87,19 +108,20 @@ export default function Dashboard() {
         counts={counts}
         isDark={!isLight}
         onToggleTheme={toggleTheme}
-        onReload={data.reload}
+        onReload={activeUser.role !== 'irida_tools' ? data.reload : undefined}
       />
       <main className="flex-1 overflow-auto p-6 relative">
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
-          className="fixed top-4 right-4 z-50 w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
-        >
-          <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
-        </button>
+        {activeUser.role !== 'irida_tools' && (
+          <button
+            onClick={toggleTheme}
+            title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
+            className="fixed top-4 right-4 z-50 w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
+          >
+            <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
+          </button>
+        )}
 
-        {user.role === 'dispatcher' && (
+        {activeUser.role === 'dispatcher' && (
           <DispatcherPanel
             tab={activeTab as DispatcherTab}
             messages={data.messages}
@@ -113,11 +135,11 @@ export default function Dashboard() {
             onResolveAlert={data.resolveAlert}
             onMarkNotificationRead={data.markNotificationRead}
             onResolveIssue={data.resolveIssue}
-            userName={user.name}
+            userName={activeUser.name}
             onOpenMessages={() => setActiveTab('messages')}
           />
         )}
-        {user.role === 'technician' && (
+        {activeUser.role === 'technician' && (
           <TechnicianPanel
             tab={activeTab as TechnicianTab}
             routes={data.routes}
@@ -129,12 +151,15 @@ export default function Dashboard() {
             onReload={data.reload}
           />
         )}
-        {user.role === 'admin' && (
+        {activeUser.role === 'admin' && (
           <AdminPanel
             tab={activeTab as AdminTab}
             servers={data.servers}
             logs={data.logs}
           />
+        )}
+        {activeUser.role === 'irida_tools' && (
+          <IridaToolsPanel tab={activeTab as IridaToolsTab} />
         )}
       </main>
     </div>
