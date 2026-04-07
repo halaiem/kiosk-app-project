@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Highlight, themes } from 'prism-react-renderer';
 import Icon from '@/components/ui/icon';
 import type { IridaToolsTab } from '@/types/dashboard';
 
@@ -247,6 +248,98 @@ function getFileLang(path: string): string {
   return 'Text';
 }
 
+type PrismLang = 'tsx' | 'typescript' | 'css' | 'json' | 'yaml' | 'markup';
+
+function getPrismLang(path: string): PrismLang {
+  if (path.endsWith('.tsx')) return 'tsx';
+  if (path.endsWith('.ts')) return 'typescript';
+  if (path.endsWith('.css')) return 'css';
+  if (path.endsWith('.json')) return 'json';
+  if (path.endsWith('.yaml') || path.endsWith('.yml')) return 'yaml';
+  return 'markup';
+}
+
+// Редактор с подсветкой синтаксиса
+interface CodeEditorProps {
+  code: string;
+  language: PrismLang;
+  onChange: (val: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+}
+
+function CodeEditor({ code, language, onChange, onKeyDown, textareaRef }: CodeEditorProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const syncScroll = useCallback(() => {
+    const ta = textareaRef.current;
+    const pre = scrollRef.current;
+    if (ta && pre) {
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    }
+  }, [textareaRef]);
+
+  const lines = code.split('\n');
+
+  return (
+    <div className="flex flex-1 overflow-hidden font-mono text-xs leading-5">
+      {/* Line numbers */}
+      <div className="py-3 px-2 text-right select-none shrink-0 bg-[#0d1117] border-r border-white/5 min-w-[40px]">
+        {lines.map((_, i) => (
+          <div key={i} className="text-white/15 leading-5">{i + 1}</div>
+        ))}
+      </div>
+
+      {/* Highlighted + textarea overlay */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Highlighted code (behind) */}
+        <div
+          ref={scrollRef}
+          className="absolute inset-0 overflow-auto pointer-events-none"
+          aria-hidden="true"
+        >
+          <Highlight theme={themes.vsDark} code={code.endsWith('\n') ? code + ' ' : code} language={language}>
+            {({ style, tokens, getLineProps, getTokenProps }) => (
+              <pre
+                style={{ ...style, background: 'transparent', margin: 0, padding: '12px 8px', minWidth: '100%' }}
+                className="leading-5"
+              >
+                {tokens.map((line, i) => (
+                  <div key={i} {...getLineProps({ line })}>
+                    {line.map((token, key) => (
+                      <span key={key} {...getTokenProps({ token })} />
+                    ))}
+                  </div>
+                ))}
+              </pre>
+            )}
+          </Highlight>
+        </div>
+
+        {/* Editable textarea (on top, transparent text) */}
+        <textarea
+          ref={textareaRef}
+          value={code}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          onScroll={syncScroll}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          className="absolute inset-0 w-full h-full resize-none bg-transparent caret-white font-mono text-xs leading-5 focus:outline-none overflow-auto"
+          style={{
+            color: 'transparent',
+            padding: '12px 8px',
+            caretColor: '#e2e8f0',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Строим дерево папок из списка файлов
 function buildTree(files: string[]): Record<string, string[]> {
   const tree: Record<string, string[]> = {};
@@ -319,7 +412,7 @@ function TerminalSection() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!activeTab) return;
     setSaving(true);
     const now = new Date().toLocaleTimeString();
@@ -331,9 +424,9 @@ function TerminalSection() {
       ]);
       setSaving(false);
     }, 600);
-  };
+  }, [activeTab]);
 
-  const handleTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
       const ta = textareaRef.current;
@@ -349,7 +442,7 @@ function TerminalSection() {
       e.preventDefault();
       handleSave();
     }
-  };
+  }, [activeTab, fileContents, handleSave]);
 
   useEffect(() => {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -521,20 +614,14 @@ function TerminalSection() {
           {/* Editor + console */}
           {activeTab ? (
             <div className="flex flex-1 overflow-hidden">
-              {/* Code */}
-              <div className="flex flex-1 overflow-hidden">
-                <div className="py-3 px-2 text-right select-none shrink-0 bg-[#0d1117] border-r border-white/5">
-                  {currentCode.split('\n').map((_, i) => (
-                    <div key={i} className="text-[11px] text-white/15 font-mono leading-5">{i + 1}</div>
-                  ))}
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  value={currentCode}
-                  onChange={(e) => setFileContents((c) => ({ ...c, [activeTab]: e.target.value }))}
+              {/* Code with syntax highlighting */}
+              <div className="flex flex-1 overflow-hidden bg-[#0d1117]">
+                <CodeEditor
+                  code={currentCode}
+                  language={getPrismLang(activeTab)}
+                  onChange={(val) => setFileContents((c) => ({ ...c, [activeTab]: val }))}
                   onKeyDown={handleTabKey}
-                  spellCheck={false}
-                  className="flex-1 resize-none bg-[#0d1117] text-green-300 font-mono text-xs leading-5 p-3 pl-2 focus:outline-none overflow-auto"
+                  textareaRef={textareaRef}
                 />
               </div>
 
