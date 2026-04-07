@@ -87,13 +87,20 @@ def handler(event: dict, context) -> dict:
 
         yandex_format_map = {'ogg': 'oggopus', 'mp3': 'mp3', 'wav': 'lpcm', 'webm': 'oggopus', 'mp4': 'oggopus', 'flac': 'lpcm'}
         yandex_format = yandex_format_map.get(real_format, 'oggopus')
-        print(f"[transcribe] yandex_format={yandex_format}")
-        url = f'https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?lang=ru-RU&format={yandex_format}&profanityFilter=false'
+        print(f"[transcribe] yandex_format={yandex_format}, real_format={real_format}")
+
+        # Для WAV/LPCM — вырезаем заголовок (44 байта) и передаём сырой PCM
+        send_bytes = audio_bytes
+        if real_format == 'wav' and audio_bytes[:4] == b'RIFF':
+            send_bytes = audio_bytes[44:]
+            print(f"[transcribe] stripped WAV header, pcm_bytes={len(send_bytes)}")
+
+        url = f'https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?lang=ru-RU&format={yandex_format}&sampleRateHertz=16000&profanityFilter=false'
 
         try:
             req = urllib.request.Request(
                 url,
-                data=audio_bytes,
+                data=send_bytes,
                 headers={
                     'Authorization': f'Api-Key {api_key}',
                     'Content-Type': mime,
