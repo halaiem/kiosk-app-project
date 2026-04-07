@@ -45,7 +45,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Icon name="Palette" size={13} />
           Режим темы
         </div>
@@ -54,42 +54,42 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
             <button key={opt.value} onClick={() => onSetTheme(opt.value)}
               className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border transition-all ripple text-center
                 ${theme === opt.value
-                  ? 'bg-white/30 border-white text-sidebar-foreground'
-                  : 'bg-white/15 border-white/20 text-sidebar-foreground hover:bg-white/25'}`}>
-              <Icon name={opt.icon} size={20} className={theme === opt.value ? 'text-sidebar-primary' : 'text-sidebar-foreground/60'} />
+                  ? 'bg-white border-white text-gray-800'
+                  : 'bg-white/20 border-white/30 text-white hover:bg-white/30'}`}>
+              <Icon name={opt.icon} size={20} className={theme === opt.value ? 'text-gray-700' : 'text-white/80'} />
               <span className="text-xs font-semibold leading-tight">{opt.label}</span>
-              <span className="text-[9px] opacity-60 leading-tight">{opt.desc}</span>
-              {theme === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-sidebar-primary" />}
+              <span className="text-[9px] opacity-70 leading-tight">{opt.desc}</span>
+              {theme === opt.value && <div className="w-1.5 h-1.5 rounded-full bg-gray-700" />}
             </button>
           ))}
         </div>
-        <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/15 text-xs text-sidebar-foreground/70">
-          <Icon name={isDark ? 'Moon' : 'Sun'} size={13} className={isDark ? 'text-blue-400' : 'text-yellow-400'} />
-          <span>Сейчас активен: <strong className="text-sidebar-foreground">{isDark ? 'тёмный' : 'светлый'}</strong> режим</span>
+        <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 text-xs text-white/80">
+          <Icon name={isDark ? 'Moon' : 'Sun'} size={13} className={isDark ? 'text-blue-300' : 'text-yellow-300'} />
+          <span>Сейчас активен: <strong className="text-white">{isDark ? 'тёмный' : 'светлый'}</strong> режим</span>
         </div>
       </div>
 
       {theme === 'auto' && (
         <div>
-          <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="text-xs font-semibold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Icon name="Clock" size={13} />
             Расписание тёмного режима
           </div>
-          <div className="p-3 rounded-xl bg-white/15 space-y-3">
+          <div className="p-3 rounded-xl bg-white space-y-3">
             {[
-              { icon: 'Moon', color: 'text-blue-400', label: 'Тёмная с (час)', val: darkFrom, set: onSetDarkFrom, accent: 'accent-blue-500' },
-              { icon: 'Sun', color: 'text-yellow-400', label: 'Светлая с (час)', val: darkTo, set: onSetDarkTo, accent: 'accent-yellow-500' },
+              { icon: 'Moon', color: 'text-blue-500', label: 'Тёмная с (час)', val: darkFrom, set: onSetDarkFrom, accent: 'accent-blue-500' },
+              { icon: 'Sun', color: 'text-yellow-500', label: 'Светлая с (час)', val: darkTo, set: onSetDarkTo, accent: 'accent-yellow-500' },
             ].map(s => (
               <div key={s.label} className="flex items-center gap-3">
                 <Icon name={s.icon} size={16} className={`${s.color} flex-shrink-0`} />
                 <div className="flex-1">
-                  <div className="text-xs text-sidebar-foreground/70 mb-1">{s.label}</div>
+                  <div className="text-xs text-gray-500 mb-1">{s.label}</div>
                   <input type="range" min={0} max={23} value={s.val} onChange={e => s.set(Number(e.target.value))} className={`w-full ${s.accent} h-2 rounded-full`} />
-                  <div className="text-sm font-bold text-sidebar-foreground mt-1 tabular-nums">{fmtH(s.val)}</div>
+                  <div className="text-sm font-bold text-gray-800 mt-1 tabular-nums">{fmtH(s.val)}</div>
                 </div>
               </div>
             ))}
-            <div className="text-[10px] text-sidebar-foreground/50 text-center pt-1 border-t border-sidebar-border">
+            <div className="text-[10px] text-gray-400 text-center pt-1 border-t border-gray-200">
               Тёмный: {fmtH(darkFrom)} — {fmtH(darkTo)} · Светлый: {fmtH(darkTo)} — {fmtH(darkFrom)}
             </div>
           </div>
@@ -97,7 +97,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
       )}
 
       <div>
-        <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Icon name="Settings" size={13} />
           Планшет
         </div>
@@ -109,11 +109,11 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
             { label: 'Wi-Fi', icon: 'Wifi', value: 'Подключён' },
             { label: 'Bluetooth', icon: 'Bluetooth', value: 'Активен' },
           ].map(s => (
-            <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/20">
-              <Icon name={s.icon} size={16} className="text-sidebar-primary" />
-              <span className="text-sm text-sidebar-foreground flex-1">{s.label}</span>
-              <span className="text-xs text-sidebar-foreground/60">{s.value}</span>
-              <Icon name="ChevronRight" size={12} className="text-sidebar-foreground/30" />
+            <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-white">
+              <Icon name={s.icon} size={16} className="text-orange-500" />
+              <span className="text-sm text-gray-800 flex-1">{s.label}</span>
+              <span className="text-xs text-gray-500">{s.value}</span>
+              <Icon name="ChevronRight" size={12} className="text-gray-400" />
             </div>
           ))}
         </div>
