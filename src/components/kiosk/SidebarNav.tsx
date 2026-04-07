@@ -81,11 +81,11 @@ export default function SidebarNav({
             transition: 'transform 0.25s ease, opacity 0.2s ease',
           }}
         >
-          <button className="flex items-center gap-2 text-sm mb-4 ripple text-[#ffffff]" onClick={() => onSection(null as unknown as MenuSection)} className="flex items-center gap-2 text-sidebar-primary text-sm mb-4 ripple">
+          <button onClick={() => onSection(null as unknown as MenuSection)} className="flex items-center gap-2 text-sidebar-primary text-sm mb-4 ripple">
             <Icon name="ChevronLeft" size={16} />
             Назад
           </button>
-          <h3 className="font-bold text-lg mb-4 text-[#ffffff]">
+          <h3 className="font-bold text-sidebar-foreground text-lg mb-4">
             {MENU_ITEMS.find(m => m.id === activeSection)?.label || 'Администратор'}
           </h3>
           {activeSection === 'profile' && <ProfileSection driver={driver} />}
