@@ -363,6 +363,10 @@ function TerminalSection() {
   const [activeTab, setActiveTab] = useState('');
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
   const [loadingFile, setLoadingFile] = useState<string | null>(null);
+  const [customFiles, setCustomFiles] = useState<string[]>([]);
+  const [showNewFile, setShowNewFile] = useState(false);
+  const [newFilePath, setNewFilePath] = useState('src/');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
     `> ${PROJECT_FILES.length} файлов проекта`,
@@ -372,12 +376,14 @@ function TerminalSection() {
   const [sidebarWidth] = useState(240);
   const outputRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const newFileInputRef = useRef<HTMLInputElement>(null);
 
-  const tree = buildTree(PROJECT_FILES);
+  const allFiles = [...new Set([...PROJECT_FILES, ...customFiles])].sort();
+  const tree = buildTree(allFiles);
   const allDirs = [...new Set(Object.keys(tree))].sort();
 
   const filteredFiles = search.trim()
-    ? PROJECT_FILES.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
+    ? allFiles.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
     : null;
 
   const fetchFileContent = useCallback(async (path: string) => {
@@ -496,6 +502,79 @@ function TerminalSection() {
     setSyncing(false);
   }, []);
 
+  const handleCreateFile = useCallback(async () => {
+    const path = newFilePath.trim();
+    if (!path || path === 'src/') return;
+    const now = new Date().toLocaleTimeString();
+
+    const ext = path.split('.').pop() || '';
+    let template = '';
+    if (['tsx', 'ts'].includes(ext)) {
+      const name = path.split('/').pop()?.replace(/\.\w+$/, '') || 'Component';
+      if (ext === 'tsx') {
+        template = `export default function ${name}() {\n  return (\n    <div>\n      <h1>${name}</h1>\n    </div>\n  );\n}\n`;
+      } else {
+        template = `// ${name}\n\nexport {};\n`;
+      }
+    } else if (ext === 'css') {
+      template = `/* ${path.split('/').pop()} */\n`;
+    } else if (ext === 'json') {
+      template = `{\n  \n}\n`;
+    } else {
+      template = `// ${path}\n`;
+    }
+
+    setFileContents((c) => ({ ...c, [path]: template }));
+    setCustomFiles((prev) => [...new Set([...prev, path])]);
+
+    const parts = path.split('/');
+    const newDirs = new Set(openDirs);
+    for (let i = 1; i < parts.length; i++) {
+      newDirs.add(parts.slice(0, i).join('/'));
+    }
+    setOpenDirs(newDirs);
+
+    if (!openTabs.includes(path)) setOpenTabs((t) => [...t, path]);
+    setActiveTab(path);
+
+    setOutput((prev) => [...prev, ``, `> [${now}] Создан файл: ${path}`]);
+
+    try {
+      await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content: template }),
+      });
+      setOutput((prev) => [...prev, `> ✓ Файл сохранён в базу данных`]);
+    } catch (err) {
+      setOutput((prev) => [...prev, `> Ошибка сохранения: ${String(err)}`]);
+    }
+
+    setShowNewFile(false);
+    setNewFilePath('src/');
+  }, [newFilePath, openDirs, openTabs]);
+
+  const handleDeleteFile = useCallback(async (path: string) => {
+    const now = new Date().toLocaleTimeString();
+    setCustomFiles((prev) => prev.filter((f) => f !== path));
+    setFileContents((c) => { const next = { ...c }; delete next[path]; return next; });
+    setOpenTabs((tabs) => tabs.filter((t) => t !== path));
+    if (activeTab === path) setActiveTab('');
+
+    setOutput((prev) => [...prev, ``, `> [${now}] Удалён файл: ${path}`]);
+
+    try {
+      await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, content: '' }),
+      });
+      setOutput((prev) => [...prev, `> ✓ Файл удалён из базы данных`]);
+    } catch { /* ignore */ }
+
+    setShowDeleteConfirm(null);
+  }, [activeTab]);
+
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -549,16 +628,27 @@ function TerminalSection() {
             <>
               {files.map((f) => {
                 const fname = f.split('/').pop();
+                const isCustom = customFiles.includes(f);
                 return (
-                  <button
-                    key={f}
-                    onClick={() => openFile(f)}
-                    className={`w-full flex items-center gap-1.5 py-0.5 hover:bg-white/5 rounded text-left ${activeTab === f ? 'bg-white/10' : ''}`}
-                    style={{ paddingLeft: `${20 + depth * 12}px` }}
-                  >
-                    <Icon name={loadingFile === f ? 'Loader' : getFileIcon(f)} className={`w-3 h-3 text-blue-400/70 shrink-0 ${loadingFile === f ? 'animate-spin' : ''}`} />
-                    <span className={`text-xs truncate ${activeTab === f ? 'text-white' : 'text-white/50'}`}>{fname}</span>
-                  </button>
+                  <div key={f} className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''}`}>
+                    <button
+                      onClick={() => openFile(f)}
+                      className="flex items-center gap-1.5 py-0.5 flex-1 min-w-0 text-left"
+                      style={{ paddingLeft: `${20 + depth * 12}px` }}
+                    >
+                      <Icon name={loadingFile === f ? 'Loader' : getFileIcon(f)} className={`w-3 h-3 text-blue-400/70 shrink-0 ${loadingFile === f ? 'animate-spin' : ''}`} />
+                      <span className={`text-xs truncate ${activeTab === f ? 'text-white' : 'text-white/50'}`}>{fname}</span>
+                    </button>
+                    {isCustom && (
+                      <button
+                        onClick={() => setShowDeleteConfirm(f)}
+                        className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/30 transition-all mr-1 shrink-0"
+                        title="Удалить файл"
+                      >
+                        <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
               {children.map((c) => renderDir(c, depth + 1))}
@@ -579,6 +669,13 @@ function TerminalSection() {
           <p className="text-muted-foreground text-sm mt-0.5">Файловый менеджер и редактор кода проекта</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowNewFile(true); setTimeout(() => newFileInputRef.current?.focus(), 100); }}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-500 transition-colors font-medium"
+          >
+            <Icon name="FilePlus" className="w-3.5 h-3.5" />
+            Новый файл
+          </button>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -627,12 +724,53 @@ function TerminalSection() {
             </div>
           </div>
 
-          {/* Explorer label */}
-          <div className="px-3 py-1.5 shrink-0">
+          {/* Explorer label + new file btn */}
+          <div className="flex items-center justify-between px-3 py-1.5 shrink-0">
             <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold">
-              {search ? `Результаты (${filteredFiles?.length ?? 0})` : `Проект (${PROJECT_FILES.length} файлов)`}
+              {search ? `Результаты (${filteredFiles?.length ?? 0})` : `Проект (${allFiles.length} файлов)`}
             </span>
+            <button
+              onClick={() => { setShowNewFile(true); setTimeout(() => newFileInputRef.current?.focus(), 100); }}
+              className="text-white/25 hover:text-white/60 transition-colors"
+              title="Создать файл"
+            >
+              <Icon name="FilePlus" className="w-3.5 h-3.5" />
+            </button>
           </div>
+
+          {/* New file input */}
+          {showNewFile && (
+            <div className="px-2 pb-2 shrink-0">
+              <div className="bg-black/40 rounded border border-white/10 p-2 space-y-2">
+                <div className="text-[10px] text-white/40">Путь к новому файлу:</div>
+                <input
+                  ref={newFileInputRef}
+                  value={newFilePath}
+                  onChange={(e) => setNewFilePath(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFile();
+                    if (e.key === 'Escape') { setShowNewFile(false); setNewFilePath('src/'); }
+                  }}
+                  placeholder="src/components/MyFile.tsx"
+                  className="w-full bg-black/50 text-xs text-white/80 px-2 py-1 rounded border border-white/10 placeholder:text-white/20 focus:outline-none focus:border-white/30 font-mono"
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleCreateFile}
+                    className="flex-1 h-6 text-[10px] bg-emerald-600 text-white rounded hover:bg-emerald-500 transition-colors font-medium"
+                  >
+                    Создать
+                  </button>
+                  <button
+                    onClick={() => { setShowNewFile(false); setNewFilePath('src/'); }}
+                    className="flex-1 h-6 text-[10px] bg-white/10 text-white/50 rounded hover:bg-white/20 transition-colors"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tree or search results */}
           <div className="flex-1 overflow-y-auto py-1">
@@ -738,6 +876,34 @@ function TerminalSection() {
           )}
         </div>
       </div>
+
+      {/* Delete confirm popup */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1c2128] border border-white/10 rounded-xl p-5 w-full max-w-xs mx-4 shadow-2xl">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="AlertTriangle" className="w-5 h-5 text-red-400" />
+              <span className="text-sm font-semibold text-white">Удалить файл?</span>
+            </div>
+            <p className="text-xs text-white/50 mb-1">Файл будет удалён из базы данных:</p>
+            <p className="text-xs text-white/80 font-mono bg-black/30 rounded px-2 py-1 mb-4 break-all">{showDeleteConfirm}</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDeleteFile(showDeleteConfirm)}
+                className="flex-1 h-8 text-xs bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors font-medium"
+              >
+                Удалить
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 h-8 text-xs bg-white/10 text-white/60 rounded-lg hover:bg-white/20 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
