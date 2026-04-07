@@ -81,7 +81,7 @@ export default function SidebarNav({
             transition: 'transform 0.25s ease, opacity 0.2s ease',
           }}
         >
-          <button onClick={() => onSection(null as unknown as MenuSection)} className="flex items-center gap-2 text-sidebar-primary text-sm mb-4 ripple">
+          <button className="flex items-center gap-2 text-sm mb-4 ripple font-semibold text-[#ffffff]" onClick={() => onSection(null as unknown as MenuSection)} className="flex items-center gap-2 text-sidebar-primary text-sm mb-4 ripple">
             <Icon name="ChevronLeft" size={16} />
             Назад
           </button>
