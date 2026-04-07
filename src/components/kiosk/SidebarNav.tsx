@@ -85,7 +85,7 @@ export default function SidebarNav({
             <Icon name="ChevronLeft" size={16} />
             Назад
           </button>
-          <h3 className="font-bold text-sidebar-foreground text-lg mb-4">
+          <h3 className="font-bold text-lg mb-4 text-[#ffffff]">
             {MENU_ITEMS.find(m => m.id === activeSection)?.label || 'Администратор'}
           </h3>
           {activeSection === 'profile' && <ProfileSection driver={driver} />}
