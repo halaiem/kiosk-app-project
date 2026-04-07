@@ -377,6 +377,8 @@ function TerminalSection() {
   const [renamingDir, setRenamingDir] = useState<string | null>(null);
   const [renameDirValue, setRenameDirValue] = useState('');
   const renameDirInputRef = useRef<HTMLInputElement>(null);
+  const [dragFile, setDragFile] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
     `> ${PROJECT_FILES.length} файлов проекта`,
@@ -743,6 +745,57 @@ function TerminalSection() {
     setOutput((prev) => [...prev, ``, `> [${now}] Удалена папка: ${dir} (${filesToRemove.length} файлов)`]);
   }, [customFiles, activeTab]);
 
+  const handleDrop = useCallback(async (targetDir: string) => {
+    if (!dragFile || !targetDir) return;
+    const fileName = dragFile.split('/').pop() || '';
+    const newPath = `${targetDir}/${fileName}`;
+    if (newPath === dragFile) { setDragFile(null); setDropTarget(null); return; }
+    const now = new Date().toLocaleTimeString();
+    const content = fileContents[dragFile] || '';
+
+    if (customFiles.includes(dragFile)) {
+      setCustomFiles((prev) => prev.map((f) => f === dragFile ? newPath : f));
+    } else {
+      setCustomFiles((prev) => [...prev, newPath]);
+    }
+    setFileContents((c) => {
+      const next = { ...c };
+      delete next[dragFile];
+      next[newPath] = content;
+      return next;
+    });
+    setOpenTabs((tabs) => tabs.map((t) => t === dragFile ? newPath : t));
+    if (activeTab === dragFile) setActiveTab(newPath);
+
+    const parts = newPath.split('/');
+    const newDirs = new Set(openDirs);
+    for (let i = 1; i < parts.length; i++) newDirs.add(parts.slice(0, i).join('/'));
+    setOpenDirs(newDirs);
+
+    setOutput((prev) => [...prev, ``, `> [${now}] Перемещён: ${dragFile} → ${newPath}`]);
+
+    try {
+      await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: newPath, content }),
+      });
+      if (customFiles.includes(dragFile)) {
+        await fetch(`${IRIDA_FILES_URL}?action=save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: dragFile, content: '' }),
+        });
+      }
+      setOutput((prev) => [...prev, `> ✓ Перемещение сохранено в БД`]);
+    } catch (err) {
+      setOutput((prev) => [...prev, `> Ошибка: ${String(err)}`]);
+    }
+
+    setDragFile(null);
+    setDropTarget(null);
+  }, [dragFile, fileContents, customFiles, activeTab, openDirs]);
+
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -801,15 +854,20 @@ function TerminalSection() {
       }
       return (
         <div key={dir}>
-          <div className="flex items-center group hover:bg-white/5 rounded">
+          <div
+            className={`flex items-center group rounded transition-colors ${dropTarget === dir ? 'bg-blue-500/20 ring-1 ring-blue-500/40' : 'hover:bg-white/5'}`}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDropTarget(dir); }}
+            onDragLeave={() => setDropTarget(null)}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(dir); }}
+          >
             <button
               onClick={() => toggleDir(dir)}
               className="flex items-center gap-1.5 py-0.5 px-2 flex-1 min-w-0 text-left"
               style={{ paddingLeft: `${8 + depth * 12}px` }}
             >
               <Icon name={isOpen ? 'ChevronDown' : 'ChevronRight'} className="w-3 h-3 text-white/30 shrink-0" />
-              <Icon name={isOpen ? 'FolderOpen' : 'Folder'} className="w-3.5 h-3.5 text-yellow-400/70 shrink-0" />
-              <span className="text-xs text-white/60 truncate">{name}</span>
+              <Icon name={dropTarget === dir ? 'FolderInput' : isOpen ? 'FolderOpen' : 'Folder'} className={`w-3.5 h-3.5 shrink-0 ${dropTarget === dir ? 'text-blue-400' : 'text-yellow-400/70'}`} />
+              <span className={`text-xs truncate ${dropTarget === dir ? 'text-blue-300' : 'text-white/60'}`}>{name}</span>
             </button>
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all mr-1 shrink-0">
               <button onClick={() => handleCreateFolder(dir)} className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20" title="Новая папка">
@@ -870,7 +928,14 @@ function TerminalSection() {
                   );
                 }
                 return (
-                  <div key={f} className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''}`}>
+                  <div
+                    key={f}
+                    draggable
+                    onDragStart={() => setDragFile(f)}
+                    onDragEnd={() => { setDragFile(null); setDropTarget(null); }}
+                    className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''} ${dragFile === f ? 'opacity-40' : ''}`}
+                    style={{ cursor: 'grab' }}
+                  >
                     <button
                       onClick={() => openFile(f)}
                       onDoubleClick={() => isCustom && startRename(f)}
