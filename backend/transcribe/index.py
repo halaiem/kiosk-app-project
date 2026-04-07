@@ -73,7 +73,8 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': '', 'audio_url': audio_url})}
 
         # Яндекс SpeechKit v1 — синхронное распознавание (до 1 минуты)
-        yandex_format = 'oggopus' if ext == 'ogg' else 'webm'
+        yandex_format_map = {'ogg': 'oggopus', 'mp3': 'mp3', 'wav': 'lpcm', 'webm': 'oggopus', 'mp4': 'mp3'}
+        yandex_format = yandex_format_map.get(ext, 'oggopus')
         url = f'https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?lang=ru-RU&format={yandex_format}&profanityFilter=false'
 
         try:
