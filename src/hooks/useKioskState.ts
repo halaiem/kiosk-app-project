@@ -25,6 +25,7 @@ export function useKioskState() {
   const lastMessageIdRef = useRef(0);
   const syncingRef = useRef(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const syncOfflineQueueRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const token = getStoredToken();
@@ -83,7 +84,7 @@ export function useKioskState() {
   useEffect(() => {
     const handleOnline = () => {
       setConnection('online');
-      syncOfflineQueue();
+      syncOfflineQueueRef.current();
     };
     const handleOffline = () => setConnection('offline');
     window.addEventListener('online', handleOnline);
@@ -134,6 +135,10 @@ export function useKioskState() {
       syncingRef.current = false;
     }
   }, []);
+
+  useEffect(() => {
+    syncOfflineQueueRef.current = syncOfflineQueue;
+  }, [syncOfflineQueue]);
 
   useEffect(() => {
     if (screen !== 'main') return;
@@ -290,7 +295,7 @@ export function useKioskState() {
             : m
         ));
       } catch {
-        addToQueue(fullText, 'normal');
+        addToQueue(fullText, 'normal', clientId);
         setMessages(prev => prev.map(m =>
           m.clientId === clientId
             ? { ...m, deliveryStatus: 'pending' }
@@ -299,7 +304,7 @@ export function useKioskState() {
         setPendingCount(p => p + 1);
       }
     } else {
-      addToQueue(fullText, 'normal');
+      addToQueue(fullText, 'normal', clientId);
       setPendingCount(p => p + 1);
     }
   }, []);

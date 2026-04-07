@@ -27,9 +27,9 @@ export function saveQueue(queue: QueuedMessage[]) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
-export function addToQueue(text: string, type = 'normal'): QueuedMessage {
+export function addToQueue(text: string, type = 'normal', clientId?: string): QueuedMessage {
   const msg: QueuedMessage = {
-    clientId: generateClientId(),
+    clientId: clientId || generateClientId(),
     text,
     type,
     createdAt: new Date().toISOString(),
