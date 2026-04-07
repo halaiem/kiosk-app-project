@@ -70,7 +70,7 @@ export function ProfileSection({ driver }: { driver: Driver | null }) {
 
   const tabContent = activeTab && (
     <div className="fixed top-0 left-80 right-0 bottom-0 z-[45] bg-background/95 backdrop-blur-sm overflow-y-auto" onClick={() => setActiveTab(null)}>
-      <div className="max-w-2xl mx-auto p-6" onClick={e => e.stopPropagation()}>
+      <div className="p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-foreground">
             {activeTab === 'info' ? 'Данные водителя' : activeTab === 'schedule' ? 'Расписание' : activeTab === 'docs' ? 'Документы' : 'Оборудование'}
