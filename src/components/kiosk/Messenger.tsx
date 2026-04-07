@@ -228,7 +228,8 @@ export default function Messenger({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
-      const mr = new MediaRecorder(stream);
+      const preferOgg = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus');
+      const mr = new MediaRecorder(stream, preferOgg ? { mimeType: 'audio/ogg;codecs=opus' } : undefined);
       recorderRef.current = mr;
       mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onerror = (e) => { console.error('MediaRecorder error', e); setMicError('Ошибка записи'); };
