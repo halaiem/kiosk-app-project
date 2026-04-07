@@ -107,7 +107,7 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
     setTranscribing(true);
     try {
       let text = '';
-      if (audioUrl) { const r = await fetch(audioUrl); text = await transcribeAudio(await r.blob()); }
+      if (audioUrl) { const r = await fetch(audioUrl); text = await transcribeAudio(await r.blob(), audioUrl); }
       if (!text) text = 'Нет речи для распознавания';
       setTranscriptText(text); setShowTranscript(true); onTranscribed?.(msgId, text);
     } catch { setTranscriptText('Ошибка распознавания'); setShowTranscript(true); }
@@ -139,10 +139,14 @@ function VoiceBubble({ msgId, duration, isOutgoing, transcription, audioUrl, aut
         </div>
         {/* Кнопка транскрибации — отдельная */}
         <button onClick={handleTranscribe} type="button"
-          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
-            isOutgoing ? 'bg-white/10 hover:bg-white/20' : 'bg-muted hover:bg-muted/80'}`}
+          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+            transcriptText && showTranscript
+              ? (isOutgoing ? 'bg-white/30' : 'bg-primary/20')
+              : (isOutgoing ? 'bg-white/10 hover:bg-white/20' : 'bg-muted hover:bg-muted/80')
+          }`}
           title="Распознать текст">
-          <Icon name="FileText" size={13} className={isOutgoing ? 'text-white/60' : 'text-muted-foreground'} />
+          <Icon name={transcribing ? 'Loader' : 'FileText'} size={20}
+            className={`${isOutgoing ? 'text-white/80' : 'text-muted-foreground'} ${transcribing ? 'animate-spin' : ''}`} />
         </button>
       </div>
       {transcribing && (

@@ -9,10 +9,16 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-function getFormat(blob: Blob): string {
-  if (blob.type.includes('ogg')) return 'ogg';
-  if (blob.type.includes('mp4')) return 'mp4';
-  if (blob.type.includes('wav')) return 'wav';
+function getFormat(blob: Blob, url?: string): string {
+  const t = blob.type || '';
+  if (t.includes('ogg')) return 'ogg';
+  if (t.includes('mp4')) return 'mp4';
+  if (t.includes('wav')) return 'wav';
+  if (url) {
+    if (url.includes('.ogg')) return 'ogg';
+    if (url.includes('.mp3')) return 'mp3';
+    if (url.includes('.wav')) return 'wav';
+  }
   return 'webm';
 }
 
@@ -33,10 +39,10 @@ export async function uploadAudio(blob: Blob): Promise<string | undefined> {
   }
 }
 
-/** Транскрибирует аудио через Whisper, возвращает текст */
-export async function transcribeAudio(blob: Blob): Promise<string> {
+/** Транскрибирует аудио, возвращает текст */
+export async function transcribeAudio(blob: Blob, sourceUrl?: string): Promise<string> {
   const audio = await blobToBase64(blob);
-  const format = getFormat(blob);
+  const format = getFormat(blob, sourceUrl);
   const resp = await fetch(TRANSCRIBE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

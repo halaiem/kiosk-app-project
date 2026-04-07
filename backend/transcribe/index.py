@@ -7,6 +7,19 @@ import urllib.error
 import boto3
 
 
+def detect_real_format(audio_bytes: bytes, declared: str) -> str:
+    """Определяет реальный формат по magic bytes заголовка файла."""
+    if audio_bytes[:4] == b'OggS':
+        return 'ogg'
+    if audio_bytes[:4] == b'fLaC':
+        return 'flac'
+    if audio_bytes[:3] == b'ID3' or audio_bytes[:2] == b'\xff\xfb':
+        return 'mp3'
+    if audio_bytes[:4] == b'RIFF':
+        return 'wav'
+    return declared
+
+
 def handler(event: dict, context) -> dict:
     """Принимает base64-аудио, сохраняет в S3, транскрибирует через Яндекс SpeechKit.
     Возвращает: text (распознанный текст) и audio_url (ссылка на аудио в CDN)."""
@@ -37,14 +50,15 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'audio обязателен'})}
 
     audio_bytes = base64.b64decode(audio_b64)
-    print(f"[transcribe] bytes={len(audio_bytes)}, format={audio_format}, transcribe={do_transcribe}")
+
+    real_format = detect_real_format(audio_bytes, audio_format)
+    print(f"[transcribe] bytes={len(audio_bytes)}, declared={audio_format}, real={real_format}, transcribe={do_transcribe}")
 
     ext_map = {'webm': 'webm', 'wav': 'wav', 'ogg': 'ogg', 'mp4': 'mp4', 'mp3': 'mp3'}
-    ext = ext_map.get(audio_format, 'webm')
+    ext = ext_map.get(real_format, real_format)
     mime_map = {'webm': 'audio/webm', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'mp4': 'audio/mp4', 'mp3': 'audio/mpeg'}
     mime = mime_map.get(ext, 'audio/webm')
 
-    # ── S3 upload ─────────────────────────────────────────────────────────────
     audio_url = None
     try:
         aws_key = os.environ.get('AWS_ACCESS_KEY_ID', '')
@@ -59,7 +73,6 @@ def handler(event: dict, context) -> dict:
     except Exception as e:
         print(f"[transcribe] S3 error: {e}")
 
-    # ── Транскрибация через Яндекс SpeechKit ─────────────────────────────────
     text = ''
     if do_transcribe:
         api_key = os.environ.get('YANDEX_SPEECHKIT_KEY', '')
@@ -72,9 +85,9 @@ def handler(event: dict, context) -> dict:
         if len(audio_bytes) < 500:
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'text': '', 'audio_url': audio_url})}
 
-        # Яндекс SpeechKit v1 — синхронное распознавание (до 1 минуты)
-        yandex_format_map = {'ogg': 'oggopus', 'mp3': 'mp3', 'wav': 'lpcm', 'webm': 'oggopus', 'mp4': 'mp3'}
-        yandex_format = yandex_format_map.get(ext, 'oggopus')
+        yandex_format_map = {'ogg': 'oggopus', 'mp3': 'mp3', 'wav': 'lpcm', 'webm': 'oggopus', 'mp4': 'oggopus', 'flac': 'lpcm'}
+        yandex_format = yandex_format_map.get(real_format, 'oggopus')
+        print(f"[transcribe] yandex_format={yandex_format}")
         url = f'https://stt.api.cloud.yandex.net/speech/v1/stt:recognize?lang=ru-RU&format={yandex_format}&profanityFilter=false'
 
         try:
