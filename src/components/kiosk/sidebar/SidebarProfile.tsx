@@ -37,7 +37,7 @@ function DocViewer({ doc, onClose }: { doc: DocFile; onClose: () => void }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="bg-muted/40 rounded-xl p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap font-mono text-xs">
+          <div className="bg-muted/40 rounded-xl p-4 text-3xl text-foreground leading-relaxed whitespace-pre-wrap font-mono">
             {doc.content ?? `${doc.name}\n\nДанный документ содержит регламентирующую информацию.\nДля полного просмотра скачайте файл на устройство.\n\nВерсия документа актуальна на дату последнего обновления системы.`}
           </div>
         </div>
