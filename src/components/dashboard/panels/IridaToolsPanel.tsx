@@ -367,6 +367,9 @@ function TerminalSection() {
   const [showNewFile, setShowNewFile] = useState(false);
   const [newFilePath, setNewFilePath] = useState('src/');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
     `> ${PROJECT_FILES.length} файлов проекта`,
@@ -575,6 +578,68 @@ function TerminalSection() {
     setShowDeleteConfirm(null);
   }, [activeTab]);
 
+  const startRename = useCallback((path: string) => {
+    setRenamingFile(path);
+    setRenameValue(path);
+    setTimeout(() => {
+      const input = renameInputRef.current;
+      if (input) {
+        input.focus();
+        const lastSlash = path.lastIndexOf('/');
+        const dotIdx = path.lastIndexOf('.');
+        input.setSelectionRange(lastSlash + 1, dotIdx > lastSlash ? dotIdx : path.length);
+      }
+    }, 50);
+  }, []);
+
+  const handleRename = useCallback(async () => {
+    if (!renamingFile || !renameValue.trim() || renameValue === renamingFile) {
+      setRenamingFile(null);
+      return;
+    }
+    const oldPath = renamingFile;
+    const newPath = renameValue.trim();
+    const now = new Date().toLocaleTimeString();
+    const content = fileContents[oldPath] || '';
+
+    setCustomFiles((prev) => prev.map((f) => f === oldPath ? newPath : f));
+    setFileContents((c) => {
+      const next = { ...c };
+      delete next[oldPath];
+      next[newPath] = content;
+      return next;
+    });
+    setOpenTabs((tabs) => tabs.map((t) => t === oldPath ? newPath : t));
+    if (activeTab === oldPath) setActiveTab(newPath);
+
+    const parts = newPath.split('/');
+    const newDirs = new Set(openDirs);
+    for (let i = 1; i < parts.length; i++) {
+      newDirs.add(parts.slice(0, i).join('/'));
+    }
+    setOpenDirs(newDirs);
+
+    setOutput((prev) => [...prev, ``, `> [${now}] Переименован: ${oldPath} → ${newPath}`]);
+
+    try {
+      await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: newPath, content }),
+      });
+      await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: oldPath, content: '' }),
+      });
+      setOutput((prev) => [...prev, `> ✓ Файл переименован в базе данных`]);
+    } catch (err) {
+      setOutput((prev) => [...prev, `> Ошибка: ${String(err)}`]);
+    }
+
+    setRenamingFile(null);
+  }, [renamingFile, renameValue, fileContents, activeTab, openDirs]);
+
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -629,10 +694,28 @@ function TerminalSection() {
               {files.map((f) => {
                 const fname = f.split('/').pop();
                 const isCustom = customFiles.includes(f);
+                if (renamingFile === f) {
+                  return (
+                    <div key={f} style={{ paddingLeft: `${20 + depth * 12}px` }} className="py-0.5 pr-1">
+                      <input
+                        ref={renameInputRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename();
+                          if (e.key === 'Escape') setRenamingFile(null);
+                        }}
+                        onBlur={() => handleRename()}
+                        className="w-full bg-black/50 text-xs text-white/80 px-1.5 py-0.5 rounded border border-blue-500/50 font-mono focus:outline-none"
+                      />
+                    </div>
+                  );
+                }
                 return (
                   <div key={f} className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''}`}>
                     <button
                       onClick={() => openFile(f)}
+                      onDoubleClick={() => isCustom && startRename(f)}
                       className="flex items-center gap-1.5 py-0.5 flex-1 min-w-0 text-left"
                       style={{ paddingLeft: `${20 + depth * 12}px` }}
                     >
@@ -640,13 +723,22 @@ function TerminalSection() {
                       <span className={`text-xs truncate ${activeTab === f ? 'text-white' : 'text-white/50'}`}>{fname}</span>
                     </button>
                     {isCustom && (
-                      <button
-                        onClick={() => setShowDeleteConfirm(f)}
-                        className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/30 transition-all mr-1 shrink-0"
-                        title="Удалить файл"
-                      >
-                        <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
-                      </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all mr-1 shrink-0">
+                        <button
+                          onClick={() => startRename(f)}
+                          className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20"
+                          title="Переименовать"
+                        >
+                          <Icon name="Pencil" className="w-2.5 h-2.5 text-white/50" />
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(f)}
+                          className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-500/30"
+                          title="Удалить"
+                        >
+                          <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
