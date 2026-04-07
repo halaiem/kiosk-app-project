@@ -45,7 +45,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Icon name="Palette" size={13} />
           Режим темы
         </div>
@@ -54,8 +54,8 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
             <button key={opt.value} onClick={() => onSetTheme(opt.value)}
               className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border transition-all ripple text-center
                 ${theme === opt.value
-                  ? 'bg-primary/20 border-primary text-sidebar-primary'
-                  : 'bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80'}`}>
+                  ? 'bg-white/30 border-white text-sidebar-foreground'
+                  : 'bg-white/15 border-white/20 text-sidebar-foreground hover:bg-white/25'}`}>
               <Icon name={opt.icon} size={20} className={theme === opt.value ? 'text-sidebar-primary' : 'text-sidebar-foreground/60'} />
               <span className="text-xs font-semibold leading-tight">{opt.label}</span>
               <span className="text-[9px] opacity-60 leading-tight">{opt.desc}</span>
@@ -63,7 +63,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
             </button>
           ))}
         </div>
-        <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar-accent text-xs text-sidebar-foreground/70">
+        <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/15 text-xs text-sidebar-foreground/70">
           <Icon name={isDark ? 'Moon' : 'Sun'} size={13} className={isDark ? 'text-blue-400' : 'text-yellow-400'} />
           <span>Сейчас активен: <strong className="text-sidebar-foreground">{isDark ? 'тёмный' : 'светлый'}</strong> режим</span>
         </div>
@@ -71,11 +71,11 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
 
       {theme === 'auto' && (
         <div>
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Icon name="Clock" size={13} />
             Расписание тёмного режима
           </div>
-          <div className="p-3 rounded-xl bg-sidebar-accent space-y-3">
+          <div className="p-3 rounded-xl bg-white/15 space-y-3">
             {[
               { icon: 'Moon', color: 'text-blue-400', label: 'Тёмная с (час)', val: darkFrom, set: onSetDarkFrom, accent: 'accent-blue-500' },
               { icon: 'Sun', color: 'text-yellow-400', label: 'Светлая с (час)', val: darkTo, set: onSetDarkTo, accent: 'accent-yellow-500' },
@@ -97,7 +97,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
       )}
 
       <div>
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <div className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider mb-2 flex items-center gap-1.5">
           <Icon name="Settings" size={13} />
           Планшет
         </div>
@@ -109,7 +109,7 @@ export function SettingsSection({ theme, isDark, darkFrom, darkTo, onSetTheme, o
             { label: 'Wi-Fi', icon: 'Wifi', value: 'Подключён' },
             { label: 'Bluetooth', icon: 'Bluetooth', value: 'Активен' },
           ].map(s => (
-            <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent">
+            <div key={s.label} className="flex items-center gap-3 p-3 rounded-xl bg-white/20">
               <Icon name={s.icon} size={16} className="text-sidebar-primary" />
               <span className="text-sm text-sidebar-foreground flex-1">{s.label}</span>
               <span className="text-xs text-sidebar-foreground/60">{s.value}</span>
