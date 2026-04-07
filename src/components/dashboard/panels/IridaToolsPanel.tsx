@@ -352,18 +352,21 @@ function buildTree(files: string[]): Record<string, string[]> {
   return tree;
 }
 
+const IRIDA_FILES_URL = 'https://functions.poehali.dev/9a4d89c3-efbe-40ea-baaf-e6b9153785d3';
+
+const sourceFiles = import.meta.glob('/src/**/*.{ts,tsx,css,json}', { query: '?raw', import: 'default', eager: false }) as Record<string, () => Promise<string>>;
+
 function TerminalSection() {
   const [search, setSearch] = useState('');
   const [openDirs, setOpenDirs] = useState<Set<string>>(new Set(['src', 'src/components', 'src/pages', 'src/hooks']));
-  const [openTabs, setOpenTabs] = useState<string[]>(['src/App.tsx']);
-  const [activeTab, setActiveTab] = useState('src/App.tsx');
-  const [fileContents, setFileContents] = useState<Record<string, string>>({
-    'src/App.tsx': `import { QueryClient, QueryClientProvider } from "@tanstack/react-query";\nimport { BrowserRouter, Routes, Route } from "react-router-dom";\nimport { Toaster } from "@/components/ui/toaster";\nimport { Sonner } from "@/components/ui/sonner";\nimport { TooltipProvider } from "@/components/ui/tooltip";\nimport { AppSettingsProvider } from "@/context/AppSettingsContext";\nimport Index from "@/pages/Index";\nimport Dashboard from "@/pages/Dashboard";\nimport Docs from "@/pages/Docs";\nimport NotFound from "@/pages/NotFound";\n\nconst queryClient = new QueryClient();\n\nconst App = () => (\n  <QueryClientProvider client={queryClient}>\n    <AppSettingsProvider>\n      <TooltipProvider>\n        <Toaster />\n        <Sonner />\n        <BrowserRouter>\n          <Routes>\n            <Route path="/" element={<Index />} />\n            <Route path="/docs" element={<Docs />} />\n            <Route path="/dashboard" element={<Dashboard />} />\n            <Route path="*" element={<NotFound />} />\n          </Routes>\n        </BrowserRouter>\n      </TooltipProvider>\n    </AppSettingsProvider>\n  </QueryClientProvider>\n);\n\nexport default App;`,
-  });
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState('');
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
-    `> Загружено ${PROJECT_FILES.length} файлов проекта`,
-    '> Выберите файл в дереве слева для редактирования',
+    `> ${PROJECT_FILES.length} файлов проекта`,
+    '> Выберите файл — содержимое загрузится с сервера',
   ]);
   const [saving, setSaving] = useState(false);
   const [sidebarWidth] = useState(240);
@@ -373,25 +376,42 @@ function TerminalSection() {
   const tree = buildTree(PROJECT_FILES);
   const allDirs = [...new Set(Object.keys(tree))].sort();
 
-  // Фильтрация
   const filteredFiles = search.trim()
     ? PROJECT_FILES.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
     : null;
 
-  const getContent = (path: string) => {
-    if (fileContents[path]) return fileContents[path];
-    return `// ${path}\n// Файл загружен из проекта ИРИДА\n// Редактируйте код здесь\n`;
-  };
+  const fetchFileContent = useCallback(async (path: string) => {
+    setLoadingFile(path);
+    const now = new Date().toLocaleTimeString();
+    setOutput((prev) => [...prev, ``, `> [${now}] Загружаю ${path}...`]);
+    try {
+      const res = await fetch(`${IRIDA_FILES_URL}?action=read&path=${encodeURIComponent(path)}`);
+      const data = await res.json();
+      if (res.ok && data.content !== undefined) {
+        setFileContents((c) => ({ ...c, [path]: data.content }));
+        setOutput((prev) => [...prev, `> ✓ Файл загружен (${data.content.length} символов)`]);
+      } else {
+        setFileContents((c) => ({ ...c, [path]: `// ${path}\n// Файл ещё не загружен в базу данных\n// Нажмите Ctrl+S чтобы сохранить содержимое\n` }));
+        setOutput((prev) => [...prev, `> Файл не найден в БД — создан пустой шаблон`]);
+      }
+    } catch (err) {
+      setFileContents((c) => ({ ...c, [path]: `// ${path}\n// Ошибка загрузки\n` }));
+      setOutput((prev) => [...prev, `> Ошибка загрузки: ${String(err)}`]);
+    } finally {
+      setLoadingFile(null);
+    }
+  }, []);
 
-  const openFile = (path: string) => {
+  const openFile = useCallback((path: string) => {
     if (!openTabs.includes(path)) setOpenTabs((t) => [...t, path]);
     setActiveTab(path);
     if (!fileContents[path]) {
-      setFileContents((c) => ({ ...c, [path]: getContent(path) }));
+      fetchFileContent(path);
+    } else {
+      const now = new Date().toLocaleTimeString();
+      setOutput((prev) => [...prev, ``, `> [${now}] Открыт: ${path} (из кэша)`]);
     }
-    const now = new Date().toLocaleTimeString();
-    setOutput((prev) => [...prev, ``, `> [${now}] Открыт: ${path}`]);
-  };
+  }, [openTabs, fileContents, fetchFileContent]);
 
   const closeTab = (path: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -412,19 +432,69 @@ function TerminalSection() {
     });
   };
 
-  const handleSave = useCallback(() => {
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSave = useCallback(async () => {
     if (!activeTab) return;
     setSaving(true);
     const now = new Date().toLocaleTimeString();
-    setTimeout(() => {
-      setOutput((prev) => [
-        ...prev, ``,
-        `> [${now}] Сохранение ${activeTab}...`,
-        `> ✓ Файл сохранён успешно`,
-      ]);
+    setOutput((prev) => [...prev, ``, `> [${now}] Сохранение ${activeTab}...`]);
+    try {
+      const content = fileContents[activeTab] || '';
+      const res = await fetch(`${IRIDA_FILES_URL}?action=save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: activeTab, content }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setOutput((prev) => [...prev, `> ✓ Файл сохранён в базу данных`]);
+      } else {
+        setOutput((prev) => [...prev, `> Ошибка сохранения: ${data.error || 'unknown'}`]);
+      }
+    } catch (err) {
+      setOutput((prev) => [...prev, `> Ошибка: ${String(err)}`]);
+    } finally {
       setSaving(false);
-    }, 600);
-  }, [activeTab]);
+    }
+  }, [activeTab, fileContents]);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    const now = new Date().toLocaleTimeString();
+    setOutput((prev) => [...prev, ``, `> [${now}] Синхронизация файлов проекта...`]);
+    const keys = Object.keys(sourceFiles);
+    setOutput((prev) => [...prev, `> Найдено ${keys.length} файлов в билде`]);
+
+    let total = 0;
+    const CHUNK = 10;
+    for (let i = 0; i < keys.length; i += CHUNK) {
+      const chunk = keys.slice(i, i + CHUNK);
+      const batch: { path: string; content: string }[] = [];
+      for (const key of chunk) {
+        try {
+          const content = await sourceFiles[key]();
+          const path = key.replace(/^\//, '');
+          batch.push({ path, content });
+        } catch { /* skip */ }
+      }
+      if (batch.length > 0) {
+        try {
+          await fetch(`${IRIDA_FILES_URL}?action=bulk_save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: batch }),
+          });
+          total += batch.length;
+          setOutput((prev) => [...prev, `> Загружено ${total}/${keys.length}...`]);
+        } catch (err) {
+          setOutput((prev) => [...prev, `> Ошибка пакета: ${String(err)}`]);
+        }
+      }
+    }
+    setOutput((prev) => [...prev, `> ✓ Синхронизация завершена: ${total} файлов загружено`]);
+    setSyncing(false);
+  }, []);
 
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -448,7 +518,9 @@ function TerminalSection() {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
   }, [output]);
 
-  const currentCode = activeTab ? (fileContents[activeTab] ?? getContent(activeTab)) : '';
+  const currentCode = activeTab
+    ? (loadingFile === activeTab ? `// Загрузка ${activeTab}...\n` : (fileContents[activeTab] ?? ''))
+    : '';
 
   // Дерево папок рендер
   const renderTree = () => {
@@ -484,7 +556,7 @@ function TerminalSection() {
                     className={`w-full flex items-center gap-1.5 py-0.5 hover:bg-white/5 rounded text-left ${activeTab === f ? 'bg-white/10' : ''}`}
                     style={{ paddingLeft: `${20 + depth * 12}px` }}
                   >
-                    <Icon name={getFileIcon(f)} className="w-3 h-3 text-blue-400/70 shrink-0" />
+                    <Icon name={loadingFile === f ? 'Loader' : getFileIcon(f)} className={`w-3 h-3 text-blue-400/70 shrink-0 ${loadingFile === f ? 'animate-spin' : ''}`} />
                     <span className={`text-xs truncate ${activeTab === f ? 'text-white' : 'text-white/50'}`}>{fname}</span>
                   </button>
                 );
@@ -507,6 +579,15 @@ function TerminalSection() {
           <p className="text-muted-foreground text-sm mt-0.5">Файловый менеджер и редактор кода проекта</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition-colors font-medium"
+            title="Загрузить все файлы проекта в базу данных"
+          >
+            <Icon name={syncing ? 'Loader' : 'RefreshCw'} className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Синхронизация...' : 'Синхронизировать'}
+          </button>
           {activeTab && (
             <>
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded font-mono">{getFileLang(activeTab)}</span>

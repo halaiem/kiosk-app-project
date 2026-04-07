@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS irida_project_files (
+    id SERIAL PRIMARY KEY,
+    file_path TEXT NOT NULL UNIQUE,
+    content TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
