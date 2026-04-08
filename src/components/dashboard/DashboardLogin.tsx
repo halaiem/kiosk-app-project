@@ -16,12 +16,17 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSecretPopup, setShowSecretPopup] = useState(false);
+  const [secretInput, setSecretInput] = useState('');
+  const [secretError, setSecretError] = useState(false);
+  const [secretShake, setSecretShake] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (id === IRIDA_TOOLS_LOGIN && password === IRIDA_TOOLS_PASSWORD) {
       setShowSecretPopup(true);
+      setSecretInput('');
+      setSecretError(false);
       return;
     }
 
@@ -34,8 +39,16 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   };
 
   const handleSecretConfirm = () => {
-    setShowSecretPopup(false);
-    onIridaToolsLogin();
+    if (secretInput === IRIDA_TOOLS_SECRET_CODE) {
+      setShowSecretPopup(false);
+      setSecretInput('');
+      setSecretError(false);
+      onIridaToolsLogin();
+    } else {
+      setSecretError(true);
+      setSecretShake(true);
+      setTimeout(() => setSecretShake(false), 500);
+    }
   };
 
   return (
@@ -114,24 +127,53 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
 
       {showSecretPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-card text-card-foreground rounded-2xl shadow-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-5">
+          <div
+            className="bg-card text-card-foreground rounded-2xl shadow-2xl p-8 w-full max-w-xs mx-4 flex flex-col items-center gap-5"
+            style={secretShake ? { animation: 'shake 0.4s ease' } : undefined}
+          >
             <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'hsl(24 88% 49%)' }}>
-              <Icon name="KeyRound" className="w-7 h-7 text-white" />
+              <Icon name="ShieldCheck" className="w-7 h-7 text-white" />
             </div>
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-1">Секретный код для входа</p>
-              <p className="text-4xl font-black tracking-widest text-foreground">{IRIDA_TOOLS_SECRET_CODE}</p>
+              <h2 className="text-lg font-bold text-foreground mb-1">Двойная проверка</h2>
+              <p className="text-sm text-muted-foreground">Введите секретный код для входа в Irida-Tools</p>
             </div>
-            <p className="text-xs text-muted-foreground text-center">Запомните код — он потребуется для открытия Dashboard</p>
-            <button
-              onClick={handleSecretConfirm}
-              className="w-full h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all"
-            >
-              Войти в Irida-Tools
-            </button>
+            <div className="w-full">
+              <input
+                type="password"
+                value={secretInput}
+                onChange={(e) => { setSecretInput(e.target.value); setSecretError(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSecretConfirm()}
+                placeholder="••••••••"
+                autoFocus
+                className={`w-full h-12 px-4 rounded-lg border text-center text-xl font-mono tracking-[0.4em] bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${secretError ? 'border-destructive ring-destructive/30 bg-destructive/5' : 'border-border focus:ring-ring'}`}
+              />
+              {secretError && (
+                <p className="text-xs text-destructive mt-1.5 text-center flex items-center justify-center gap-1">
+                  <Icon name="AlertCircle" className="w-3 h-3" />
+                  Неверный код
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => { setShowSecretPopup(false); setSecretInput(''); setSecretError(false); }}
+                className="flex-1 h-10 bg-secondary text-secondary-foreground font-medium text-sm rounded-lg hover:bg-secondary/80 transition-all border border-border"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSecretConfirm}
+                disabled={!secretInput}
+                className="flex-1 h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-40"
+              >
+                Подтвердить
+              </button>
+            </div>
           </div>
         </div>
       )}
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`}</style>
     </div>
   );
 }
