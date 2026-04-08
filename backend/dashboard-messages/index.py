@@ -85,14 +85,6 @@ def handler(event, context):
             return get_reactions(cur, schema, qs)
         elif method == 'GET' and action == 'readers':
             return get_readers(cur, schema, user, qs)
-        elif method == 'PUT' and action == 'pin':
-            return toggle_pin(cur, conn, schema, user, event)
-        elif method == 'GET' and action == 'pinned':
-            return get_pinned(cur, schema, user, qs)
-        elif method == 'GET' and action == 'routes':
-            return get_routes(cur, schema)
-        elif method == 'GET' and action == 'vehicles':
-            return get_vehicles(cur, schema)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -181,7 +173,7 @@ def get_messages(cur, conn, schema, user, qs):
 
     cur.execute(
         f"SELECT cm.id, cm.content, cm.subject, cm.created_at, cm.sender_user_id, cm.sender_driver_id, "
-        f"cm.status, cm.is_pinned, cm.pinned_at, "
+        f"cm.status, "
         f"COALESCE(du.full_name, dr.full_name) as sender_name, "
         f"COALESCE(du.role, 'driver') as sender_role "
         f"FROM {schema}.chat_messages cm "
@@ -451,86 +443,3 @@ def get_readers(cur, schema, user, qs):
             unread_list.append(entry)
 
     return resp(200, {'read': read_list, 'unread': unread_list})
-
-
-def toggle_pin(cur, conn, schema, user, event):
-    """Закрепить / открепить сообщение в чате."""
-    body = json.loads(event.get('body') or '{}')
-    message_id = body.get('message_id')
-    chat_id = body.get('chat_id')
-    if not message_id or not chat_id:
-        return resp(400, {'error': 'message_id и chat_id обязательны'})
-
-    cur.execute(
-        f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND user_id = %s",
-        (chat_id, user['id'])
-    )
-    if not cur.fetchone():
-        return resp(403, {'error': 'Нет доступа к чату'})
-
-    cur.execute(
-        f"SELECT is_pinned FROM {schema}.chat_messages WHERE id = %s AND chat_id = %s",
-        (message_id, chat_id)
-    )
-    msg = cur.fetchone()
-    if not msg:
-        return resp(404, {'error': 'Сообщение не найдено'})
-
-    new_state = not msg['is_pinned']
-    if new_state:
-        cur.execute(
-            f"UPDATE {schema}.chat_messages SET is_pinned = TRUE, pinned_at = NOW(), pinned_by = %s WHERE id = %s",
-            (user['id'], message_id)
-        )
-    else:
-        cur.execute(
-            f"UPDATE {schema}.chat_messages SET is_pinned = FALSE, pinned_at = NULL, pinned_by = NULL WHERE id = %s",
-            (message_id,)
-        )
-    conn.commit()
-    return resp(200, {'pinned': new_state})
-
-
-def get_pinned(cur, schema, user, qs):
-    """Получить закреплённые сообщения чата."""
-    chat_id = qs.get('chat_id')
-    if not chat_id:
-        return resp(400, {'error': 'chat_id обязателен'})
-
-    cur.execute(
-        f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND user_id = %s",
-        (chat_id, user['id'])
-    )
-    if not cur.fetchone():
-        return resp(403, {'error': 'Нет доступа к чату'})
-
-    cur.execute(
-        f"SELECT cm.id, cm.content, cm.subject, cm.created_at, cm.pinned_at, "
-        f"cm.sender_user_id, cm.sender_driver_id, "
-        f"COALESCE(du.full_name, dr.full_name) as sender_name "
-        f"FROM {schema}.chat_messages cm "
-        f"LEFT JOIN {schema}.dashboard_users du ON du.id = cm.sender_user_id "
-        f"LEFT JOIN {schema}.drivers dr ON dr.id = cm.sender_driver_id "
-        f"WHERE cm.chat_id = %s AND cm.is_pinned = TRUE "
-        f"ORDER BY cm.pinned_at DESC",
-        (chat_id,)
-    )
-    return resp(200, {'pinned': cur.fetchall()})
-
-
-def get_routes(cur, schema):
-    """Получить список маршрутов для вставки в сообщение."""
-    cur.execute(
-        f"SELECT id, route_number, name FROM {schema}.routes WHERE is_active = TRUE ORDER BY route_number"
-    )
-    rows = cur.fetchall()
-    return resp(200, {'routes': rows})
-
-
-def get_vehicles(cur, schema):
-    """Получить список транспорта для вставки в сообщение."""
-    cur.execute(
-        f"SELECT id, board_number, model FROM {schema}.vehicles WHERE transport_status = 'active' ORDER BY board_number"
-    )
-    rows = cur.fetchall()
-    return resp(200, {'vehicles': rows})

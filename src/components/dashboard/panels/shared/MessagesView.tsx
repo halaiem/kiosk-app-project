@@ -13,10 +13,6 @@ import {
   fetchReactions,
   toggleReaction,
   fetchReaders,
-  togglePin,
-  fetchPinned,
-  fetchRoutes,
-  fetchVehicles,
   type Chat,
   type ChatMessage,
   type ChatUser,
@@ -24,9 +20,6 @@ import {
   type ReactionMap,
   type MessageStatus,
   type ReaderEntry,
-  type PinnedMessage,
-  type RouteItem,
-  type VehicleItem,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -64,17 +57,8 @@ const ROLE_LABELS: Record<string, string> = {
 const REACTION_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
 
 function MessageTicks({ status }: { status: MessageStatus }) {
-  if (status === 'failed') {
-    return (
-      <span title="Не отправлено" className="inline-flex items-center ml-1">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-red-500">
-          <circle cx="6" cy="6" r="5.2" stroke="currentColor" strokeWidth="1.5"/>
-          <path d="M4 4L8 8M8 4L4 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
-      </span>
-    );
-  }
   if (status === 'sent') {
+    // одна серая галочка — отправлено, но не доставлено
     return (
       <span title="Отправлено" className="inline-flex items-center ml-1">
         <svg width="12" height="9" viewBox="0 0 12 9" fill="none" className="text-muted-foreground/60">
@@ -84,6 +68,7 @@ function MessageTicks({ status }: { status: MessageStatus }) {
     );
   }
   if (status === 'delivered') {
+    // двойная серая галочка — доставлено
     return (
       <span title="Доставлено" className="inline-flex items-center ml-1">
         <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-muted-foreground/60">
@@ -93,6 +78,7 @@ function MessageTicks({ status }: { status: MessageStatus }) {
       </span>
     );
   }
+  // read — двойная синяя галочка
   return (
     <span title="Прочитано" className="inline-flex items-center ml-1">
       <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-primary">
@@ -227,18 +213,6 @@ export default function MessagesView({
   const [searchIndex, setSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-
-  // ── State: pin ──
-  const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([]);
-  const [showPinned, setShowPinned] = useState(false);
-
-  // ── State: categories picker ──
-  const [showCatPicker, setShowCatPicker] = useState(false);
-  const [catTab, setCatTab] = useState<'drivers'|'routes'|'vehicles'>('drivers');
-  const [catSearch, setCatSearch] = useState("");
-  const [routes, setRoutes] = useState<RouteItem[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleItem[]>([]);
-  const [catLoaded, setCatLoaded] = useState<Record<string, boolean>>({});
 
   // ── State: reactions ──
   const [reactions, setReactions] = useState<ReactionMap>({});
@@ -429,18 +403,14 @@ export default function MessagesView({
   };
 
   // ── Send message ──
-  const [failedMsgText, setFailedMsgText] = useState<string | null>(null);
-
   const handleSend = async () => {
     if (!activeChatId || (!inputText.trim() && !pendingFile)) return;
     setSending(true);
     setIsSendingMsg(true);
-    setFailedMsgText(null);
-    const textToSend = inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "");
     try {
       const bodyText = replyTo
-        ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${textToSend}`
-        : textToSend;
+        ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "")}`
+        : inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "");
 
       const result = await sendMessage(
         activeChatId,
@@ -459,51 +429,10 @@ export default function MessagesView({
       await loadChats();
     } catch (e) {
       console.error("Failed to send message:", e);
-      setFailedMsgText(textToSend);
     } finally {
       setSending(false);
       setIsSendingMsg(false);
     }
-  };
-
-  // ── Pin handler ──
-  const handleTogglePin = async (msgId: number) => {
-    if (!activeChatId) return;
-    await togglePin(msgId, activeChatId);
-    setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, is_pinned: !m.is_pinned } : m));
-    if (showPinned) {
-      const res = await fetchPinned(activeChatId);
-      setPinnedMessages(res.pinned);
-    }
-  };
-
-  const handleOpenPinned = async () => {
-    if (!activeChatId) return;
-    setShowPinned(true);
-    const res = await fetchPinned(activeChatId);
-    setPinnedMessages(res.pinned);
-  };
-
-  // ── Category picker ──
-  const handleOpenCatPicker = async (tab: 'drivers'|'routes'|'vehicles') => {
-    setShowCatPicker(true);
-    setCatTab(tab);
-    setCatSearch("");
-    if (tab === 'routes' && !catLoaded['routes']) {
-      const res = await fetchRoutes();
-      setRoutes(res.routes);
-      setCatLoaded((p) => ({ ...p, routes: true }));
-    }
-    if (tab === 'vehicles' && !catLoaded['vehicles']) {
-      const res = await fetchVehicles();
-      setVehicles(res.vehicles);
-      setCatLoaded((p) => ({ ...p, vehicles: true }));
-    }
-  };
-
-  const handleCatInsert = (text: string) => {
-    setInputText((prev) => prev ? prev + ' ' + text : text);
-    setShowCatPicker(false);
   };
 
   // ── File selection ──
@@ -695,16 +624,6 @@ export default function MessagesView({
       return true;
     });
   }, [driversAll, activeRoleFilters, participantSearch]);
-
-  // ── All participants of active chat (for category picker) ──
-  const allParticipants = useMemo(() => {
-    if (!activeChat) return [];
-    return activeChat.members.map((m) => ({
-      id: (m.user_id ?? m.driver_id) ?? 0,
-      name: m.name ?? '',
-      role: m.role ?? 'driver',
-    }));
-  }, [activeChat]);
 
   // ── Select all in category ──
   const selectAllUsersInRole = (role: RoleFilter) => {
@@ -904,13 +823,6 @@ export default function MessagesView({
                   {activeChat.title}
                 </h3>
                 <button
-                  onClick={handleOpenPinned}
-                  className={`p-1.5 rounded-lg transition-colors ${showPinned ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:text-foreground"}`}
-                  title="Закреплённые сообщения"
-                >
-                  <Icon name="Pin" className="w-3.5 h-3.5" />
-                </button>
-                <button
                   onClick={() => {
                     setShowSearch((v) => !v);
                     setSearchQuery("");
@@ -1012,14 +924,18 @@ export default function MessagesView({
               ) : (
                 messages.map((msg) => {
                   const isMine = msg.sender_user_id === currentUserId;
+                  const isSearchMatch = searchResults.includes(msg.id);
                   const isCurrentMatch = searchResults[searchIndex] === msg.id;
 
                   return (
                     <div
                       key={msg.id}
                       ref={(el) => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
-                      className={`flex group relative ${isMine ? "justify-end" : "justify-start"} ${isCurrentMatch ? "bg-primary/8 rounded-xl ring-1 ring-primary/30" : ""}`}
+                      className={`flex group ${isMine ? "justify-end" : "justify-start"} ${isSearchMatch ? "relative" : ""}`}
                     >
+                      {isCurrentMatch && (
+                        <div className="absolute inset-0 rounded-xl bg-primary/8 pointer-events-none ring-1 ring-primary/30" />
+                      )}
                       <div
                         className={`flex gap-2 max-w-[70%] items-end ${
                           isMine ? "flex-row-reverse" : "flex-row"
@@ -1175,22 +1091,7 @@ export default function MessagesView({
                               <Icon name="Forward" className="w-3 h-3" />
                               Переслать
                             </button>
-                            <button
-                              onClick={() => handleTogglePin(msg.id)}
-                              className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded ${msg.is_pinned ? "text-amber-500" : "text-muted-foreground hover:text-amber-500"}`}
-                              title={msg.is_pinned ? "Открепить" : "Закрепить"}
-                            >
-                              <Icon name="Pin" className="w-3 h-3" />
-                              {msg.is_pinned ? "Откреп." : "Закрепить"}
-                            </button>
                           </div>
-                          {/* Pin badge */}
-                          {msg.is_pinned && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Icon name="Pin" className="w-2.5 h-2.5 text-amber-500" />
-                              <span className="text-[9px] text-amber-500 font-medium">Закреплено</span>
-                            </div>
-                          )}
 
                           {/* Files */}
                           {msg.files && msg.files.length > 0 && (
@@ -1292,21 +1193,6 @@ export default function MessagesView({
                 </div>
               )}
 
-              {/* Failed message notice */}
-              {failedMsgText && (
-                <div className="mb-2 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1.5">
-                  <Icon name="AlertCircle" className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  <span className="text-[10px] text-red-500 flex-1 truncate">Не отправлено: {failedMsgText}</span>
-                  <button
-                    onClick={() => { setInputText(failedMsgText); setFailedMsgText(null); }}
-                    className="text-[9px] text-red-500 hover:text-red-600 font-medium transition-colors shrink-0"
-                  >Повторить</button>
-                  <button onClick={() => setFailedMsgText(null)} className="text-muted-foreground hover:text-foreground transition-colors">
-                    <Icon name="X" className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-
               {/* Pending file */}
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5">
@@ -1328,105 +1214,6 @@ export default function MessagesView({
                   </button>
                 </div>
               )}
-
-              {/* Category chips */}
-              <div className="mb-2 flex items-center gap-1.5 flex-wrap relative">
-                <button
-                  onClick={() => handleOpenCatPicker('drivers')}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  <Icon name="User" className="w-3 h-3" /> Водители
-                </button>
-                <button
-                  onClick={() => handleOpenCatPicker('routes')}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  <Icon name="Route" className="w-3 h-3" /> Маршруты
-                </button>
-                <button
-                  onClick={() => handleOpenCatPicker('vehicles')}
-                  className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  <Icon name="Bus" className="w-3 h-3" /> Транспорт
-                </button>
-
-                {/* Category picker dropdown */}
-                {showCatPicker && (
-                  <div className="absolute bottom-8 left-0 z-30 bg-card border border-border rounded-xl shadow-xl w-72 flex flex-col overflow-hidden">
-                    {/* Tabs */}
-                    <div className="flex border-b border-border">
-                      {(['drivers','routes','vehicles'] as const).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => { setCatTab(t); setCatSearch(""); if (t === 'routes' && !catLoaded['routes']) fetchRoutes().then(r => { setRoutes(r.routes); setCatLoaded(p => ({...p, routes: true})); }); if (t === 'vehicles' && !catLoaded['vehicles']) fetchVehicles().then(r => { setVehicles(r.vehicles); setCatLoaded(p => ({...p, vehicles: true})); }); }}
-                          className={`flex-1 text-[10px] py-2 font-medium transition-colors ${catTab === t ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}
-                        >
-                          {t === 'drivers' ? '👤 Водители' : t === 'routes' ? '🗺 Маршруты' : '🚌 Транспорт'}
-                        </button>
-                      ))}
-                      <button onClick={() => setShowCatPicker(false)} className="px-2 text-muted-foreground hover:text-foreground">
-                        <Icon name="X" className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    {/* Search */}
-                    <div className="px-3 py-2 border-b border-border">
-                      <input
-                        type="text"
-                        value={catSearch}
-                        onChange={(e) => setCatSearch(e.target.value)}
-                        placeholder="Поиск..."
-                        className="w-full text-xs bg-muted/50 rounded-lg px-2.5 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                        autoFocus
-                      />
-                    </div>
-                    {/* List */}
-                    <div className="max-h-48 overflow-y-auto">
-                      {catTab === 'drivers' && (() => {
-                        const q = catSearch.toLowerCase();
-                        const list = allParticipants.filter(p => !q || p.name.toLowerCase().includes(q));
-                        return list.length === 0
-                          ? <p className="text-[11px] text-muted-foreground text-center py-4">Не найдено</p>
-                          : list.map((p) => (
-                            <button key={p.id} onClick={() => handleCatInsert(`@${p.name}`)}
-                              className="w-full text-left px-3 py-2 text-[11px] text-foreground hover:bg-primary/8 transition-colors flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">{p.name.charAt(0)}</span>
-                              <span className="flex-1 truncate">{p.name}</span>
-                              <span className="text-[9px] text-muted-foreground shrink-0">{ROLE_LABELS[p.role] || p.role}</span>
-                            </button>
-                          ));
-                      })()}
-                      {catTab === 'routes' && (() => {
-                        const q = catSearch.toLowerCase();
-                        const list = routes.filter(r => !q || r.route_number.toLowerCase().includes(q) || r.name?.toLowerCase().includes(q));
-                        return list.length === 0
-                          ? <p className="text-[11px] text-muted-foreground text-center py-4">Нет маршрутов</p>
-                          : list.map((r) => (
-                            <button key={r.id} onClick={() => handleCatInsert(`Маршрут №${r.route_number}${r.name ? ` (${r.name})` : ''}`)}
-                              className="w-full text-left px-3 py-2 text-[11px] text-foreground hover:bg-primary/8 transition-colors flex items-center gap-2">
-                              <Icon name="Route" className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="font-medium">№{r.route_number}</span>
-                              {r.name && <span className="text-muted-foreground truncate">{r.name}</span>}
-                            </button>
-                          ));
-                      })()}
-                      {catTab === 'vehicles' && (() => {
-                        const q = catSearch.toLowerCase();
-                        const list = vehicles.filter(v => !q || v.board_number?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q));
-                        return list.length === 0
-                          ? <p className="text-[11px] text-muted-foreground text-center py-4">Нет транспорта</p>
-                          : list.map((v) => (
-                            <button key={v.id} onClick={() => handleCatInsert(`Борт №${v.board_number}${v.model ? ` (${v.model})` : ''}`)}
-                              className="w-full text-left px-3 py-2 text-[11px] text-foreground hover:bg-primary/8 transition-colors flex items-center gap-2">
-                              <Icon name="Bus" className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="font-medium">Борт {v.board_number}</span>
-                              {v.model && <span className="text-muted-foreground truncate">{v.model}</span>}
-                            </button>
-                          ));
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Text input row */}
               <div className="flex items-end gap-2">
@@ -1760,54 +1547,6 @@ export default function MessagesView({
                   )}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── PINNED MESSAGES PANEL ── */}
-      {showPinned && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowPinned(false)}>
-          <div className="bg-card border border-border rounded-2xl w-[420px] max-h-[65vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <Icon name="Pin" className="w-4 h-4 text-amber-500" />
-              <h3 className="text-sm font-semibold text-foreground flex-1">Закреплённые сообщения</h3>
-              <button onClick={() => setShowPinned(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <Icon name="X" className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {pinnedMessages.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-muted-foreground">
-                  <Icon name="Pin" className="w-8 h-8 mb-2 opacity-20" />
-                  <p className="text-xs">Нет закреплённых сообщений</p>
-                </div>
-              ) : (
-                pinnedMessages.map((pm) => (
-                  <div key={pm.id} className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/6 border border-amber-500/20">
-                    <Icon name="Pin" className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10px] font-semibold text-foreground">{pm.sender_name}</span>
-                        <span className="text-[9px] text-muted-foreground shrink-0">{formatTime(pm.created_at)}</span>
-                      </div>
-                      {pm.subject && <p className="text-[9px] text-primary font-medium mb-0.5">Тема: {pm.subject}</p>}
-                      <p className="text-[11px] text-foreground line-clamp-3">{pm.content}</p>
-                      <button
-                        onClick={() => { messageRefs.current.get(pm.id)?.scrollIntoView({ behavior: "smooth", block: "center" }); setShowPinned(false); }}
-                        className="mt-1.5 text-[9px] text-primary hover:underline"
-                      >Перейти к сообщению</button>
-                    </div>
-                    <button
-                      onClick={async () => { await togglePin(pm.id, activeChatId!); const res = await fetchPinned(activeChatId!); setPinnedMessages(res.pinned); setMessages(prev => prev.map(m => m.id === pm.id ? {...m, is_pinned: false} : m)); }}
-                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
-                      title="Открепить"
-                    >
-                      <Icon name="PinOff" className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
             </div>
           </div>
         </div>
