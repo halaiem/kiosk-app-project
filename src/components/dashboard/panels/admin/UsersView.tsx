@@ -252,6 +252,7 @@ export function UsersView() {
               <th className="text-left px-5 py-2.5 font-medium w-24">ID</th>
               <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
               <th className="text-left px-3 py-2.5 font-medium w-36">Роль</th>
+              <th className="text-left px-3 py-2.5 font-medium w-32">Статус</th>
               <th className="text-right px-5 py-2.5 font-medium w-28">Действия</th>
             </tr>
           </thead>
@@ -342,6 +343,12 @@ export function UsersView() {
                       {ROLE_LABELS[entry.role] || entry.role}
                     </span>
                   </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      <span className="text-green-500">Активен</span>
+                    </div>
+                  </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5 justify-end">
                       {isConfirmDelete ? (
@@ -378,7 +385,7 @@ export function UsersView() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
               </tr>
             )}
           </tbody>
