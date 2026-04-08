@@ -9,6 +9,7 @@ import {
   deleteDashboardUser,
 } from "@/api/dashboardApi";
 import { DriversView } from "@/components/dashboard/panels/technician/TechDriversView";
+import MrmAdminsBlock from "./MrmAdminsBlock";
 
 interface ApiUser {
   id: number;
@@ -71,14 +72,6 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [newRole, setNewRole] = useState<UserRole>("dispatcher");
   const [newPassword, setNewPassword] = useState("");
   const [createError, setCreateError] = useState("");
-
-  // МРМ блок
-  const [mrmUsers, setMrmUsers] = useState<{id: string; name: string; login: string}[]>([]);
-  const [showMrmAdd, setShowMrmAdd] = useState(false);
-  const [mrmForm, setMrmForm] = useState({ name: "", login: "", password: "" });
-  const [mrmEditId, setMrmEditId] = useState<string | null>(null);
-  const [mrmEditForm, setMrmEditForm] = useState({ name: "", login: "", password: "" });
-  const [mrmDeleteId, setMrmDeleteId] = useState<string | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -425,148 +418,9 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
       </div>
 
       {/* ── Блок: Администратор МРМ ── */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center">
-              <Icon name="Building2" className="w-4 h-4 text-orange-500" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">Администратор МРМ</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{mrmUsers.length}</span>
-          </div>
-          <button
-            onClick={() => { setShowMrmAdd(true); setMrmEditId(null); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Icon name="UserPlus" className="w-3.5 h-3.5" />
-            Создать учётную запись
-          </button>
-        </div>
+      <MrmAdminsBlock />
 
-        {showMrmAdd && (
-          <div className="px-5 py-4 border-b border-border bg-muted/30">
-            <p className="text-xs font-semibold text-foreground mb-3">Новый администратор МРМ</p>
-            <div className="grid grid-cols-3 gap-3">
-              <input type="text" placeholder="ФИО" value={mrmForm.name}
-                onChange={(e) => setMrmForm({ ...mrmForm, name: e.target.value })}
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input type="text" placeholder="Логин" value={mrmForm.login}
-                onChange={(e) => setMrmForm({ ...mrmForm, login: e.target.value })}
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input type="password" placeholder="Пароль" value={mrmForm.password}
-                onChange={(e) => setMrmForm({ ...mrmForm, password: e.target.value })}
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => setShowMrmAdd(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                Отмена
-              </button>
-              <button
-                disabled={!mrmForm.name.trim() || !mrmForm.login.trim() || !mrmForm.password.trim()}
-                onClick={() => {
-                  if (!mrmForm.name.trim() || !mrmForm.login.trim()) return;
-                  setMrmUsers(prev => [...prev, { id: Date.now().toString(), name: mrmForm.name, login: mrmForm.login }]);
-                  setMrmForm({ name: "", login: "", password: "" });
-                  setShowMrmAdd(false);
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                Создать
-              </button>
-            </div>
-          </div>
-        )}
 
-        {mrmUsers.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="text-left px-5 py-2.5 font-medium">ФИО</th>
-                <th className="text-left px-3 py-2.5 font-medium">Логин</th>
-                <th className="text-right px-5 py-2.5 font-medium">Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mrmUsers.map((u) => {
-                const isEditing = mrmEditId === u.id;
-                const isConfirmDel = mrmDeleteId === u.id;
-                return (
-                  <tr key={u.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    {isEditing ? (
-                      <>
-                        <td className="px-5 py-2.5">
-                          <input value={mrmEditForm.name} onChange={(e) => setMrmEditForm({ ...mrmEditForm, name: e.target.value })}
-                            className={inputCls + " w-full"} autoFocus />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <input value={mrmEditForm.login} onChange={(e) => setMrmEditForm({ ...mrmEditForm, login: e.target.value })}
-                            className={inputCls + " w-full"} />
-                        </td>
-                        <td className="px-5 py-2.5">
-                          <div className="flex flex-col gap-1.5 items-end">
-                            <input type="password" placeholder="Новый пароль" value={mrmEditForm.password}
-                              onChange={(e) => setMrmEditForm({ ...mrmEditForm, password: e.target.value })}
-                              className={inputCls + " w-36"} />
-                            <div className="flex gap-1.5">
-                              <button onClick={() => {
-                                setMrmUsers(prev => prev.map(x => x.id === u.id ? { ...x, name: mrmEditForm.name, login: mrmEditForm.login } : x));
-                                setMrmEditId(null);
-                              }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-                                <Icon name="Check" className="w-3 h-3" /> Сохранить
-                              </button>
-                              <button onClick={() => setMrmEditId(null)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                                <Icon name="X" className="w-3 h-3" /> Отмена
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-5 py-3 font-medium text-foreground">{u.name}</td>
-                        <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{u.login}</td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-1.5 justify-end">
-                            {isConfirmDel ? (
-                              <>
-                                <span className="text-xs text-destructive font-medium">Удалить?</span>
-                                <button onClick={() => { setMrmUsers(prev => prev.filter(x => x.id !== u.id)); setMrmDeleteId(null); }}
-                                  className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors">
-                                  <Icon name="Check" className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => setMrmDeleteId(null)}
-                                  className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
-                                  <Icon name="X" className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button onClick={() => { setMrmEditId(u.id); setMrmEditForm({ name: u.name, login: u.login, password: "" }); }}
-                                  className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-colors">
-                                  <Icon name="Pencil" className="w-3.5 h-3.5" /> Изменить
-                                </button>
-                                <button onClick={() => setMrmDeleteId(u.id)}
-                                  className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors">
-                                  <Icon name="Trash2" className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <div className="px-5 py-6 text-center text-sm text-muted-foreground">
-            Нет учётных записей администраторов МРМ
-          </div>
-        )}
-      </div>
 
       {/* ── Блок: Водители (1:1 из панели Техника) ── */}
       <div className="h-[600px]">
