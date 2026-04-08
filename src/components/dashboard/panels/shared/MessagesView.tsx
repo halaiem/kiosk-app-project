@@ -10,10 +10,13 @@ import {
   uploadFile,
   markRead,
   pingOnline,
+  fetchReactions,
+  toggleReaction,
   type Chat,
   type ChatMessage,
   type ChatUser,
   type ChatDriver,
+  type ReactionMap,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -47,6 +50,8 @@ const ROLE_LABELS: Record<string, string> = {
   irida_tools: "Irida-Tools",
   driver: "Водитель",
 };
+
+const REACTION_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -158,6 +163,10 @@ export default function MessagesView({
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
 
+  // ── State: reactions ──
+  const [reactions, setReactions] = useState<ReactionMap>({});
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<number | null>(null);
+
   // ── State: reply (quote) ──
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
@@ -165,6 +174,14 @@ export default function MessagesView({
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [forwardSearch, setForwardSearch] = useState("");
   const [forwarding, setForwarding] = useState(false);
+
+  // ── Close emoji picker on outside click ──
+  useEffect(() => {
+    if (!emojiPickerMsgId) return;
+    const handler = () => setEmojiPickerMsgId(null);
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [emojiPickerMsgId]);
 
   // ── State: voice recording ──
   const [recording, setRecording] = useState(false);
@@ -202,11 +219,14 @@ export default function MessagesView({
     async (chatId: number) => {
       setLoadingMessages(true);
       try {
-        const data = await fetchMessages(chatId);
+        const [data, reacts] = await Promise.all([
+          fetchMessages(chatId),
+          fetchReactions(chatId),
+        ]);
         setMessages(data);
+        setReactions(reacts);
         scrollToBottom();
         await markRead(chatId);
-        // Update unread in chats list
         setChats((prev) =>
           prev.map((c) => (c.id === chatId ? { ...c, unread_count: 0 } : c))
         );
@@ -218,6 +238,20 @@ export default function MessagesView({
     },
     [scrollToBottom]
   );
+
+  // ── Handle reaction click ──
+  const handleReaction = async (msgId: number, emoji: string) => {
+    setEmojiPickerMsgId(null);
+    try {
+      await toggleReaction(msgId, emoji);
+      if (activeChatId) {
+        const reacts = await fetchReactions(activeChatId);
+        setReactions(reacts);
+      }
+    } catch (e) {
+      console.error("Reaction failed:", e);
+    }
+  };
 
   // ── Initial load ──
   useEffect(() => {
@@ -238,6 +272,7 @@ export default function MessagesView({
             return prev;
           });
         });
+        fetchReactions(activeChatId).then(setReactions).catch(() => {});
       }
     }, 10000);
     return () => clearInterval(interval);
@@ -824,8 +859,54 @@ export default function MessagesView({
                             );
                           })()}
 
-                          {/* Action buttons — appear on hover */}
-                          <div className={`flex gap-1 mt-1.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                          {/* Existing reactions */}
+                          {reactions[msg.id] && Object.keys(reactions[msg.id]).length > 0 && (
+                            <div className={`flex flex-wrap gap-1 mt-1.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                              {Object.entries(reactions[msg.id]).map(([emoji, data]) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleReaction(msg.id, emoji)}
+                                  title={data.users.map((u) => u.name).join(", ")}
+                                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-muted border border-border text-[11px] hover:bg-primary/10 hover:border-primary/30 transition-colors"
+                                >
+                                  <span>{emoji}</span>
+                                  {data.count > 1 && (
+                                    <span className="text-[9px] text-muted-foreground font-medium">{data.count}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Action buttons + emoji picker trigger */}
+                          <div className={`flex gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+                            {/* Emoji picker button */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-muted-foreground hover:text-yellow-500 px-1 py-0.5 rounded"
+                                title="Добавить реакцию"
+                              >
+                                😊
+                              </button>
+                              {emojiPickerMsgId === msg.id && (
+                                <div
+                                  className={`absolute bottom-6 z-20 flex gap-1 bg-card border border-border rounded-xl shadow-xl px-2 py-1.5 ${isMine ? "right-0" : "left-0"}`}
+                                  onMouseLeave={() => setEmojiPickerMsgId(null)}
+                                >
+                                  {REACTION_EMOJIS.map((e) => (
+                                    <button
+                                      key={e}
+                                      onClick={() => handleReaction(msg.id, e)}
+                                      className="text-lg hover:scale-125 transition-transform p-0.5 rounded"
+                                      title={e}
+                                    >
+                                      {e}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={() => {
                                 setReplyTo(msg);

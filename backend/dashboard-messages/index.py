@@ -79,6 +79,10 @@ def handler(event, context):
             return mark_read(cur, conn, schema, user, qs)
         elif method == 'PUT' and action == 'online':
             return resp(200, {'ok': True})
+        elif method == 'POST' and action == 'react':
+            return toggle_reaction(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'reactions':
+            return get_reactions(cur, schema, qs)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -309,3 +313,58 @@ def upload_file(cur, conn, schema, user, event):
     conn.commit()
 
     return resp(201, {'file_id': file_id, 'file_url': file_url})
+
+
+ALLOWED_EMOJIS = {'👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'}
+
+def toggle_reaction(cur, conn, schema, user, event):
+    body = json.loads(event.get('body') or '{}')
+    message_id = body.get('message_id')
+    emoji = body.get('emoji', '')
+    if not message_id or emoji not in ALLOWED_EMOJIS:
+        return resp(400, {'error': 'Неверные параметры'})
+    cur.execute(
+        f"SELECT id FROM {schema}.chat_reactions WHERE message_id = %s AND user_id = %s AND emoji = %s",
+        (message_id, user['id'], emoji)
+    )
+    existing = cur.fetchone()
+    if existing:
+        cur.execute(f"DELETE FROM {schema}.chat_reactions WHERE id = %s", (existing['id'],))
+        conn.commit()
+        return resp(200, {'action': 'removed'})
+    else:
+        cur.execute(
+            f"INSERT INTO {schema}.chat_reactions (message_id, user_id, emoji) VALUES (%s, %s, %s)",
+            (message_id, user['id'], emoji)
+        )
+        conn.commit()
+        return resp(201, {'action': 'added'})
+
+
+def get_reactions(cur, schema, qs):
+    chat_id = qs.get('chat_id')
+    if not chat_id:
+        return resp(400, {'error': 'chat_id обязателен'})
+    cur.execute(
+        f"SELECT cr.message_id, cr.emoji, cr.user_id, "
+        f"COALESCE(du.full_name, dr.full_name) as user_name "
+        f"FROM {schema}.chat_reactions cr "
+        f"LEFT JOIN {schema}.dashboard_users du ON du.id = cr.user_id "
+        f"LEFT JOIN {schema}.drivers dr ON dr.id = cr.driver_id "
+        f"WHERE cr.message_id IN ("
+        f"  SELECT id FROM {schema}.chat_messages WHERE chat_id = %s"
+        f")",
+        (chat_id,)
+    )
+    rows = cur.fetchall()
+    grouped: dict = {}
+    for r in rows:
+        mid = r['message_id']
+        if mid not in grouped:
+            grouped[mid] = {}
+        emoji = r['emoji']
+        if emoji not in grouped[mid]:
+            grouped[mid][emoji] = {'count': 0, 'users': []}
+        grouped[mid][emoji]['count'] += 1
+        grouped[mid][emoji]['users'].append({'id': r['user_id'], 'name': r['user_name']})
+    return resp(200, {'reactions': grouped})

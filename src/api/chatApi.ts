@@ -151,7 +151,22 @@ export async function pingOnline() {
   return request(`${BASE}?action=online`, { method: 'PUT' });
 }
 
+export type ReactionMap = Record<number, Record<string, { count: number; users: { id: number; name: string }[] }>>;
+
+export async function fetchReactions(chatId: number): Promise<ReactionMap> {
+  const d = await request(`${BASE}?action=reactions&chat_id=${chatId}`);
+  return d.reactions;
+}
+
+export async function toggleReaction(messageId: number, emoji: string): Promise<{ action: 'added' | 'removed' }> {
+  return request(`${BASE}?action=react`, {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, emoji }),
+  });
+}
+
 export default {
   fetchUsers, fetchDrivers, fetchChats, fetchMessages,
   fetchUnread, createChat, sendMessage, uploadFile, markRead, pingOnline,
+  fetchReactions, toggleReaction,
 };
