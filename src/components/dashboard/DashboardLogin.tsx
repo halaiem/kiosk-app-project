@@ -9,11 +9,9 @@ interface DashboardLoginProps {
   onLogin: (id: string, password: string) => Promise<boolean>;
   onIridaToolsLogin: () => void;
   error: string;
-  onRegularLoginSuccess?: () => void;
-  iridaToolsOnly?: boolean;
 }
 
-export default function DashboardLogin({ onLogin, onIridaToolsLogin, error, onRegularLoginSuccess, iridaToolsOnly }: DashboardLoginProps) {
+export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: DashboardLoginProps) {
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -59,10 +57,6 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error, onRe
       return;
     }
 
-    if (iridaToolsOnly) {
-      onRegularLoginSuccess?.();
-      return;
-    }
     setSubmitting(true);
     try {
       await onLogin(id, password);
