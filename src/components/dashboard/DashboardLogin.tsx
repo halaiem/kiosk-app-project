@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 
 const IRIDA_TOOLS_LOGIN = 'tp-tds';
@@ -21,7 +21,29 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   const [secretShake, setSecretShake] = useState(false);
   const [secretAttempts, setSecretAttempts] = useState(0);
   const [secretBlocked, setSecretBlocked] = useState(false);
+  const [blockCountdown, setBlockCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const MAX_ATTEMPTS = 3;
+  const BLOCK_SECONDS = 30;
+
+  useEffect(() => {
+    if (secretBlocked) {
+      setBlockCountdown(BLOCK_SECONDS);
+      countdownRef.current = setInterval(() => {
+        setBlockCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownRef.current!);
+            setSecretBlocked(false);
+            setSecretAttempts(0);
+            setSecretError(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+  }, [secretBlocked]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,12 +182,18 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
                   <p className="text-base font-semibold text-destructive">Доступ заблокирован</p>
                   <p className="text-xs text-muted-foreground mt-1">Превышено количество попыток ввода кода</p>
                 </div>
-                <button
-                  onClick={() => { setShowSecretPopup(false); setSecretInput(''); setSecretError(false); setSecretAttempts(0); setSecretBlocked(false); setId(''); setPassword(''); }}
-                  className="w-full h-10 bg-secondary text-secondary-foreground font-medium text-sm rounded-lg hover:bg-secondary/80 transition-all border border-border"
-                >
-                  Вернуться к входу
-                </button>
+                <div className="w-full space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Повторная попытка через</span>
+                    <span className="font-bold text-destructive tabular-nums">{blockCountdown} сек</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-destructive rounded-full transition-all duration-1000"
+                      style={{ width: `${(blockCountdown / BLOCK_SECONDS) * 100}%` }}
+                    />
+                  </div>
+                </div>
               </>
             ) : (
               <>
