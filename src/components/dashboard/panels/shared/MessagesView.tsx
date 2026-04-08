@@ -87,6 +87,36 @@ function getInitial(name: string): string {
   return (name || "?").charAt(0).toUpperCase();
 }
 
+function exportChat(chat: Chat, msgs: ChatMessage[]) {
+  const lines: string[] = [
+    `=== Экспорт переписки: ${chat.title} ===`,
+    `Дата экспорта: ${new Date().toLocaleString("ru-RU")}`,
+    `Участники: ${chat.members.map((m) => m.name).join(", ")}`,
+    `Всего сообщений: ${msgs.length}`,
+    "═".repeat(50),
+    "",
+  ];
+  for (const m of msgs) {
+    const time = new Date(m.created_at).toLocaleString("ru-RU");
+    lines.push(`[${time}] ${m.sender_name} (${ROLE_LABELS[m.sender_role] || m.sender_role}):`);
+    if (m.subject) lines.push(`  Тема: ${m.subject}`);
+    lines.push(`  ${m.content}`);
+    if (m.files && m.files.length > 0) {
+      for (const f of m.files) {
+        lines.push(`  📎 ${f.file_name} (${formatFileSize(f.file_size)}) — ${f.file_url}`);
+      }
+    }
+    lines.push("");
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `chat_${chat.title.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function MessagesView({
@@ -127,6 +157,13 @@ export default function MessagesView({
   );
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // ── State: voice recording ──
+  const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // ── Refs ──
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -258,6 +295,48 @@ export default function MessagesView({
     }
     setPendingFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // ── Voice recording ──
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        if (blob.size > 5 * 1024 * 1024) {
+          alert("Голосовое сообщение превышает 5 МБ");
+          return;
+        }
+        const ts = new Date().toLocaleString("ru-RU").replace(/[/:, ]/g, "-");
+        const file = new File([blob], `voice_${ts}.webm`, { type: "audio/webm" });
+        setPendingFile(file);
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+    } catch (e) {
+      console.error("Microphone access denied:", e);
+      alert("Нет доступа к микрофону. Проверьте разрешения браузера.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
   };
 
   // ── New chat modal: load users & drivers ──
@@ -574,6 +653,13 @@ export default function MessagesView({
                 <h3 className="text-sm font-semibold text-foreground flex-1 truncate">
                   {activeChat.title}
                 </h3>
+                <button
+                  onClick={() => exportChat(activeChat, messages)}
+                  className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Экспорт переписки"
+                >
+                  <Icon name="Download" className="w-3.5 h-3.5" />
+                </button>
                 <span className="text-[10px] text-muted-foreground">
                   {activeChat.members.length} уч.
                 </span>
@@ -696,6 +782,14 @@ export default function MessagesView({
                                       className="max-w-full max-h-48 rounded-lg border border-border"
                                     />
                                   </a>
+                                ) : file.content_type.startsWith("audio/") ? (
+                                  <div key={file.id} className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border">
+                                    <Icon name="Mic" className="w-4 h-4 text-primary shrink-0" />
+                                    <audio controls preload="metadata" className="h-8 flex-1 min-w-0" style={{ maxWidth: 240 }}>
+                                      <source src={file.file_url} type={file.content_type} />
+                                    </audio>
+                                    <span className="text-[9px] text-muted-foreground shrink-0">{formatFileSize(file.file_size)}</span>
+                                  </div>
                                 ) : (
                                   <a
                                     key={file.id}
@@ -758,11 +852,11 @@ export default function MessagesView({
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5">
                   <Icon
-                    name="Paperclip"
+                    name={pendingFile.type.startsWith("audio/") ? "Mic" : "Paperclip"}
                     className="w-3.5 h-3.5 text-primary shrink-0"
                   />
                   <span className="text-[10px] text-foreground truncate flex-1">
-                    {pendingFile.name}
+                    {pendingFile.type.startsWith("audio/") ? "Голосовое сообщение" : pendingFile.name}
                   </span>
                   <span className="text-[9px] text-muted-foreground">
                     {formatFileSize(pendingFile.size)}
@@ -825,6 +919,30 @@ export default function MessagesView({
                     el.style.height = Math.min(el.scrollHeight, 100) + "px";
                   }}
                 />
+
+                {/* Microphone button */}
+                {recording ? (
+                  <button
+                    onClick={stopRecording}
+                    className="p-2 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-colors shrink-0 animate-pulse"
+                    title="Остановить запись"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="Square" className="w-3.5 h-3.5 fill-current" />
+                      <span className="text-[10px] font-mono font-bold tabular-nums">
+                        {Math.floor(recordingTime / 60).toString().padStart(2, "0")}:{(recordingTime % 60).toString().padStart(2, "0")}
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    onClick={startRecording}
+                    className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    title="Записать голосовое"
+                  >
+                    <Icon name="Mic" className="w-4 h-4" />
+                  </button>
+                )}
 
                 {/* Send button */}
                 <button
