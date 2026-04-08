@@ -143,7 +143,21 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
             </button>
           </form>
 
-
+          <div className="mt-6 pt-5 border-t border-border">
+            <p className="text-xs text-muted-foreground text-center mb-2">Демо-доступ</p>
+            <div className="space-y-1">
+              {[
+                { id: "D001", pass: "disp123", role: "Диспетчер" },
+                { id: "T001", pass: "tech123", role: "Техник" },
+                { id: "A001", pass: "admin123", role: "Админ" },
+              ].map((cred) => (
+                <div key={cred.id} className="flex items-center justify-between text-xs text-muted-foreground/70 px-2">
+                  <span className="font-mono">{cred.id} / {cred.pass}</span>
+                  <span>{cred.role}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
