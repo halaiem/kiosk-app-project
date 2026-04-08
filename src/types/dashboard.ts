@@ -9,9 +9,9 @@ export interface DashboardUser {
   isActive: boolean;
 }
 
-export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues';
-export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'daily_assignment' | 'diagnostics';
-export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles';
+export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues' | 'dash_messages';
+export type TechnicianTab = 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'daily_assignment' | 'diagnostics' | 'dash_messages';
+export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles' | 'dash_messages';
 export type IridaToolsTab = 'cities' | 'it_settings' | 'ui_design' | 'software' | 'connection' | 'server' | 'equipment' | 'instructions' | 'database' | 'it_logs' | 'code_editor' | 'terminal';
 export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab | IridaToolsTab;
 

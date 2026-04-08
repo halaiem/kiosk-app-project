@@ -3,6 +3,7 @@ import { OverviewView } from "./dispatcher/DispatcherOverview";
 import { MessagesView } from "./dispatcher/DispatcherMessages";
 import { NotificationsView, AlertsView } from "./dispatcher/DispatcherAlertsNotif";
 import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
+import DashMessagesView from "./shared/MessagesView";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -28,6 +29,7 @@ interface DispatcherPanelProps {
   onResolveIssue: (id: string, notes?: string) => void;
   userName: string;
   onOpenMessages?: () => void;
+  currentUserId?: number;
 }
 
 export default function DispatcherPanel({
@@ -45,6 +47,7 @@ export default function DispatcherPanel({
   onResolveIssue,
   userName,
   onOpenMessages,
+  currentUserId,
 }: DispatcherPanelProps) {
   if (tab === "overview") {
     return (
@@ -75,6 +78,9 @@ export default function DispatcherPanel({
 
   if (tab === "messages") {
     return (<>{criticalPopup}<MessagesView messages={messages} drivers={drivers} onSendMessage={onSendMessage} onMarkMessageRead={onMarkMessageRead} /></>);
+  }
+  if (tab === "dash_messages") {
+    return (<>{criticalPopup}<DashMessagesView currentUserId={currentUserId || 0} /></>);
   }
   if (tab === "notifications") {
     return (<>{criticalPopup}<NotificationsView notifications={notifications} onMarkNotificationRead={onMarkNotificationRead} /></>);

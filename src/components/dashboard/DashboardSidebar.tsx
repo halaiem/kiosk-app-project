@@ -30,7 +30,8 @@ interface NavItem {
 
 const DISPATCHER_NAV: NavItem[] = [
   { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
-  { tab: "messages", icon: "MessageSquare", label: "Сообщения" },
+  { tab: "messages", icon: "MessageSquare", label: "Водители" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessagesSquare", label: "Мессенджер" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
   { tab: "vehicle_issues", icon: "Truck", label: "Проблемы ТС" },
@@ -44,6 +45,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "schedule", icon: "Calendar", label: "Расписание" },
   { tab: "daily_assignment", icon: "ClipboardList", label: "Наряд на день" },
   { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -53,6 +55,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
   { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];
 
 const IRIDA_TOOLS_NAV: NavItem[] = [

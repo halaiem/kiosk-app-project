@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useNewMessageNotifier } from '@/hooks/useNewMessageNotifier';
 import { useAppSettings } from '@/context/AppSettingsContext';
+import { fetchUnread } from '@/api/chatApi';
 import DashboardLogin from '@/components/dashboard/DashboardLogin';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
@@ -11,6 +12,7 @@ import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
 import AdminPanel from '@/components/dashboard/panels/AdminPanel';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import Icon from '@/components/ui/icon';
+import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
 import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
@@ -64,12 +66,28 @@ export default function Dashboard() {
 
   useNewMessageNotifier(activeUser?.role === 'dispatcher' ? data.messages : []);
 
+  const [chatUnread, setChatUnread] = useState(0);
+  const pollChatUnread = useCallback(async () => {
+    if (!activeUser) return;
+    try {
+      const u = await fetchUnread();
+      setChatUnread(u.length);
+    } catch (e) { void e; }
+  }, [activeUser]);
+
+  useEffect(() => {
+    pollChatUnread();
+    const iv = setInterval(pollChatUnread, 15000);
+    return () => clearInterval(iv);
+  }, [pollChatUnread]);
+
   const counts = useMemo(() => ({
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
     notifications: data.notifications.filter((n) => !n.read).length,
     alerts: data.alerts.filter((a) => !a.resolved).length,
     vehicle_issues: data.issueReports.filter((r) => r.reportStatus === 'new').length,
-  }), [data.messages, data.notifications, data.alerts, data.issueReports]);
+    dash_messages: chatUnread,
+  }), [data.messages, data.notifications, data.alerts, data.issueReports, chatUnread]);
 
   if (loading) {
     return (
@@ -125,6 +143,7 @@ export default function Dashboard() {
             onResolveIssue={data.resolveIssue}
             userName={activeUser.name}
             onOpenMessages={() => setActiveTab('messages')}
+            currentUserId={Number(activeUser.id)}
           />
         )}
         {activeUser.role === 'technician' && (
@@ -137,6 +156,7 @@ export default function Dashboard() {
             schedule={data.schedule}
             onUpdateDocumentStatus={data.updateDocumentStatus}
             onReload={data.reload}
+            currentUserId={Number(activeUser.id)}
           />
         )}
         {activeUser.role === 'admin' && (
@@ -146,12 +166,19 @@ export default function Dashboard() {
             logs={data.logs}
             drivers={data.drivers}
             onReload={data.reload}
+            currentUserId={Number(activeUser.id)}
           />
         )}
         {activeUser.role === 'irida_tools' && (
           <IridaToolsPanel tab={activeTab as IridaToolsTab} />
         )}
       </main>
+      {activeUser.role !== 'irida_tools' && (
+        <ChatNotificationToast
+          currentUserId={Number(activeUser.id)}
+          onOpenChat={() => setActiveTab('dash_messages' as DashboardTab)}
+        />
+      )}
     </div>
   );
 }

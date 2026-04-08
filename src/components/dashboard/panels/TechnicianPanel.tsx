@@ -4,6 +4,7 @@ import { VehiclesView, DriversView } from "./technician/TechVehiclesDrivers";
 import { ScheduleView } from "./technician/TechSchedule";
 import { TechDiagnosticsView } from "./technician/TechDiagnosticsView";
 import { DailyAssignmentView } from "./technician/TechDailyAssignment";
+import MessagesView from "./shared/MessagesView";
 import type {
   TechnicianTab,
   RouteInfo,
@@ -22,6 +23,7 @@ interface TechnicianPanelProps {
   schedule: ScheduleEntry[];
   onUpdateDocumentStatus: (id: string, status: DocumentInfo["status"]) => void;
   onReload?: () => void;
+  currentUserId?: number;
 }
 
 export default function TechnicianPanel({
@@ -33,6 +35,7 @@ export default function TechnicianPanel({
   schedule,
   onUpdateDocumentStatus,
   onReload,
+  currentUserId,
 }: TechnicianPanelProps) {
   if (tab === "routes") return <RoutesView routes={routes} onReload={onReload} />;
   if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} onReload={onReload} />;
@@ -41,5 +44,6 @@ export default function TechnicianPanel({
   if (tab === "schedule") return <ScheduleView schedule={schedule} onReload={onReload} />;
   if (tab === "daily_assignment") return <DailyAssignmentView routes={routes} drivers={drivers} vehicles={vehicles} schedule={schedule} onReload={onReload} />;
   if (tab === "diagnostics") return <TechDiagnosticsView onReload={onReload} />;
+  if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
   return null;
 }
