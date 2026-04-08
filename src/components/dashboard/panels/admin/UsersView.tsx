@@ -48,6 +48,10 @@ export function UsersView() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [editRoleId, setEditRoleId] = useState<number | null>(null);
+  const [editRoleValue, setEditRoleValue] = useState<UserRole>("dispatcher");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("dispatcher");
@@ -122,9 +126,20 @@ export function UsersView() {
   const handleDelete = async (userId: number) => {
     try {
       await deleteDashboardUser(userId);
+      setDeleteConfirmId(null);
       await loadUsers();
     } catch (e) {
       console.error('Delete user:', e);
+    }
+  };
+
+  const handleSaveRole = async (userId: number) => {
+    try {
+      await updateDashboardUser({ id: userId, role: editRoleValue });
+      setEditRoleId(null);
+      await loadUsers();
+    } catch (e) {
+      console.error('Change role:', e);
     }
   };
 
@@ -263,7 +278,9 @@ export function UsersView() {
           <tbody>
             {filtered.map((entry) => {
               const isBlocked = !entry.is_active;
-              const isEditing = editingUserId === entry.employee_id;
+              const isEditingPwd = editingUserId === entry.employee_id;
+              const isEditingRole = editRoleId === entry.id;
+              const isConfirmDelete = deleteConfirmId === entry.id;
               return (
                 <tr
                   key={entry.id}
@@ -272,9 +289,36 @@ export function UsersView() {
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
                   <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
                   <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role]}`}>
-                      {ROLE_LABELS[entry.role]}
-                    </span>
+                    {isEditingRole ? (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={editRoleValue}
+                          onChange={(e) => setEditRoleValue(e.target.value as UserRole)}
+                          className="h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                          autoFocus
+                        >
+                          <option value="dispatcher">Диспетчер</option>
+                          <option value="technician">Техник</option>
+                          <option value="admin">Администратор</option>
+                        </select>
+                        <button
+                          onClick={() => handleSaveRole(entry.id)}
+                          className="w-6 h-6 rounded bg-green-500/15 text-green-500 hover:bg-green-500/25 flex items-center justify-center transition-colors"
+                        >
+                          <Icon name="Check" className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditRoleId(null)}
+                          className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                        >
+                          <Icon name="X" className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role]}`}>
+                        {ROLE_LABELS[entry.role]}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <button
@@ -291,7 +335,7 @@ export function UsersView() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5 justify-end">
-                      {isEditing ? (
+                      {isEditingPwd ? (
                         <div className="flex items-center gap-1.5">
                           <input
                             type="password"
@@ -308,10 +352,23 @@ export function UsersView() {
                             <Icon name="Check" className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => {
-                              setEditingUserId(null);
-                              setEditPassword("");
-                            }}
+                            onClick={() => { setEditingUserId(null); setEditPassword(""); }}
+                            className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                          >
+                            <Icon name="X" className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : isConfirmDelete ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-destructive font-medium">Удалить?</span>
+                          <button
+                            onClick={() => handleDelete(entry.id)}
+                            className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors"
+                          >
+                            <Icon name="Check" className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
                             className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
                           >
                             <Icon name="X" className="w-3.5 h-3.5" />
@@ -320,17 +377,21 @@ export function UsersView() {
                       ) : (
                         <>
                           <button
-                            onClick={() => {
-                              setEditingUserId(entry.employee_id);
-                              setEditPassword("");
-                            }}
+                            onClick={() => { setEditingUserId(entry.employee_id); setEditPassword(""); setEditRoleId(null); }}
                             className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
                             title="Изменить пароль"
                           >
                             <Icon name="Key" className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(entry.id)}
+                            onClick={() => { setEditRoleId(entry.id); setEditRoleValue(entry.role); setEditingUserId(null); }}
+                            className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                            title="Изменить роль"
+                          >
+                            <Icon name="UserCog" className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => { setDeleteConfirmId(entry.id); setEditingUserId(null); setEditRoleId(null); }}
                             className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
                             title="Удалить"
                           >
