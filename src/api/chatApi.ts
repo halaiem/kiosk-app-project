@@ -67,6 +67,8 @@ export interface ChatFile {
   content_type: string;
 }
 
+export type MessageStatus = 'sent' | 'delivered' | 'read';
+
 export interface ChatMessage {
   id: number;
   content: string;
@@ -76,6 +78,7 @@ export interface ChatMessage {
   sender_driver_id: number | null;
   sender_name: string;
   sender_role: string;
+  status: MessageStatus;
   files: ChatFile[];
 }
 

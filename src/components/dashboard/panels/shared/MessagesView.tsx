@@ -17,6 +17,7 @@ import {
   type ChatUser,
   type ChatDriver,
   type ReactionMap,
+  type MessageStatus,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -52,6 +53,39 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const REACTION_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
+
+function MessageTicks({ status }: { status: MessageStatus }) {
+  if (status === 'sent') {
+    // одна серая галочка — отправлено, но не доставлено
+    return (
+      <span title="Отправлено" className="inline-flex items-center ml-1">
+        <svg width="12" height="9" viewBox="0 0 12 9" fill="none" className="text-muted-foreground/60">
+          <path d="M1 4.5L4 7.5L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    );
+  }
+  if (status === 'delivered') {
+    // двойная серая галочка — доставлено
+    return (
+      <span title="Доставлено" className="inline-flex items-center ml-1">
+        <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-muted-foreground/60">
+          <path d="M1 4.5L4 7.5L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M5 4.5L8 7.5L15 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    );
+  }
+  // read — двойная синяя галочка
+  return (
+    <span title="Прочитано" className="inline-flex items-center ml-1">
+      <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-primary">
+        <path d="M1 4.5L4 7.5L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M5 4.5L8 7.5L15 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </span>
+  );
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -162,6 +196,9 @@ export default function MessagesView({
   );
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // ── State: optimistic sending ──
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
 
   // ── State: reactions ──
   const [reactions, setReactions] = useState<ReactionMap>({});
@@ -307,6 +344,7 @@ export default function MessagesView({
   const handleSend = async () => {
     if (!activeChatId || (!inputText.trim() && !pendingFile)) return;
     setSending(true);
+    setIsSendingMsg(true);
     try {
       const bodyText = replyTo
         ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "")}`
@@ -331,6 +369,7 @@ export default function MessagesView({
       console.error("Failed to send message:", e);
     } finally {
       setSending(false);
+      setIsSendingMsg(false);
     }
   };
 
@@ -815,8 +854,15 @@ export default function MessagesView({
                             >
                               {msg.sender_name}
                             </span>
-                            <span className="text-[9px] text-muted-foreground shrink-0">
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
                               {formatTime(msg.created_at)}
+                              {isMine && (
+                                <MessageTicks status={
+                                  isSendingMsg && messages[messages.length - 1]?.id === msg.id
+                                    ? 'sent'
+                                    : (msg.status || 'sent')
+                                } />
+                              )}
                             </span>
                           </div>
 

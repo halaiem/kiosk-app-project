@@ -162,8 +162,16 @@ def get_messages(cur, conn, schema, user, qs):
     if not cur.fetchone():
         return resp(403, {'error': 'Нет доступа к чату'})
 
+    # Пометить все входящие как delivered при загрузке
+    cur.execute(
+        f"UPDATE {schema}.chat_messages SET status = 'delivered' "
+        f"WHERE chat_id = %s AND status = 'sent' AND sender_user_id != %s",
+        (chat_id, user['id'])
+    )
+
     cur.execute(
         f"SELECT cm.id, cm.content, cm.subject, cm.created_at, cm.sender_user_id, cm.sender_driver_id, "
+        f"cm.status, "
         f"COALESCE(du.full_name, dr.full_name) as sender_name, "
         f"COALESCE(du.role, 'driver') as sender_role "
         f"FROM {schema}.chat_messages cm "
@@ -179,10 +187,29 @@ def get_messages(cur, conn, schema, user, qs):
         )
         m['files'] = cur.fetchall()
 
+    # Обновить last_read_at и пометить как read все delivered-сообщения от других
     cur.execute(
         f"UPDATE {schema}.chat_members SET last_read_at = NOW() WHERE chat_id = %s AND user_id = %s",
         (chat_id, user['id'])
     )
+
+    # Считаем: если все не-отправители прочли — статус read
+    # (участников > 1, у всех last_read_at >= created_at)
+    cur.execute(
+        f"SELECT COUNT(*) as total FROM {schema}.chat_members WHERE chat_id = %s", (chat_id,)
+    )
+    total_members = cur.fetchone()['total']
+
+    if total_members > 1:
+        cur.execute(
+            f"UPDATE {schema}.chat_messages SET status = 'read' "
+            f"WHERE chat_id = %s AND status = 'delivered' AND sender_user_id != %s "
+            f"AND (SELECT COUNT(*) FROM {schema}.chat_members cm2 "
+            f"     WHERE cm2.chat_id = %s AND cm2.user_id != sender_user_id "
+            f"     AND cm2.last_read_at >= created_at) >= (SELECT COUNT(*) - 1 FROM {schema}.chat_members WHERE chat_id = %s)",
+            (chat_id, user['id'], chat_id, chat_id)
+        )
+
     conn.commit()
 
     return resp(200, {'messages': msgs})
