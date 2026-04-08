@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import type {
-  VehicleInfo,
   DriverInfo,
   DriverLifecycleStatus,
 } from "@/types/dashboard";
@@ -21,17 +20,10 @@ export default function DriverEditModal({
   onReload,
 }: DriverEditModalProps) {
   const [eName, setEName] = useState(driver.name);
+  const [eTabNumber, setETabNumber] = useState(driver.tabNumber || "");
   const [ePin, setEPin] = useState(driver.pin || "");
   const [eOriginalPin] = useState(driver.pin || "");
   const [ePhone, setEPhone] = useState(driver.phone || "");
-  const [eVehicleType, setEVehicleType] = useState<VehicleInfo["type"] | "">(
-    (driver.vehicleType as VehicleInfo["type"]) || ""
-  );
-  const [eVehicleNumber, setEVehicleNumber] = useState(driver.vehicleNumber || "");
-  const [eRoute, setERoute] = useState(driver.routeNumber || "");
-  const [eShiftStart, setEShiftStart] = useState(
-    driver.shiftStart ? formatTime(driver.shiftStart) : "08:00"
-  );
   const [eDriverStatus, setEDriverStatus] =
     useState<DriverLifecycleStatus>(driver.driverStatus || "active");
   const [eStatusNote, setEStatusNote] = useState(driver.statusNote || "");
@@ -39,6 +31,9 @@ export default function DriverEditModal({
   const [eTechPassword, setETechPassword] = useState("");
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // suppress unused warning — formatTime used via driver.shiftStart display only
+  void formatTime;
 
   const pinChanged = ePin.trim() !== eOriginalPin;
 
@@ -53,11 +48,12 @@ export default function DriverEditModal({
       const payload: Record<string, unknown> = {
         id: driver.id,
         fullName: eName.trim(),
+        tabNumber: eTabNumber.trim() || null,
         phone: ePhone.trim() || null,
-        vehicleType: eVehicleType || "tram",
-        vehicleNumber: eVehicleNumber.trim(),
-        routeNumber: eRoute.trim(),
-        shiftStart: eShiftStart,
+        vehicleType: driver.vehicleType || "tram",
+        vehicleNumber: driver.vehicleNumber || "",
+        routeNumber: driver.routeNumber || "",
+        shiftStart: driver.shiftStart ? formatTime(driver.shiftStart) : "08:00",
         driverStatus: eDriverStatus,
         statusNote: eStatusNote.trim(),
         rating: parseFloat(eRating) || 4.5,
@@ -78,14 +74,15 @@ export default function DriverEditModal({
     }
   }, [
     driver.id,
+    driver.vehicleType,
+    driver.vehicleNumber,
+    driver.routeNumber,
+    driver.shiftStart,
     eName,
+    eTabNumber,
     ePin,
     eOriginalPin,
     ePhone,
-    eVehicleType,
-    eVehicleNumber,
-    eRoute,
-    eShiftStart,
     eDriverStatus,
     eStatusNote,
     eRating,
@@ -133,6 +130,18 @@ export default function DriverEditModal({
           </div>
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Таб. номер
+            </label>
+            <input
+              type="text"
+              value={eTabNumber}
+              onChange={(e) => setETabNumber(e.target.value)}
+              placeholder="0001"
+              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
               Телефон
             </label>
             <input
@@ -140,59 +149,6 @@ export default function DriverEditModal({
               value={ePhone}
               onChange={(e) => setEPhone(e.target.value)}
               placeholder="+7 (9XX) XXX-XX-XX"
-              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Тип ТС
-            </label>
-            <select
-              value={eVehicleType}
-              onChange={(e) =>
-                setEVehicleType(e.target.value as VehicleInfo["type"])
-              }
-              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">— выберите —</option>
-              <option value="tram">Трамвай</option>
-              <option value="trolleybus">Троллейбус</option>
-              <option value="bus">Автобус</option>
-              <option value="electrobus">Электробус</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Бортовой номер
-            </label>
-            <input
-              type="text"
-              value={eVehicleNumber}
-              onChange={(e) => setEVehicleNumber(e.target.value)}
-              placeholder="ТМ-3450"
-              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Маршрут
-            </label>
-            <input
-              type="text"
-              value={eRoute}
-              onChange={(e) => setERoute(e.target.value)}
-              placeholder="5"
-              className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Начало смены
-            </label>
-            <input
-              type="time"
-              value={eShiftStart}
-              onChange={(e) => setEShiftStart(e.target.value)}
               className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -259,7 +215,7 @@ export default function DriverEditModal({
                   value={ePin}
                   onChange={(e) =>
                     setEPin(
-                      e.target.value.replace(/\D/g, "").slice(0, 6)
+                      e.target.value.replace(/\D/g, "").slice(0, 8)
                     )
                   }
                   placeholder="1234"
