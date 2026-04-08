@@ -3,6 +3,14 @@ import { Highlight, themes } from 'prism-react-renderer';
 import JSZip from 'jszip';
 import Icon from '@/components/ui/icon';
 import DatabaseSection from './DatabaseSection';
+import CitiesSection from './irida/CitiesSection';
+import ItSettingsSection from './irida/ItSettingsSection';
+import UiDesignSection from './irida/UiDesignSection';
+import SoftwareSection from './irida/SoftwareSection';
+import ConnectionSection from './irida/ConnectionSection';
+import ServerSection from './irida/ServerSection';
+import EquipmentSection from './irida/EquipmentSection';
+import InstructionsSection from './irida/InstructionsSection';
 import type { IridaToolsTab } from '@/types/dashboard';
 
 interface IridaToolsPanelProps {
@@ -1562,60 +1570,17 @@ function TerminalSection() {
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 export default function IridaToolsPanel({ tab }: IridaToolsPanelProps) {
+  if (tab === 'cities') return <CitiesSection />;
+  if (tab === 'it_settings') return <ItSettingsSection />;
+  if (tab === 'ui_design') return <UiDesignSection />;
+  if (tab === 'software') return <SoftwareSection />;
+  if (tab === 'connection') return <ConnectionSection />;
+  if (tab === 'server') return <ServerSection />;
+  if (tab === 'equipment') return <EquipmentSection />;
+  if (tab === 'instructions') return <InstructionsSection />;
   if (tab === 'database') return <DatabaseSection />;
   if (tab === 'it_logs') return <LogsSection />;
   if (tab === 'terminal') return <TerminalSection />;
 
-  const SECTIONS: Record<Exclude<IridaToolsTab, 'database' | 'it_logs' | 'terminal'>, { title: string; icon: string; description: string }> = {
-    cities: {
-      title: 'Города',
-      icon: 'Building2',
-      description: 'Управление городами и регионами присутствия системы ИРИДА',
-    },
-    it_settings: {
-      title: 'Настройки',
-      icon: 'Settings2',
-      description: 'Системные настройки и конфигурация платформы',
-    },
-    ui_design: {
-      title: 'UI-дизайн',
-      icon: 'Palette',
-      description: 'Управление интерфейсом, темами и визуальными компонентами',
-    },
-    software: {
-      title: 'ПО',
-      icon: 'Package',
-      description: 'Управление программным обеспечением, версиями и обновлениями',
-    },
-    connection: {
-      title: 'Подключение',
-      icon: 'Wifi',
-      description: 'Настройка сетевых подключений и каналов передачи данных',
-    },
-    server: {
-      title: 'Сервер',
-      icon: 'Server',
-      description: 'Мониторинг и управление серверной инфраструктурой',
-    },
-    equipment: {
-      title: 'Оборудование',
-      icon: 'Cpu',
-      description: 'Учёт и управление оборудованием на объектах',
-    },
-    instructions: {
-      title: 'Инструкции',
-      icon: 'BookOpen',
-      description: 'Техническая документация и инструкции по эксплуатации',
-    },
-  };
-
-  const section = SECTIONS[tab as Exclude<IridaToolsTab, 'database' | 'it_logs' | 'terminal'>];
-
-  return (
-    <PlaceholderSection
-      title={section.title}
-      icon={section.icon}
-      description={section.description}
-    />
-  );
+  return null;
 }
