@@ -277,9 +277,13 @@ export default function MessagesView({
   // ── State: voice recording ──
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeMode, setTranscribeMode] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   // ── Refs ──
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -516,10 +520,11 @@ export default function MessagesView({
   };
 
   // ── Voice recording ──
-  const startRecording = async () => {
+  const startRecording = async (forTranscription = false) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
+      setTranscribeMode(forTranscription);
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
@@ -531,9 +536,13 @@ export default function MessagesView({
           alert("Голосовое сообщение превышает 5 МБ");
           return;
         }
-        const ts = new Date().toLocaleString("ru-RU").replace(/[/:, ]/g, "-");
-        const file = new File([blob], `voice_${ts}.webm`, { type: "audio/webm" });
-        setPendingFile(file);
+        if (forTranscription) {
+          transcribeAudio(blob);
+        } else {
+          const ts = new Date().toLocaleString("ru-RU").replace(/[/:, ]/g, "-");
+          const file = new File([blob], `voice_${ts}.webm`, { type: "audio/webm" });
+          setPendingFile(file);
+        }
       };
       mediaRecorderRef.current = mr;
       mr.start();
@@ -554,6 +563,51 @@ export default function MessagesView({
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
+    }
+  };
+
+  const transcribeAudio = async (blob: Blob) => {
+    setTranscribing(true);
+    try {
+      const buf = await blob.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
+      const res = await fetch(transcribeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio: b64, format: "webm", transcribe: true }),
+      });
+      const data = await res.json();
+      if (data.text) {
+        setInputText((prev) => prev ? prev + " " + data.text : data.text);
+        textareaRef.current?.focus();
+      } else {
+        alert("Не удалось распознать речь. Попробуйте ещё раз.");
+      }
+    } catch (e) {
+      console.error("Transcription failed:", e);
+      alert("Ошибка транскрибации. Попробуйте ещё раз.");
+    } finally {
+      setTranscribing(false);
+      setTranscribeMode(false);
+    }
+  };
+
+  const handleMicMouseDown = () => {
+    longPressTriggeredRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      startRecording(true);
+    }, 1500);
+  };
+
+  const handleMicMouseUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (!longPressTriggeredRef.current) {
+      startRecording(false);
     }
   };
 
@@ -1381,24 +1435,34 @@ export default function MessagesView({
                 />
 
                 {/* Microphone button */}
-                {recording ? (
+                {transcribing ? (
+                  <div className="p-2 rounded-lg bg-primary/15 text-primary shrink-0 flex items-center gap-1.5" title="Распознавание речи...">
+                    <Icon name="Loader2" className="w-4 h-4 animate-spin" />
+                    <span className="text-[9px] font-medium">STT</span>
+                  </div>
+                ) : recording ? (
                   <button
                     onClick={stopRecording}
-                    className="p-2 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 transition-colors shrink-0 animate-pulse"
-                    title="Остановить запись"
+                    className={`p-2 rounded-lg transition-colors shrink-0 animate-pulse ${transcribeMode ? "bg-primary/15 text-primary hover:bg-primary/25" : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}
+                    title={transcribeMode ? "Остановить и распознать" : "Остановить запись"}
                   >
                     <div className="flex items-center gap-1.5">
                       <Icon name="Square" className="w-3.5 h-3.5 fill-current" />
                       <span className="text-[10px] font-mono font-bold tabular-nums">
                         {Math.floor(recordingTime / 60).toString().padStart(2, "0")}:{(recordingTime % 60).toString().padStart(2, "0")}
                       </span>
+                      {transcribeMode && <span className="text-[8px] font-bold">STT</span>}
                     </div>
                   </button>
                 ) : (
                   <button
-                    onClick={startRecording}
-                    className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                    title="Записать голосовое"
+                    onMouseDown={handleMicMouseDown}
+                    onMouseUp={handleMicMouseUp}
+                    onMouseLeave={() => { if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; } }}
+                    onTouchStart={handleMicMouseDown}
+                    onTouchEnd={(e) => { e.preventDefault(); handleMicMouseUp(); }}
+                    className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 select-none"
+                    title="Клик — голосовое · Удержание 1.5с — голос в текст"
                   >
                     <Icon name="Mic" className="w-4 h-4" />
                   </button>
