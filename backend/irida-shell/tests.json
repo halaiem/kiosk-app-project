@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "List commands",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"status": "ok"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Run help command",
+      "method": "POST",
+      "path": "/",
+      "body": {"command": "help"},
+      "expectedStatus": 200,
+      "expectedBody": {"exitCode": 0},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Run whoami",
+      "method": "POST",
+      "path": "/",
+      "body": {"command": "whoami"},
+      "expectedStatus": 200,
+      "expectedBody": {"exitCode": 0},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import ConnectionSection from './irida/ConnectionSection';
 import ServerSection from './irida/ServerSection';
 import EquipmentSection from './irida/EquipmentSection';
 import InstructionsSection from './irida/InstructionsSection';
+import ShellTerminalSection from './irida/ShellTerminalSection';
 import type { IridaToolsTab } from '@/types/dashboard';
 
 interface IridaToolsPanelProps {
@@ -1580,7 +1581,8 @@ export default function IridaToolsPanel({ tab }: IridaToolsPanelProps) {
   if (tab === 'instructions') return <InstructionsSection />;
   if (tab === 'database') return <DatabaseSection />;
   if (tab === 'it_logs') return <LogsSection />;
-  if (tab === 'terminal') return <TerminalSection />;
+  if (tab === 'code_editor') return <TerminalSection />;
+  if (tab === 'terminal') return <ShellTerminalSection />;
 
   return null;
 }
