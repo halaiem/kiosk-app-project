@@ -83,6 +83,8 @@ def handler(event, context):
             return toggle_reaction(cur, conn, schema, user, event)
         elif method == 'GET' and action == 'reactions':
             return get_reactions(cur, schema, qs)
+        elif method == 'GET' and action == 'readers':
+            return get_readers(cur, schema, user, qs)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -395,3 +397,49 @@ def get_reactions(cur, schema, qs):
         grouped[mid][emoji]['count'] += 1
         grouped[mid][emoji]['users'].append({'id': r['user_id'], 'name': r['user_name']})
     return resp(200, {'reactions': grouped})
+
+
+def get_readers(cur, schema, user, qs):
+    message_id = qs.get('message_id')
+    chat_id = qs.get('chat_id')
+    if not message_id or not chat_id:
+        return resp(400, {'error': 'message_id и chat_id обязательны'})
+
+    # Проверяем доступ
+    cur.execute(
+        f"SELECT sender_user_id, created_at FROM {schema}.chat_messages WHERE id = %s AND chat_id = %s",
+        (message_id, chat_id)
+    )
+    msg = cur.fetchone()
+    if not msg:
+        return resp(404, {'error': 'Сообщение не найдено'})
+
+    # Все участники чата (кроме отправителя)
+    cur.execute(
+        f"SELECT cm.user_id, cm.driver_id, cm.last_read_at, "
+        f"COALESCE(du.full_name, dr.full_name) as name, "
+        f"COALESCE(du.role, 'driver') as role "
+        f"FROM {schema}.chat_members cm "
+        f"LEFT JOIN {schema}.dashboard_users du ON du.id = cm.user_id "
+        f"LEFT JOIN {schema}.drivers dr ON dr.id = cm.driver_id "
+        f"WHERE cm.chat_id = %s AND cm.user_id != %s",
+        (chat_id, msg['sender_user_id'])
+    )
+    members = cur.fetchall()
+
+    read_list = []
+    unread_list = []
+    for m in members:
+        entry = {
+            'user_id': m['user_id'],
+            'driver_id': m['driver_id'],
+            'name': m['name'],
+            'role': m['role'],
+            'read_at': m['last_read_at'],
+        }
+        if m['last_read_at'] and m['last_read_at'] >= msg['created_at']:
+            read_list.append(entry)
+        else:
+            unread_list.append(entry)
+
+    return resp(200, {'read': read_list, 'unread': unread_list})

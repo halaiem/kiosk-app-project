@@ -12,12 +12,14 @@ import {
   pingOnline,
   fetchReactions,
   toggleReaction,
+  fetchReaders,
   type Chat,
   type ChatMessage,
   type ChatUser,
   type ChatDriver,
   type ReactionMap,
   type MessageStatus,
+  type ReaderEntry,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -200,6 +202,18 @@ export default function MessagesView({
   // ── State: optimistic sending ──
   const [isSendingMsg, setIsSendingMsg] = useState(false);
 
+  // ── State: readers popup ──
+  const [readersPopup, setReadersPopup] = useState<{ msgId: number; read: ReaderEntry[]; unread: ReaderEntry[] } | null>(null);
+  const [readersLoading, setReadersLoading] = useState(false);
+
+  // ── State: message search ──
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<number[]>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
   // ── State: reactions ──
   const [reactions, setReactions] = useState<ReactionMap>({});
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<number | null>(null);
@@ -288,6 +302,54 @@ export default function MessagesView({
     } catch (e) {
       console.error("Reaction failed:", e);
     }
+  };
+
+  // ── Handle readers popup ──
+  const handleShowReaders = async (msgId: number) => {
+    if (!activeChatId) return;
+    setReadersLoading(true);
+    setReadersPopup({ msgId, read: [], unread: [] });
+    try {
+      const data = await fetchReaders(msgId, activeChatId);
+      setReadersPopup({ msgId, read: data.read, unread: data.unread });
+    } catch (e) {
+      console.error("Readers fetch failed:", e);
+    } finally {
+      setReadersLoading(false);
+    }
+  };
+
+  // ── Search in messages ──
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    if (!q.trim()) { setSearchResults([]); setSearchIndex(0); return; }
+    const lower = q.toLowerCase();
+    const ids = messages
+      .filter((m) => m.content.toLowerCase().includes(lower))
+      .map((m) => m.id);
+    setSearchResults(ids);
+    setSearchIndex(0);
+    if (ids.length > 0) {
+      setTimeout(() => {
+        messageRefs.current.get(ids[0])?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+    }
+  }, [messages]);
+
+  const navigateSearch = (dir: 1 | -1) => {
+    if (searchResults.length === 0) return;
+    const next = (searchIndex + dir + searchResults.length) % searchResults.length;
+    setSearchIndex(next);
+    messageRefs.current.get(searchResults[next])?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  // ── Reset search on chat change ──
+  const handleSelectChatWithSearch = (chatId: number) => {
+    setShowSearch(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchIndex(0);
+    handleSelectChat(chatId);
   };
 
   // ── Initial load ──
@@ -660,7 +722,7 @@ export default function MessagesView({
               return (
                 <button
                   key={chat.id}
-                  onClick={() => handleSelectChat(chat.id)}
+                  onClick={() => handleSelectChatWithSearch(chat.id)}
                   className={`w-full text-left px-3 py-2.5 border-b border-border transition-all ${
                     isActive
                       ? "bg-primary/10"
@@ -761,6 +823,18 @@ export default function MessagesView({
                   {activeChat.title}
                 </h3>
                 <button
+                  onClick={() => {
+                    setShowSearch((v) => !v);
+                    setSearchQuery("");
+                    setSearchResults([]);
+                    setTimeout(() => searchInputRef.current?.focus(), 50);
+                  }}
+                  className={`p-1.5 rounded-lg transition-colors ${showSearch ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+                  title="Поиск по сообщениям"
+                >
+                  <Icon name="Search" className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => exportChat(activeChat, messages)}
                   className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   title="Экспорт переписки"
@@ -795,6 +869,41 @@ export default function MessagesView({
               </div>
             </div>
 
+            {/* Search bar */}
+            {showSearch && (
+              <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
+                <Icon name="Search" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Поиск по сообщениям..."
+                  className="flex-1 text-xs bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
+                />
+                {searchResults.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {searchIndex + 1}/{searchResults.length}
+                  </span>
+                )}
+                {searchQuery && searchResults.length === 0 && (
+                  <span className="text-[10px] text-muted-foreground shrink-0">Не найдено</span>
+                )}
+                <button onClick={() => navigateSearch(-1)} disabled={searchResults.length === 0}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
+                  <Icon name="ChevronUp" className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => navigateSearch(1)} disabled={searchResults.length === 0}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
+                  <Icon name="ChevronDown" className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }}
+                  className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="X" className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {loadingMessages ? (
@@ -815,14 +924,18 @@ export default function MessagesView({
               ) : (
                 messages.map((msg) => {
                   const isMine = msg.sender_user_id === currentUserId;
+                  const isSearchMatch = searchResults.includes(msg.id);
+                  const isCurrentMatch = searchResults[searchIndex] === msg.id;
 
                   return (
                     <div
                       key={msg.id}
-                      className={`flex group ${
-                        isMine ? "justify-end" : "justify-start"
-                      }`}
+                      ref={(el) => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
+                      className={`flex group ${isMine ? "justify-end" : "justify-start"} ${isSearchMatch ? "relative" : ""}`}
                     >
+                      {isCurrentMatch && (
+                        <div className="absolute inset-0 rounded-xl bg-primary/8 pointer-events-none ring-1 ring-primary/30" />
+                      )}
                       <div
                         className={`flex gap-2 max-w-[70%] items-end ${
                           isMine ? "flex-row-reverse" : "flex-row"
@@ -857,11 +970,17 @@ export default function MessagesView({
                             <span className="inline-flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
                               {formatTime(msg.created_at)}
                               {isMine && (
-                                <MessageTicks status={
-                                  isSendingMsg && messages[messages.length - 1]?.id === msg.id
-                                    ? 'sent'
-                                    : (msg.status || 'sent')
-                                } />
+                                <button
+                                  onClick={() => handleShowReaders(msg.id)}
+                                  className="inline-flex items-center hover:opacity-70 transition-opacity"
+                                  title="Кто прочитал"
+                                >
+                                  <MessageTicks status={
+                                    isSendingMsg && messages[messages.length - 1]?.id === msg.id
+                                      ? 'sent'
+                                      : (msg.status || 'sent')
+                                  } />
+                                </button>
                               )}
                             </span>
                           </div>
@@ -1428,6 +1547,92 @@ export default function MessagesView({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── READERS POPUP ── */}
+      {readersPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setReadersPopup(null)}>
+          <div className="bg-card border border-border rounded-2xl w-[380px] max-h-[60vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <Icon name="CheckCheck" className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground flex-1">Статус прочтения</h3>
+              <button onClick={() => setReadersPopup(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {readersLoading ? (
+                <div className="flex justify-center py-6">
+                  <Icon name="Loader2" className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {/* Прочитали */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-primary">
+                        <path d="M1 4.5L4 7.5L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M5 4.5L8 7.5L15 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[11px] font-semibold text-foreground">Прочитали ({readersPopup.read.length})</span>
+                    </div>
+                    {readersPopup.read.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground pl-2">Никто ещё не прочитал</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {readersPopup.read.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg bg-muted/30">
+                            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                              {(r.name || "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-medium text-foreground truncate">{r.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{ROLE_LABELS[r.role] || r.role}</p>
+                            </div>
+                            {r.read_at && (
+                              <span className="text-[9px] text-muted-foreground shrink-0">
+                                {formatTime(r.read_at)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Не прочитали */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-muted-foreground/60">
+                        <path d="M1 4.5L4 7.5L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M5 4.5L8 7.5L15 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[11px] font-semibold text-foreground">Не прочитали ({readersPopup.unread.length})</span>
+                    </div>
+                    {readersPopup.unread.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground pl-2">Все прочитали</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {readersPopup.unread.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg bg-muted/30 opacity-60">
+                            <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
+                              {(r.name || "?").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-medium text-foreground truncate">{r.name}</p>
+                              <p className="text-[9px] text-muted-foreground">{ROLE_LABELS[r.role] || r.role}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

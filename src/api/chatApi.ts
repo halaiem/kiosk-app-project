@@ -168,6 +168,18 @@ export async function toggleReaction(messageId: number, emoji: string): Promise<
   });
 }
 
+export interface ReaderEntry {
+  user_id: number | null;
+  driver_id: number | null;
+  name: string;
+  role: string;
+  read_at: string | null;
+}
+
+export async function fetchReaders(messageId: number, chatId: number): Promise<{ read: ReaderEntry[]; unread: ReaderEntry[] }> {
+  return request(`${BASE}?action=readers&message_id=${messageId}&chat_id=${chatId}`);
+}
+
 export default {
   fetchUsers, fetchDrivers, fetchChats, fetchMessages,
   fetchUnread, createChat, sendMessage, uploadFile, markRead, pingOnline,
