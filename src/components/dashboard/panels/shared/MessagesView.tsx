@@ -158,6 +158,9 @@ export default function MessagesView({
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
 
+  // ── State: reply (quote) ──
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+
   // ── State: forward message ──
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [forwardSearch, setForwardSearch] = useState("");
@@ -262,6 +265,7 @@ export default function MessagesView({
     setActiveChatId(chatId);
     loadMessages(chatId);
     onChatOpen?.(chatId);
+    setReplyTo(null);
   };
 
   // ── Send message ──
@@ -269,9 +273,13 @@ export default function MessagesView({
     if (!activeChatId || (!inputText.trim() && !pendingFile)) return;
     setSending(true);
     try {
+      const bodyText = replyTo
+        ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "")}`
+        : inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "");
+
       const result = await sendMessage(
         activeChatId,
-        inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : ""),
+        bodyText,
         showSubject && inputSubject.trim() ? inputSubject.trim() : undefined
       );
       if (pendingFile && result?.message_id) {
@@ -281,6 +289,7 @@ export default function MessagesView({
       setInputSubject("");
       setPendingFile(null);
       setShowSubject(false);
+      setReplyTo(null);
       await loadMessages(activeChatId);
       await loadChats();
     } catch (e) {
@@ -783,13 +792,51 @@ export default function MessagesView({
                             </p>
                           )}
 
-                          {/* Content */}
-                          <p className="text-xs text-foreground whitespace-pre-wrap break-words">
-                            {msg.content}
-                          </p>
+                          {/* Content — with quote rendering */}
+                          {(() => {
+                            const lines = msg.content.split("\n");
+                            const quoteLines: string[] = [];
+                            const bodyLines: string[] = [];
+                            let inQuote = true;
+                            for (const line of lines) {
+                              if (inQuote && line.startsWith("> ")) {
+                                quoteLines.push(line.slice(2));
+                              } else {
+                                inQuote = false;
+                                if (!(bodyLines.length === 0 && line.trim() === "")) {
+                                  bodyLines.push(line);
+                                }
+                              }
+                            }
+                            return (
+                              <>
+                                {quoteLines.length > 0 && (
+                                  <div className="mb-1.5 pl-2 border-l-2 border-muted-foreground/40 rounded-sm">
+                                    <p className="text-[10px] text-muted-foreground italic whitespace-pre-wrap line-clamp-3">
+                                      {quoteLines.join("\n")}
+                                    </p>
+                                  </div>
+                                )}
+                                <p className="text-xs text-foreground whitespace-pre-wrap break-words">
+                                  {bodyLines.join("\n") || msg.content}
+                                </p>
+                              </>
+                            );
+                          })()}
 
-                          {/* Forward button — appears on hover */}
-                          <div className={`flex mt-1.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                          {/* Action buttons — appear on hover */}
+                          <div className={`flex gap-1 mt-1.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                            <button
+                              onClick={() => {
+                                setReplyTo(msg);
+                                textareaRef.current?.focus();
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded"
+                              title="Ответить с цитатой"
+                            >
+                              <Icon name="Reply" className="w-3 h-3" />
+                              Ответить
+                            </button>
                             <button
                               onClick={() => { setForwardMsg(msg); setForwardSearch(""); }}
                               className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded"
@@ -862,6 +909,22 @@ export default function MessagesView({
 
             {/* Input area */}
             <div className="px-4 py-3 border-t border-border shrink-0">
+              {/* Reply quote preview */}
+              {replyTo && (
+                <div className="mb-2 flex items-start gap-2 bg-primary/8 border-l-2 border-primary rounded-r-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold text-primary mb-0.5">{replyTo.sender_name}</p>
+                    <p className="text-[11px] text-foreground/70 truncate">{replyTo.content.slice(0, 100)}{replyTo.content.length > 100 ? "…" : ""}</p>
+                  </div>
+                  <button
+                    onClick={() => setReplyTo(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+                  >
+                    <Icon name="X" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Subject toggle */}
               {showSubject && (
                 <div className="mb-2 flex items-center gap-2">
