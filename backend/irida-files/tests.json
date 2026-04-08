@@ -7,6 +7,14 @@
     "bodyMatcher": "partial"
   },
   {
+    "name": "Watch endpoint initial",
+    "method": "GET",
+    "path": "/?action=watch",
+    "expectedStatus": 200,
+    "expectedBody": {"total": 100},
+    "bodyMatcher": "partial"
+  },
+  {
     "name": "Read missing file",
     "method": "GET",
     "path": "/?action=read&path=nonexistent.txt",

@@ -456,80 +456,110 @@ function TerminalSection() {
 
   const [syncing, setSyncing] = useState(false);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'live' | 'offline'>('connecting');
   const prevDbFilesRef = useRef<string[]>([]);
   const prevUpdatedAtRef = useRef<Record<string, string>>({});
+  const latestTsRef = useRef<string>('');
+  const watchActiveRef = useRef(true);
+
+  const applyChanges = useCallback((files: { path: string; updated_at: string }[], isInitial: boolean) => {
+    const dbFiles = files.map((f) => f.path);
+    const dbUpdatedMap: Record<string, string> = {};
+    files.forEach((f) => { dbUpdatedMap[f.path] = f.updated_at; });
+
+    const prev = prevDbFilesRef.current;
+    const added = dbFiles.filter((f) => !prev.includes(f) && !PROJECT_FILES.includes(f));
+    const removed = prev.filter((f) => !dbFiles.includes(f) && !PROJECT_FILES.includes(f));
+
+    if ((added.length > 0 || removed.length > 0) && !isInitial) {
+      const now = new Date().toLocaleTimeString();
+      const lines: string[] = [``, `> [${now}] Изменения в файлах (live):`];
+      added.forEach((f) => lines.push(`>   + ${f}`));
+      removed.forEach((f) => lines.push(`>   - ${f}`));
+      setOutput((o) => [...o, ...lines]);
+
+      setCustomFiles((cur) => {
+        const merged = [...new Set([...cur, ...added])];
+        return merged.filter((f) => !removed.includes(f) || cur.includes(f));
+      });
+      setAutoRefreshing(true);
+      setTimeout(() => setAutoRefreshing(false), 1500);
+    }
+
+    if (!isInitial) {
+      const outdated: string[] = [];
+      Object.keys(dbUpdatedMap).forEach((path) => {
+        const p = prevUpdatedAtRef.current[path];
+        if (p && p !== dbUpdatedMap[path]) outdated.push(path);
+      });
+      if (outdated.length > 0) {
+        setFileContents((cache) => {
+          const next = { ...cache };
+          outdated.forEach((path) => { delete next[path]; });
+          return next;
+        });
+        const now = new Date().toLocaleTimeString();
+        const lines = [``, `> [${now}] Файлы изменены извне — кэш сброшен:`];
+        outdated.forEach((f) => lines.push(`>   ~ ${f}`));
+        setOutput((o) => [...o, ...lines]);
+        setAutoRefreshing(true);
+        setTimeout(() => setAutoRefreshing(false), 1500);
+      }
+    }
+
+    prevDbFilesRef.current = dbFiles;
+    prevUpdatedAtRef.current = dbUpdatedMap;
+  }, []);
 
   const fetchFileList = useCallback(async (silent = false) => {
     try {
-      const res = await fetch(`${IRIDA_FILES_URL}?action=list`);
+      const url = latestTsRef.current
+        ? `${IRIDA_FILES_URL}?action=watch&since=${encodeURIComponent(latestTsRef.current)}`
+        : `${IRIDA_FILES_URL}?action=watch`;
+      const res = await fetch(url);
       const data = await res.json();
-      const dbFiles: string[] = (data.files || []).map((f: { path: string }) => f.path);
 
-      const prev = prevDbFilesRef.current;
-      const added = dbFiles.filter((f) => !prev.includes(f));
-      const removed = prev.filter((f) => !dbFiles.includes(f));
+      const isInitial = !latestTsRef.current;
 
-      if (added.length > 0 || removed.length > 0) {
-        const now = new Date().toLocaleTimeString();
-        const lines: string[] = [``, `> [${now}] Обнаружены изменения в файлах:`];
-        added.forEach((f) => lines.push(`>   + ${f}`));
-        removed.forEach((f) => lines.push(`>   - ${f}`));
-        setOutput((prev) => [...prev, ...lines]);
+      if (data.latest) latestTsRef.current = data.latest;
 
-        setCustomFiles((cur) => {
-          const merged = [...new Set([...cur, ...added])];
-          return merged.filter((f) => !removed.includes(f) || cur.includes(f));
-        });
+      const filesToProcess: { path: string; updated_at: string }[] = isInitial
+        ? (data.files || [])
+        : (data.changed || []);
 
-        added.forEach((f) => {
-          if (fileContents[f]) {
-            setFileContents((c) => {
-              const next = { ...c };
-              delete next[f];
-              return next;
-            });
-          }
-        });
-
-        if (!silent) setAutoRefreshing(true);
-        setTimeout(() => setAutoRefreshing(false), 1500);
-      }
-
-      const dbUpdatedMap: Record<string, string> = {};
-      (data.files || []).forEach((f: { path: string; updated_at: string }) => {
-        dbUpdatedMap[f.path] = f.updated_at;
-      });
-
-      if (!silent) {
-        const outdated: string[] = [];
-        Object.keys(dbUpdatedMap).forEach((path) => {
-          const prev = prevUpdatedAtRef.current[path];
-          if (prev && prev !== dbUpdatedMap[path]) outdated.push(path);
-        });
-        if (outdated.length > 0) {
-          setFileContents((cache) => {
-            const next = { ...cache };
-            outdated.forEach((path) => { delete next[path]; });
-            return next;
-          });
+      if (isInitial) {
+        applyChanges(data.files || [], true);
+        if (!silent) {
           const now = new Date().toLocaleTimeString();
-          const lines = [``, `> [${now}] Файлы обновлены извне (кэш сброшен):`];
-          outdated.forEach((f) => lines.push(`>   ~ ${f}`));
-          setOutput((o) => [...o, ...lines]);
-          setAutoRefreshing(true);
-          setTimeout(() => setAutoRefreshing(false), 1500);
+          setOutput((o) => [...o, ``, `> [${now}] Live-наблюдение запущено (${data.total} файлов)`]);
         }
+      } else if (filesToProcess.length > 0) {
+        applyChanges([...Object.entries(prevUpdatedAtRef.current).map(([path, updated_at]) => ({ path, updated_at })), ...filesToProcess], false);
       }
 
-      prevUpdatedAtRef.current = dbUpdatedMap;
-      prevDbFilesRef.current = dbFiles;
-    } catch { /* silent fail */ }
-  }, [fileContents]);
+      setWsStatus('live');
+    } catch {
+      setWsStatus('offline');
+    }
+  }, [applyChanges]);
 
   useEffect(() => {
-    fetchFileList(true);
-    const interval = setInterval(() => fetchFileList(false), 10000);
-    return () => clearInterval(interval);
+    watchActiveRef.current = true;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const tick = async () => {
+      if (!watchActiveRef.current) return;
+      await fetchFileList(latestTsRef.current === '');
+      if (watchActiveRef.current) {
+        timeoutId = setTimeout(tick, 2000);
+      }
+    };
+
+    tick();
+    return () => {
+      watchActiveRef.current = false;
+      clearTimeout(timeoutId);
+    };
   }, [fetchFileList]);
 
   const handleSave = useCallback(async () => {
@@ -1197,7 +1227,13 @@ function TerminalSection() {
       {/* Header */}
       <div className="flex items-center justify-between mb-3 shrink-0">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Терминал</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-foreground">Терминал</h2>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted text-xs font-medium" title={wsStatus === 'live' ? 'Live-наблюдение активно' : wsStatus === 'offline' ? 'Нет соединения' : 'Подключение...'}>
+              <span className={`w-1.5 h-1.5 rounded-full ${wsStatus === 'live' ? 'bg-emerald-400 animate-pulse' : wsStatus === 'offline' ? 'bg-red-400' : 'bg-yellow-400 animate-pulse'}`} />
+              <span className="text-muted-foreground">{wsStatus === 'live' ? 'live' : wsStatus === 'offline' ? 'offline' : '...'}</span>
+            </div>
+          </div>
           <p className="text-muted-foreground text-sm mt-0.5">Файловый менеджер и редактор кода проекта</p>
         </div>
         <div className="flex items-center gap-2">

@@ -59,6 +59,19 @@ def handler(event, context):
         conn.close()
         return resp(200, {'files': [{'path': r[0], 'updated_at': str(r[1])} for r in rows]})
 
+    if action == 'watch' and method == 'GET':
+        # Возвращает последний updated_at и хэш списка файлов — клиент сравнивает с предыдущим
+        since = params.get('since', '')
+        cur.execute("SELECT file_path, updated_at FROM irida_project_files ORDER BY updated_at DESC, file_path")
+        rows = cur.fetchall()
+        conn.close()
+        files = [{'path': r[0], 'updated_at': str(r[1])} for r in rows]
+        latest = str(rows[0][1]) if rows else ''
+        changed = []
+        if since and latest != since:
+            changed = [f for f in files if str(f['updated_at']) > since]
+        return resp(200, {'latest': latest, 'total': len(files), 'changed': changed, 'files': files if not since else []})
+
     if action == 'bulk_save' and method == 'POST':
         body = json.loads(event.get('body', '{}'))
         files = body.get('files', [])
