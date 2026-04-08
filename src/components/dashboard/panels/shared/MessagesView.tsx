@@ -158,6 +158,11 @@ export default function MessagesView({
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
 
+  // ── State: forward message ──
+  const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [forwardSearch, setForwardSearch] = useState("");
+  const [forwarding, setForwarding] = useState(false);
+
   // ── State: voice recording ──
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -336,6 +341,25 @@ export default function MessagesView({
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
+    }
+  };
+
+  // ── Forward message ──
+  const handleForward = async (targetChatId: number) => {
+    if (!forwardMsg) return;
+    setForwarding(true);
+    try {
+      const fwdText = `↪ Переслано от ${forwardMsg.sender_name}:\n${forwardMsg.content}`;
+      const subject = forwardMsg.subject ? `Пересл.: ${forwardMsg.subject}` : undefined;
+      await sendMessage(targetChatId, fwdText, subject);
+      setForwardMsg(null);
+      setForwardSearch("");
+      if (targetChatId === activeChatId) await loadMessages(targetChatId);
+      await loadChats();
+    } catch (e) {
+      console.error("Forward failed:", e);
+    } finally {
+      setForwarding(false);
     }
   };
 
@@ -712,12 +736,12 @@ export default function MessagesView({
                   return (
                     <div
                       key={msg.id}
-                      className={`flex ${
+                      className={`flex group ${
                         isMine ? "justify-end" : "justify-start"
                       }`}
                     >
                       <div
-                        className={`flex gap-2 max-w-[70%] ${
+                        className={`flex gap-2 max-w-[70%] items-end ${
                           isMine ? "flex-row-reverse" : "flex-row"
                         }`}
                       >
@@ -763,6 +787,18 @@ export default function MessagesView({
                           <p className="text-xs text-foreground whitespace-pre-wrap break-words">
                             {msg.content}
                           </p>
+
+                          {/* Forward button — appears on hover */}
+                          <div className={`flex mt-1.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                            <button
+                              onClick={() => { setForwardMsg(msg); setForwardSearch(""); }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] text-muted-foreground hover:text-primary px-1.5 py-0.5 rounded"
+                              title="Переслать сообщение"
+                            >
+                              <Icon name="Forward" className="w-3 h-3" />
+                              Переслать
+                            </button>
+                          </div>
 
                           {/* Files */}
                           {msg.files && msg.files.length > 0 && (
@@ -1202,6 +1238,118 @@ export default function MessagesView({
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FORWARD MESSAGE MODAL ── */}
+      {forwardMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-2xl w-[480px] max-h-[70vh] flex flex-col shadow-xl">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <Icon name="Forward" className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground flex-1">
+                Переслать сообщение
+              </h3>
+              <button
+                onClick={() => { setForwardMsg(null); setForwardSearch(""); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Preview of forwarded message */}
+            <div className="mx-5 mt-4 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+              <p className="text-[10px] text-muted-foreground mb-1">
+                Сообщение от <span className="text-foreground font-medium">{forwardMsg.sender_name}</span>
+                {forwardMsg.subject && <span className="text-primary"> · {forwardMsg.subject}</span>}
+              </p>
+              <p className="text-xs text-foreground line-clamp-3">{forwardMsg.content}</p>
+              {forwardMsg.files && forwardMsg.files.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  <Icon name="Paperclip" className="w-3 h-3 inline mr-1" />
+                  {forwardMsg.files.length} вложение(й) — будет указано в тексте
+                </p>
+              )}
+            </div>
+
+            {/* Search chats */}
+            <div className="px-5 pt-3 pb-2 relative">
+              <Icon name="Search" className="w-3.5 h-3.5 text-muted-foreground absolute left-8 top-1/2 -translate-y-1/2 mt-1.5" />
+              <input
+                type="text"
+                value={forwardSearch}
+                onChange={(e) => setForwardSearch(e.target.value)}
+                placeholder="Поиск чата..."
+                className="w-full text-xs bg-muted/50 border border-border rounded-lg pl-8 pr-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+
+            {/* Chat list */}
+            <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-1">
+              {chats
+                .filter((c) =>
+                  forwardSearch.trim()
+                    ? c.title.toLowerCase().includes(forwardSearch.toLowerCase())
+                    : true
+                )
+                .map((c) => {
+                  const isActive = c.id === activeChatId;
+                  const onlineCount = c.members.filter((m) => m.is_online).length;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => handleForward(c.id)}
+                      disabled={forwarding}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/60 transition-colors text-left disabled:opacity-50"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon name="MessageSquare" className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-medium text-foreground truncate">{c.title}</span>
+                          {isActive && (
+                            <span className="text-[9px] bg-primary/15 text-primary px-1.5 py-0.5 rounded shrink-0">текущий</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {onlineCount > 0 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                          )}
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {c.members.length} уч.{onlineCount > 0 ? ` · ${onlineCount} онлайн` : ""}
+                          </span>
+                        </div>
+                      </div>
+                      {forwarding ? (
+                        <Icon name="Loader2" className="w-4 h-4 text-muted-foreground animate-spin shrink-0" />
+                      ) : (
+                        <Icon name="Forward" className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              {chats.filter((c) =>
+                forwardSearch.trim()
+                  ? c.title.toLowerCase().includes(forwardSearch.toLowerCase())
+                  : true
+              ).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-6">Чаты не найдены</p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-border">
+              <button
+                onClick={() => { setForwardMsg(null); setForwardSearch(""); }}
+                className="w-full text-[11px] font-medium px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Отмена
+              </button>
             </div>
           </div>
         </div>
