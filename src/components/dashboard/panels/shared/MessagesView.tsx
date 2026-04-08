@@ -13,6 +13,8 @@ import {
   fetchReactions,
   toggleReaction,
   fetchReaders,
+  togglePin,
+  fetchPinned,
   type Chat,
   type ChatMessage,
   type ChatUser,
@@ -20,6 +22,7 @@ import {
   type ReactionMap,
   type MessageStatus,
   type ReaderEntry,
+  type PinnedMessage,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -57,8 +60,17 @@ const ROLE_LABELS: Record<string, string> = {
 const REACTION_EMOJIS = ['👍', '👎', '❤️', '😂', '😮', '😢', '🔥', '👏'];
 
 function MessageTicks({ status }: { status: MessageStatus }) {
+  if (status === 'failed') {
+    return (
+      <span title="Не отправлено" className="inline-flex items-center ml-1">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="text-red-500">
+          <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M4.5 4.5L8.5 8.5M8.5 4.5L4.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </span>
+    );
+  }
   if (status === 'sent') {
-    // одна серая галочка — отправлено, но не доставлено
     return (
       <span title="Отправлено" className="inline-flex items-center ml-1">
         <svg width="12" height="9" viewBox="0 0 12 9" fill="none" className="text-muted-foreground/60">
@@ -68,7 +80,6 @@ function MessageTicks({ status }: { status: MessageStatus }) {
     );
   }
   if (status === 'delivered') {
-    // двойная серая галочка — доставлено
     return (
       <span title="Доставлено" className="inline-flex items-center ml-1">
         <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-muted-foreground/60">
@@ -78,7 +89,6 @@ function MessageTicks({ status }: { status: MessageStatus }) {
       </span>
     );
   }
-  // read — двойная синяя галочка
   return (
     <span title="Прочитано" className="inline-flex items-center ml-1">
       <svg width="16" height="9" viewBox="0 0 16 9" fill="none" className="text-primary">
@@ -201,6 +211,12 @@ export default function MessagesView({
 
   // ── State: optimistic sending ──
   const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const [failedMsgText, setFailedMsgText] = useState<string | null>(null);
+
+  // ── State: pin ──
+  const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([]);
+  const [showPinned, setShowPinned] = useState(false);
+  const [pinnedLoading, setPinnedLoading] = useState(false);
 
   // ── State: readers popup ──
   const [readersPopup, setReadersPopup] = useState<{ msgId: number; read: ReaderEntry[]; unread: ReaderEntry[] } | null>(null);
@@ -407,10 +423,12 @@ export default function MessagesView({
     if (!activeChatId || (!inputText.trim() && !pendingFile)) return;
     setSending(true);
     setIsSendingMsg(true);
+    setFailedMsgText(null);
+    const textSnapshot = inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "");
     try {
       const bodyText = replyTo
-        ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "")}`
-        : inputText.trim() || (pendingFile ? `[${pendingFile.name}]` : "");
+        ? `> ${replyTo.sender_name}: ${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? "…" : ""}\n\n${textSnapshot}`
+        : textSnapshot;
 
       const result = await sendMessage(
         activeChatId,
@@ -429,9 +447,35 @@ export default function MessagesView({
       await loadChats();
     } catch (e) {
       console.error("Failed to send message:", e);
+      setFailedMsgText(textSnapshot);
     } finally {
       setSending(false);
       setIsSendingMsg(false);
+    }
+  };
+
+  // ── Pin handlers ──
+  const handleTogglePin = async (msgId: number) => {
+    if (!activeChatId) return;
+    const res = await togglePin(msgId, activeChatId);
+    setMessages((prev) =>
+      prev.map((m) => m.id === msgId ? { ...m, is_pinned: res.pinned, pinned_at: res.pinned ? new Date().toISOString() : null } : m)
+    );
+    if (showPinned) {
+      const pinRes = await fetchPinned(activeChatId);
+      setPinnedMessages(pinRes.pinned);
+    }
+  };
+
+  const handleOpenPinned = async () => {
+    if (!activeChatId) return;
+    setShowPinned(true);
+    setPinnedLoading(true);
+    try {
+      const res = await fetchPinned(activeChatId);
+      setPinnedMessages(res.pinned);
+    } finally {
+      setPinnedLoading(false);
     }
   };
 
@@ -823,6 +867,13 @@ export default function MessagesView({
                   {activeChat.title}
                 </h3>
                 <button
+                  onClick={handleOpenPinned}
+                  className={`p-1.5 rounded-lg transition-colors ${showPinned ? "bg-amber-500/15 text-amber-500" : "bg-muted text-muted-foreground hover:text-amber-500"}`}
+                  title="Закреплённые сообщения"
+                >
+                  <Icon name="Pin" className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => {
                     setShowSearch((v) => !v);
                     setSearchQuery("");
@@ -931,11 +982,8 @@ export default function MessagesView({
                     <div
                       key={msg.id}
                       ref={(el) => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
-                      className={`flex group ${isMine ? "justify-end" : "justify-start"} ${isSearchMatch ? "relative" : ""}`}
+                      className={`flex group relative ${isMine ? "justify-end" : "justify-start"} ${isCurrentMatch ? "bg-primary/8 rounded-xl ring-1 ring-primary/30" : ""}`}
                     >
-                      {isCurrentMatch && (
-                        <div className="absolute inset-0 rounded-xl bg-primary/8 pointer-events-none ring-1 ring-primary/30" />
-                      )}
                       <div
                         className={`flex gap-2 max-w-[70%] items-end ${
                           isMine ? "flex-row-reverse" : "flex-row"
@@ -1091,7 +1139,23 @@ export default function MessagesView({
                               <Icon name="Forward" className="w-3 h-3" />
                               Переслать
                             </button>
+                            <button
+                              onClick={() => handleTogglePin(msg.id)}
+                              className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded ${msg.is_pinned ? "text-amber-500" : "text-muted-foreground hover:text-amber-500"}`}
+                              title={msg.is_pinned ? "Открепить" : "Закрепить"}
+                            >
+                              <Icon name="Pin" className="w-3 h-3" />
+                              {msg.is_pinned ? "Откреп." : "Закрепить"}
+                            </button>
                           </div>
+
+                          {/* Pin badge */}
+                          {msg.is_pinned && (
+                            <div className={`flex items-center gap-1 mt-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                              <Icon name="Pin" className="w-2.5 h-2.5 text-amber-500" />
+                              <span className="text-[9px] text-amber-500 font-medium">Закреплено</span>
+                            </div>
+                          )}
 
                           {/* Files */}
                           {msg.files && msg.files.length > 0 && (
@@ -1189,6 +1253,28 @@ export default function MessagesView({
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Icon name="X" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Failed message notice */}
+              {failedMsgText && (
+                <div className="mb-2 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-1.5">
+                  <Icon name="AlertCircle" className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  <span className="text-[10px] text-red-500 flex-1 truncate">
+                    Не отправлено: {failedMsgText}
+                  </span>
+                  <button
+                    onClick={() => { setInputText(failedMsgText); setFailedMsgText(null); }}
+                    className="text-[9px] font-medium text-red-500 hover:text-red-600 shrink-0 underline transition-colors"
+                  >
+                    Повторить
+                  </button>
+                  <button
+                    onClick={() => setFailedMsgText(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  >
+                    <Icon name="X" className="w-3 h-3" />
                   </button>
                 </div>
               )}
@@ -1632,6 +1718,68 @@ export default function MessagesView({
                     )}
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PINNED MESSAGES PANEL ── */}
+      {showPinned && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowPinned(false)}>
+          <div className="bg-card border border-border rounded-2xl w-[440px] max-h-[65vh] flex flex-col shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <Icon name="Pin" className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-semibold text-foreground flex-1">Закреплённые сообщения</h3>
+              <button onClick={() => setShowPinned(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {pinnedLoading ? (
+                <div className="flex justify-center py-8">
+                  <Icon name="Loader2" className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : pinnedMessages.length === 0 ? (
+                <div className="flex flex-col items-center py-8 text-muted-foreground">
+                  <Icon name="Pin" className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-xs">Нет закреплённых сообщений</p>
+                  <p className="text-[10px] opacity-60 mt-1">Наведи на сообщение и нажми «Закрепить»</p>
+                </div>
+              ) : (
+                pinnedMessages.map((pm) => (
+                  <div key={pm.id} className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/6 border border-amber-500/20 hover:bg-amber-500/10 transition-colors">
+                    <Icon name="Pin" className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[10px] font-semibold text-foreground">{pm.sender_name}</span>
+                        <span className="text-[9px] text-muted-foreground shrink-0">{formatTime(pm.created_at)}</span>
+                      </div>
+                      {pm.subject && <p className="text-[9px] text-primary font-medium mb-0.5">Тема: {pm.subject}</p>}
+                      <p className="text-[11px] text-foreground line-clamp-3 whitespace-pre-wrap">{pm.content}</p>
+                      <button
+                        onClick={() => {
+                          messageRefs.current.get(pm.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                          setShowPinned(false);
+                        }}
+                        className="mt-1.5 text-[9px] text-primary hover:underline transition-colors"
+                      >
+                        Перейти к сообщению ↑
+                      </button>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await togglePin(pm.id, activeChatId!);
+                        setMessages((prev) => prev.map((m) => m.id === pm.id ? { ...m, is_pinned: false, pinned_at: null } : m));
+                        setPinnedMessages((prev) => prev.filter((p) => p.id !== pm.id));
+                      }}
+                      className="p-1 rounded text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                      title="Открепить"
+                    >
+                      <Icon name="PinOff" className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
               )}
             </div>
           </div>
