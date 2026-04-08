@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
+import JSZip from 'jszip';
 import Icon from '@/components/ui/icon';
 import type { IridaToolsTab } from '@/types/dashboard';
 
@@ -796,6 +797,77 @@ function TerminalSection() {
     setDropTarget(null);
   }, [dragFile, fileContents, customFiles, activeTab, openDirs]);
 
+  const downloadFile = useCallback((filePath: string) => {
+    const content = fileContents[filePath];
+    if (!content) {
+      setOutput((prev) => [...prev, `> Файл не загружен: ${filePath}. Откройте файл для загрузки содержимого`]);
+      return;
+    }
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filePath.split('/').pop() || 'file.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const now = new Date().toLocaleTimeString();
+    setOutput((prev) => [...prev, ``, `> [${now}] Скачан файл: ${filePath}`]);
+  }, [fileContents]);
+
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadAllAsZip = useCallback(async () => {
+    setDownloading(true);
+    const now = new Date().toLocaleTimeString();
+    setOutput((prev) => [...prev, ``, `> [${now}] Начинаю сборку ZIP-архива...`]);
+
+    const zip = new JSZip();
+    let loaded = 0;
+    let errors = 0;
+
+    for (const filePath of allFiles) {
+      let content = fileContents[filePath];
+      if (!content) {
+        try {
+          const loader = sourceFiles[`/${filePath}`];
+          if (loader) {
+            content = await loader();
+          } else {
+            const res = await fetch(`${IRIDA_FILES_URL}?action=read&path=${encodeURIComponent(filePath)}`);
+            const data = await res.json();
+            content = data.content || '';
+          }
+          setFileContents((c) => ({ ...c, [filePath]: content! }));
+        } catch {
+          errors++;
+          continue;
+        }
+      }
+      zip.file(filePath, content);
+      loaded++;
+    }
+
+    setOutput((prev) => [...prev, `> Загружено ${loaded} файлов${errors ? `, ошибок: ${errors}` : ''}`]);
+
+    try {
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'irida-project.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setOutput((prev) => [...prev, `> ✓ ZIP-архив скачан (${(blob.size / 1024).toFixed(1)} KB)`]);
+    } catch (err) {
+      setOutput((prev) => [...prev, `> Ошибка создания архива: ${String(err)}`]);
+    }
+    setDownloading(false);
+  }, [allFiles, fileContents]);
+
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -945,24 +1017,35 @@ function TerminalSection() {
                       <Icon name={loadingFile === f ? 'Loader' : getFileIcon(f)} className={`w-3 h-3 text-blue-400/70 shrink-0 ${loadingFile === f ? 'animate-spin' : ''}`} />
                       <span className={`text-xs truncate ${activeTab === f ? 'text-white' : 'text-white/50'}`}>{fname}</span>
                     </button>
-                    {isCustom && (
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all mr-1 shrink-0">
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all mr-1 shrink-0">
+                      {fileContents[f] && (
                         <button
-                          onClick={() => startRename(f)}
+                          onClick={() => downloadFile(f)}
                           className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20"
-                          title="Переименовать"
+                          title="Скачать файл"
                         >
-                          <Icon name="Pencil" className="w-2.5 h-2.5 text-white/50" />
+                          <Icon name="Download" className="w-2.5 h-2.5 text-white/50" />
                         </button>
-                        <button
-                          onClick={() => setShowDeleteConfirm(f)}
-                          className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-500/30"
-                          title="Удалить"
-                        >
-                          <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      {isCustom && (
+                        <>
+                          <button
+                            onClick={() => startRename(f)}
+                            className="w-4 h-4 flex items-center justify-center rounded hover:bg-white/20"
+                            title="Переименовать"
+                          >
+                            <Icon name="Pencil" className="w-2.5 h-2.5 text-white/50" />
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(f)}
+                            className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-500/30"
+                            title="Удалить"
+                          >
+                            <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1007,9 +1090,26 @@ function TerminalSection() {
             <Icon name={syncing ? 'Loader' : 'RefreshCw'} className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Синхронизация...' : 'Синхронизировать'}
           </button>
+          <div className="w-px h-5 bg-border" />
+          <button
+            onClick={downloadAllAsZip}
+            disabled={downloading}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 transition-colors font-medium"
+            title="Скачать все файлы проекта в ZIP-архиве"
+          >
+            <Icon name={downloading ? 'Loader' : 'FolderArchive'} className={`w-3.5 h-3.5 ${downloading ? 'animate-spin' : ''}`} />
+            {downloading ? 'Сборка...' : 'Скачать ZIP'}
+          </button>
           {activeTab && (
             <>
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded font-mono">{getFileLang(activeTab)}</span>
+              <button
+                onClick={() => downloadFile(activeTab)}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-white/10 text-white/80 hover:bg-white/20 transition-colors font-medium"
+                title="Скачать текущий файл"
+              >
+                <Icon name="Download" className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
