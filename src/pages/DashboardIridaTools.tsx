@@ -1,11 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDashboardAuth } from '@/hooks/useDashboardAuth';
-import { useDashboardData } from '@/hooks/useDashboardData';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import DashboardLogin from '@/components/dashboard/DashboardLogin';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
+import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import type { DashboardTab, IridaToolsTab } from '@/types/dashboard';
 import type { DashboardUser } from '@/types/dashboard';
 
@@ -18,11 +16,9 @@ const IRIDA_USER: DashboardUser = {
 
 export default function DashboardIridaTools() {
   const navigate = useNavigate();
-  const { error, loading, login, logout, getRoleName } = useDashboardAuth();
-  const [iridaUser, setIridaUser] = useState<DashboardUser | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>('cities');
+  const { logout, getRoleName } = useDashboardAuth();
   const { settings, updateSettings } = useAppSettings();
-  const data = useDashboardData(iridaUser);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('cities');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -34,60 +30,26 @@ export default function DashboardIridaTools() {
     return () => { root.classList.add('dark'); };
   }, [settings.dashboardTheme]);
 
-  const handleLogin = async (id: string, password: string) => {
-    const ok = await login(id, password);
-    if (ok) navigate('/dashboard');
-    return ok;
-  };
-
-  const handleIridaToolsLogin = () => {
-    setIridaUser(IRIDA_USER);
-    setActiveTab('cities');
-  };
-
   const handleLogout = async () => {
-    setIridaUser(null);
     await logout();
+    navigate('/dashboard');
   };
 
-  const counts = useMemo(() => ({
-    messages: 0,
-    notifications: 0,
-    alerts: 0,
-    vehicle_issues: 0,
-  }), []);
-
-  const isLight = settings.dashboardTheme === 'light';
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#152d52' }}>
-        <div className="text-white/60 text-sm">Загрузка...</div>
-      </div>
-    );
-  }
-
-  if (!iridaUser) {
-    return (
-      <DashboardLogin
-        onLogin={handleLogin}
-        onIridaToolsLogin={handleIridaToolsLogin}
-        onRegularLoginSuccess={() => navigate('/dashboard')}
-        error={error}
-      />
-    );
-  }
+  const toggleTheme = () => {
+    updateSettings({ dashboardTheme: settings.dashboardTheme === 'dark' ? 'light' : 'dark' });
+  };
 
   return (
     <div className="flex h-full bg-background text-foreground overflow-hidden">
       <DashboardSidebar
-        user={iridaUser}
+        user={IRIDA_USER}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onLogout={handleLogout}
         getRoleName={getRoleName}
-        counts={counts}
-        isDark={!isLight}
+        counts={{ messages: 0, notifications: 0, alerts: 0, vehicle_issues: 0 }}
+        isDark={settings.dashboardTheme !== 'light'}
+        onToggleTheme={toggleTheme}
       />
       <main className="flex-1 overflow-auto p-6">
         <IridaToolsPanel tab={activeTab as IridaToolsTab} />

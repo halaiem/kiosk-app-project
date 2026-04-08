@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useNewMessageNotifier } from '@/hooks/useNewMessageNotifier';
@@ -11,7 +12,6 @@ import AdminPanel from '@/components/dashboard/panels/AdminPanel';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import Icon from '@/components/ui/icon';
 import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab } from '@/types/dashboard';
-import type { DashboardUser } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
   dispatcher: 'overview',
@@ -21,9 +21,9 @@ const DEFAULT_TABS: Record<string, DashboardTab> = {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, error, loading, login, logout, getRoleName } = useDashboardAuth();
-  const [iridaToolsUser, setIridaToolsUser] = useState<DashboardUser | null>(null);
-  const activeUser = iridaToolsUser || user;
+  const activeUser = user;
   const data = useDashboardData(activeUser);
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
@@ -50,22 +50,10 @@ export default function Dashboard() {
   };
 
   const handleIridaToolsLogin = () => {
-    const itUser: DashboardUser = {
-      id: 'tp-tds',
-      name: 'Irida-Tools',
-      role: 'irida_tools',
-      isActive: true,
-    };
-    setIridaToolsUser(itUser);
-    setActiveTab('cities');
+    navigate('/dashboard-irida-tools');
   };
 
   const handleLogout = async () => {
-    if (iridaToolsUser) {
-      setIridaToolsUser(null);
-      setActiveTab('overview');
-      return;
-    }
     await logout();
     setActiveTab('overview');
   };
