@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { DiagnosticApiConfig } from "@/types/dashboard";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ export default function ApiTable({
   onMockData,
 }: ApiTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { sort, toggle, sorted } = useTableSort(filtered as unknown as Record<string, unknown>[]);
 
   // Edit form state
   const [eApiName, setEApiName] = useState("");
@@ -77,13 +80,13 @@ export default function ApiTable({
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-border text-xs text-muted-foreground">
-          <th className="text-left px-5 py-2.5 font-medium">Статус</th>
-          <th className="text-left px-3 py-2.5 font-medium">ТС</th>
-          <th className="text-left px-3 py-2.5 font-medium">Название</th>
-          <th className="text-left px-3 py-2.5 font-medium">Тип</th>
-          <th className="text-left px-3 py-2.5 font-medium">URL</th>
-          <th className="text-left px-3 py-2.5 font-medium">Интервал</th>
-          <th className="text-right px-5 py-2.5 font-medium">Действия</th>
+          <SortableTh label="Статус" sortKey="isActive" sort={sort} onToggle={toggle} className="px-5" />
+          <SortableTh label="ТС" sortKey="vehicleNumber" sort={sort} onToggle={toggle} className="px-3" />
+          <SortableTh label="Название" sortKey="apiName" sort={sort} onToggle={toggle} className="px-3" />
+          <SortableTh label="Тип" sortKey="apiType" sort={sort} onToggle={toggle} className="px-3" />
+          <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">URL</th>
+          <SortableTh label="Интервал" sortKey="pollInterval" sort={sort} onToggle={toggle} className="px-3" />
+          <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Действия</th>
         </tr>
       </thead>
       <tbody>
@@ -104,7 +107,7 @@ export default function ApiTable({
             </td>
           </tr>
         ) : (
-          filtered.map((api) => {
+          (sorted as typeof filtered).map((api) => {
             const isEditing = editingId === api.id;
             const typeStyle =
               API_TYPE_STYLES[api.apiType] ?? API_TYPE_STYLES.custom;

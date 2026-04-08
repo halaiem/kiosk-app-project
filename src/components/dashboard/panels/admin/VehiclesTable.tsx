@@ -1,4 +1,7 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { VehicleInfo } from "@/types/dashboard";
 import {
   VEHICLE_TYPE_LABELS,
@@ -41,6 +44,8 @@ export default function VehiclesTable({
   onDecommission,
   onDelete,
 }: VehiclesTableProps) {
+  const { sort, toggle, sorted } = useTableSort(filtered as unknown as Record<string, unknown>[]);
+
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       {/* Toolbar */}
@@ -97,34 +102,18 @@ export default function VehiclesTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Борт. номер
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  VIN-номер
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Тип ТС
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Гос. номер
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Модель / Произв.
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Год
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Статус
-                </th>
-                <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                  Действия
-                </th>
+                <SortableTh label="Борт. номер" sortKey="boardNumber" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="VIN-номер" sortKey="vinNumber" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="Тип ТС" sortKey="type" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="Гос. номер" sortKey="govRegNumber" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="Модель / Произв." sortKey="model" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="Год" sortKey="year" sort={sort} onToggle={toggle} className="px-4" />
+                <SortableTh label="Статус" sortKey="status" sort={sort} onToggle={toggle} className="px-4" />
+                <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((v) => (
+              {(sorted as typeof filtered).map((v) => (
                 <tr
                   key={v.id}
                   className="border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer"
