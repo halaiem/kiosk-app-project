@@ -202,8 +202,8 @@ export async function fetchPinned(chatId: number): Promise<{ pinned: PinnedMessa
   return request(`${BASE}?action=pinned&chat_id=${chatId}`);
 }
 
-export interface RouteItem { id: number; route_number: string; name: string }
-export interface VehicleItem { id: number; board_number: string; model: string }
+export interface RouteItem { id: string; route_number: string; name: string }
+export interface VehicleItem { id: string; board_number: string | null; model: string | null }
 
 export async function fetchRoutes(): Promise<{ routes: RouteItem[] }> {
   return request(`${BASE}?action=routes`);

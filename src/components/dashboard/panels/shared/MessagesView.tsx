@@ -1012,18 +1012,14 @@ export default function MessagesView({
               ) : (
                 messages.map((msg) => {
                   const isMine = msg.sender_user_id === currentUserId;
-                  const isSearchMatch = searchResults.includes(msg.id);
                   const isCurrentMatch = searchResults[searchIndex] === msg.id;
 
                   return (
                     <div
                       key={msg.id}
                       ref={(el) => { if (el) messageRefs.current.set(msg.id, el); else messageRefs.current.delete(msg.id); }}
-                      className={`flex group ${isMine ? "justify-end" : "justify-start"} ${isSearchMatch ? "relative" : ""}`}
+                      className={`flex group relative ${isMine ? "justify-end" : "justify-start"} ${isCurrentMatch ? "bg-primary/8 rounded-xl ring-1 ring-primary/30" : ""}`}
                     >
-                      {isCurrentMatch && (
-                        <div className="absolute inset-0 rounded-xl bg-primary/8 pointer-events-none ring-1 ring-primary/30" />
-                      )}
                       <div
                         className={`flex gap-2 max-w-[70%] items-end ${
                           isMine ? "flex-row-reverse" : "flex-row"

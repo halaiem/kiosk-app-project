@@ -530,7 +530,7 @@ def get_routes(cur, schema):
 def get_vehicles(cur, schema):
     """Получить список транспорта для вставки в сообщение."""
     cur.execute(
-        f"SELECT id, board_number, model FROM {schema}.vehicles WHERE is_active = TRUE ORDER BY board_number"
+        f"SELECT id, board_number, model FROM {schema}.vehicles WHERE transport_status = 'active' ORDER BY board_number"
     )
     rows = cur.fetchall()
     return resp(200, {'vehicles': rows})
