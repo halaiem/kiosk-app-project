@@ -2,8 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import { Driver } from '@/types/kiosk';
 import { useAppSettings } from '@/context/AppSettingsContext';
-
-const KIOSK_EXIT_PASSWORD = '1234';
+import { verifyMrmExitPassword, type MrmAdminInfo } from '@/api/driverApi';
 
 function useSidebarLight() {
   const [isLight, setIsLight] = useState(true);
@@ -23,10 +22,11 @@ function useSidebarLight() {
 
 interface SidebarHeaderProps {
   driver: Driver | null;
+  mrmAdmin?: MrmAdminInfo | null;
   onClose: () => void;
 }
 
-export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
+export default function SidebarHeader({ driver, mrmAdmin, onClose }: SidebarHeaderProps) {
   const sidebarIsLight = useSidebarLight();
   const { settings } = useAppSettings();
   const roleTextClass = sidebarIsLight ? 'text-[#141414]' : 'text-white';
@@ -38,6 +38,7 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordChecking, setPasswordChecking] = useState(false);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoTap = () => {
@@ -57,15 +58,22 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
     }
   };
 
-  const handleKioskExit = () => {
-    if (password === KIOSK_EXIT_PASSWORD) {
+  const handleKioskExit = async () => {
+    if (!password || passwordChecking) return;
+    setPasswordChecking(true);
+    setPasswordError(false);
+    let ok = false;
+    if (mrmAdmin) {
+      ok = await verifyMrmExitPassword(mrmAdmin.id, password);
+    } else {
+      ok = password === '1234';
+    }
+    setPasswordChecking(false);
+    if (ok) {
       setPasswordSuccess(true);
-      setPasswordError(false);
       setTimeout(() => {
         setShowKioskModal(false);
-        // Exit kiosk — go to normal browser mode
         if (document.exitFullscreen) document.exitFullscreen();
-        // Optionally navigate away or dispatch event
         window.dispatchEvent(new CustomEvent('kiosk-exit'));
       }, 800);
     } else {
@@ -190,9 +198,10 @@ export default function SidebarHeader({ driver, onClose }: SidebarHeaderProps) {
               </button>
               <button
                 onClick={handleKioskExit}
-                disabled={!password}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!password || passwordChecking}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
+                {passwordChecking && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                 Выйти
               </button>
             </div>

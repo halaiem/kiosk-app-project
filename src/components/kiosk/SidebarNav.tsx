@@ -9,6 +9,7 @@ import {
   AdminSection,
   SupportModalRequest,
 } from '@/components/kiosk/SidebarSections';
+import type { MrmAdminInfo } from '@/api/driverApi';
 
 const MENU_ITEMS: { id: MenuSection; label: string; icon: string; desc: string }[] = [
   { id: 'profile', label: 'Профиль', icon: 'User', desc: 'Данные водителя и документация' },
@@ -20,6 +21,7 @@ const MENU_ITEMS: { id: MenuSection; label: string; icon: string; desc: string }
 
 interface SidebarNavProps {
   driver: Driver | null;
+  mrmAdmin?: MrmAdminInfo | null;
   unreadCount: number;
   activeSection: MenuSection | null;
   sectionVisible: boolean;
@@ -36,7 +38,7 @@ interface SidebarNavProps {
 }
 
 export default function SidebarNav({
-  driver, unreadCount, activeSection, sectionVisible, onSection,
+  driver, mrmAdmin, unreadCount, activeSection, sectionVisible, onSection,
   theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo,
   onSendMessage, onSupportModal,
 }: SidebarNavProps) {
@@ -93,7 +95,7 @@ export default function SidebarNav({
           {activeSection === 'settings' && <SettingsSection theme={theme} isDark={isDark} darkFrom={darkFrom} darkTo={darkTo} onSetTheme={onSetTheme} onSetDarkFrom={onSetDarkFrom} onSetDarkTo={onSetDarkTo} />}
           {activeSection === 'archive' && <ArchiveSection />}
           {activeSection === 'support' && <SupportSection onSendMessage={onSendMessage} onOpenModal={onSupportModal} />}
-          {activeSection === 'admin' && <AdminSection />}
+          {activeSection === 'admin' && <AdminSection mrmAdmin={mrmAdmin} />}
         </div>
       )}
     </div>

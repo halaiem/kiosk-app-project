@@ -1,9 +1,65 @@
+import urls from '../../backend/func2url.json';
+
 const URLS = {
   auth: 'https://functions.poehali.dev/b5ce54b6-0bb0-4452-b25b-d6a3ea35aad0',
   messages: 'https://functions.poehali.dev/29b782fe-206c-496b-8e16-1d7cf4338395',
   manage: 'https://functions.poehali.dev/1357aa6d-31b9-4e7c-8b5a-e5baa000e171',
   docs: 'https://functions.poehali.dev/504848fa-a424-4824-9e20-36c9d190a109',
+  mrm: (urls as Record<string, string>)['irida-mrm'],
 };
+
+const MRM_KEY = 'mrm_admin_info';
+
+export interface MrmAdminInfo {
+  id: number;
+  fullName: string;
+  login: string;
+  adminPin: string;
+  kioskExitPassword: string;
+}
+
+export function getStoredMrmAdmin(): MrmAdminInfo | null {
+  const v = localStorage.getItem(MRM_KEY);
+  return v ? JSON.parse(v) : null;
+}
+
+function storeMrmAdmin(admin: MrmAdminInfo) {
+  localStorage.setItem(MRM_KEY, JSON.stringify(admin));
+}
+
+export function clearMrmAdmin() {
+  localStorage.removeItem(MRM_KEY);
+}
+
+export async function loginAsMrm(login: string, password: string): Promise<MrmAdminInfo> {
+  const res = await fetch(`${URLS.mrm}/?action=login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Неверный логин или пароль');
+  storeMrmAdmin(data.mrmAdmin);
+  return data.mrmAdmin;
+}
+
+export async function verifyMrmExitPassword(mrmId: number, password: string): Promise<boolean> {
+  const res = await fetch(`${URLS.mrm}/?action=verify_exit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mrmId, password }),
+  });
+  return res.ok;
+}
+
+export async function verifyMrmPin(mrmId: number, pin: string): Promise<boolean> {
+  const res = await fetch(`${URLS.mrm}/?action=verify_pin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mrmId, pin }),
+  });
+  return res.ok;
+}
 
 const TOKEN_KEY = 'driver_session_token';
 const DRIVER_KEY = 'driver_info';

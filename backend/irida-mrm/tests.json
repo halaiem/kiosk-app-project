@@ -13,6 +13,15 @@
       "expectedStatus": 401,
       "expectedBody": {"error": "Не авторизован"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login with wrong credentials returns 401",
+      "method": "POST",
+      "path": "/?action=login",
+      "body": {"login": "no_such_user", "password": "wrong"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Неверный логин или пароль"},
+      "bodyMatcher": "partial"
     }
   ]
 }

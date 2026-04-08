@@ -4,11 +4,13 @@ import { MenuSection, ThemeMode, Driver } from '@/types/kiosk';
 import SidebarHeader from '@/components/kiosk/SidebarHeader';
 import SidebarNav from '@/components/kiosk/SidebarNav';
 import { SupportModalRequest } from '@/components/kiosk/SidebarSections';
+import type { MrmAdminInfo } from '@/api/driverApi';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   driver: Driver | null;
+  mrmAdmin?: MrmAdminInfo | null;
   unreadCount: number;
   activeSection: MenuSection | null;
   onSection: (section: MenuSection) => void;
@@ -26,7 +28,7 @@ interface Props {
   onSupportModal?: (req: SupportModalRequest) => void;
 }
 
-export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo, onSendMessage, onSupportModal }: Props) {
+export default function SidebarMenu({ isOpen, onClose, driver, mrmAdmin, unreadCount, activeSection, onSection, onLogout, logoTapCount, onLogoTap, theme, isDark, darkFrom, darkTo, onSetTheme, onSetDarkFrom, onSetDarkTo, onSendMessage, onSupportModal }: Props) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -70,10 +72,11 @@ export default function SidebarMenu({ isOpen, onClose, driver, unreadCount, acti
           transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
         }}>
 
-        <SidebarHeader driver={driver} onClose={onClose} />
+        <SidebarHeader driver={driver} mrmAdmin={mrmAdmin} onClose={onClose} />
 
         <SidebarNav
           driver={driver}
+          mrmAdmin={mrmAdmin}
           unreadCount={unreadCount}
           activeSection={activeSection}
           sectionVisible={sectionVisible}

@@ -40,17 +40,90 @@ def check_admin(event, cur, schema):
     return {'id': r[0], 'role': r[1], 'name': r[2]}, None
 
 def handler(event, context):
-    """CRUD для администраторов МРМ планшетов"""
+    """CRUD для администраторов МРМ планшетов + авторизация с планшета"""
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': {**CORS, 'Access-Control-Max-Age': '86400'}, 'body': ''}
 
     method = event.get('httpMethod', 'GET')
     qs = event.get('queryStringParameters') or {}
+    action = qs.get('action', '')
     schema = get_schema()
     conn = get_conn()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     try:
+        # POST ?action=login — вход МРМ-администратора с планшета
+        if method == 'POST' and action == 'login':
+            body = json.loads(event.get('body') or '{}')
+            login = body.get('login', '').strip()
+            password = body.get('password', '').strip()
+            if not login or not password:
+                return resp(400, {'error': 'Логин и пароль обязательны'})
+            cur.execute(
+                f"SELECT id, full_name, login, admin_pin, kiosk_exit_password "
+                f"FROM {schema}.mrm_admins "
+                f"WHERE login = %s AND password_hash = %s AND is_active = true",
+                (login, hash_pw(password))
+            )
+            row = cur.fetchone()
+            if not row:
+                return resp(401, {'error': 'Неверный логин или пароль'})
+            ip = (event.get('requestContext') or {}).get('identity', {}).get('sourceIp') or ''
+            cur.execute(
+                f"UPDATE {schema}.mrm_admins SET last_seen_at = now(), last_tablet_ip = %s WHERE id = %s",
+                (ip, row['id'])
+            )
+            conn.commit()
+            return resp(200, {
+                'mrmAdmin': {
+                    'id': row['id'],
+                    'fullName': row['full_name'],
+                    'login': row['login'],
+                    'adminPin': row['admin_pin'],
+                    'kioskExitPassword': row['kiosk_exit_password'],
+                }
+            })
+
+        # POST ?action=verify_exit — проверка служебного пароля для выхода из киоска
+        if method == 'POST' and action == 'verify_exit':
+            body = json.loads(event.get('body') or '{}')
+            mrm_id = body.get('mrmId')
+            password = body.get('password', '').strip()
+            if not mrm_id or not password:
+                return resp(400, {'error': 'mrmId и password обязательны'})
+            cur.execute(
+                f"SELECT kiosk_exit_password FROM {schema}.mrm_admins WHERE id = %s AND is_active = true",
+                (mrm_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return resp(404, {'error': 'Администратор не найден'})
+            if row['kiosk_exit_password'] != password:
+                return resp(403, {'error': 'Неверный служебный пароль'})
+            cur.execute(
+                f"UPDATE {schema}.mrm_admins SET last_seen_at = now() WHERE id = %s", (mrm_id,)
+            )
+            conn.commit()
+            return resp(200, {'ok': True})
+
+        # POST ?action=verify_pin — проверка admin PIN
+        if method == 'POST' and action == 'verify_pin':
+            body = json.loads(event.get('body') or '{}')
+            mrm_id = body.get('mrmId')
+            pin = body.get('pin', '').strip()
+            if not mrm_id or not pin:
+                return resp(400, {'error': 'mrmId и pin обязательны'})
+            cur.execute(
+                f"SELECT admin_pin FROM {schema}.mrm_admins WHERE id = %s AND is_active = true",
+                (mrm_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return resp(404, {'error': 'Администратор не найден'})
+            if row['admin_pin'] != pin:
+                return resp(403, {'error': 'Неверный PIN'})
+            return resp(200, {'ok': True})
+
         # GET — список всех МРМ-администраторов
         if method == 'GET':
             user, err = check_admin(event, cur, schema)

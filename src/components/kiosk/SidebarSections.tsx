@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/types/kiosk';
 import { EquipmentFaultPopup, ContactMessengerPopup } from './sidebar/SidebarSupportPopups';
+import { verifyMrmPin, type MrmAdminInfo } from '@/api/driverApi';
 
 export { ProfileSection } from './sidebar/SidebarProfile';
 export { NotificationsSection, SettingsSection, ArchiveSection } from './sidebar/SidebarSettings';
@@ -60,13 +61,24 @@ export function SupportSection({ onSendMessage, onOpenModal }: {
 }
 
 // ── Admin Section ────────────────────────────────────────────────────────────
-export function AdminSection() {
+export function AdminSection({ mrmAdmin }: { mrmAdmin?: MrmAdminInfo | null }) {
   const [pin, setPin] = useState('');
   const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
 
-  const tryUnlock = () => {
-    if (pin === '123456789') { setUnlocked(true); setError(''); }
+  const tryUnlock = async () => {
+    if (!pin.trim() || checking) return;
+    setChecking(true);
+    setError('');
+    let ok = false;
+    if (mrmAdmin) {
+      ok = await verifyMrmPin(mrmAdmin.id, pin);
+    } else {
+      ok = pin === '123456789';
+    }
+    setChecking(false);
+    if (ok) { setUnlocked(true); }
     else { setError('Неверный PIN'); setPin(''); }
   };
 
@@ -87,8 +99,9 @@ export function AdminSection() {
           className="w-48 text-center px-4 py-3 rounded-xl bg-muted border border-border text-foreground text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         {error && <p className="text-destructive text-sm">{error}</p>}
-        <button onClick={tryUnlock} className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold ripple">
-          Войти
+        <button onClick={tryUnlock} disabled={checking} className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold ripple disabled:opacity-50 flex items-center gap-2">
+          {checking && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {checking ? 'Проверка...' : 'Войти'}
         </button>
       </div>
     );

@@ -2,27 +2,47 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { useAppSettings } from '@/context/AppSettingsContext';
 
+type LoginMode = 'driver' | 'mrm';
+
 interface Props {
   onLogin: (employeeId: string, pin: string) => void;
+  onLoginMrm?: (login: string, password: string) => void;
   error?: string | null;
   loading?: boolean;
 }
 
-export default function LoginPage({ onLogin, error, loading }: Props) {
+export default function LoginPage({ onLogin, onLoginMrm, error, loading }: Props) {
+  const [mode, setMode] = useState<LoginMode>('driver');
+
   const [employeeId, setEmployeeId] = useState('');
   const [pin, setPin] = useState('');
+
+  const [mrmLogin, setMrmLogin] = useState('');
+  const [mrmPassword, setMrmPassword] = useState('');
+
   const [localError, setLocalError] = useState('');
   const { settings } = useAppSettings();
 
   const handleSubmit = () => {
-    if (!employeeId.trim()) { setLocalError('Введите табельный номер'); return; }
-    if (!pin.trim()) { setLocalError('Введите PIN-код'); return; }
     setLocalError('');
-    onLogin(employeeId.trim(), pin.trim());
+    if (mode === 'driver') {
+      if (!employeeId.trim()) { setLocalError('Введите табельный номер'); return; }
+      if (!pin.trim()) { setLocalError('Введите PIN-код'); return; }
+      onLogin(employeeId.trim(), pin.trim());
+    } else {
+      if (!mrmLogin.trim()) { setLocalError('Введите логин'); return; }
+      if (!mrmPassword.trim()) { setLocalError('Введите пароль'); return; }
+      onLoginMrm?.(mrmLogin.trim(), mrmPassword.trim());
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSubmit();
+  };
+
+  const switchMode = (m: LoginMode) => {
+    setMode(m);
+    setLocalError('');
   };
 
   const displayError = localError || error;
@@ -74,42 +94,96 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
         <div className="relative z-10 landscape:w-[60%] portrait:flex-1 flex flex-col items-center portrait:justify-center portrait:pb-[25%] justify-center px-14 portrait:px-10 portrait:pt-4">
           <div className="w-full max-w-xl portrait:max-w-[90%]">
             <div className="kiosk-surface rounded-2xl elevation-3 p-10 portrait:p-7">
+
+              {/* Переключатель режимов */}
+              <div className="flex gap-2 mb-6 portrait:mb-5 p-1 bg-muted rounded-xl">
+                <button
+                  onClick={() => switchMode('driver')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${mode === 'driver' ? 'bg-primary text-primary-foreground elevation-1' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon name="User" size={16} />
+                  Водитель
+                </button>
+                <button
+                  onClick={() => switchMode('mrm')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${mode === 'mrm' ? 'bg-orange-500 text-white elevation-1' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon name="Building2" size={16} />
+                  Администратор МРМ
+                </button>
+              </div>
+
               <h2 className="text-3xl portrait:text-2xl font-semibold text-foreground mb-6 portrait:mb-5 flex items-center gap-3">
-                <Icon name="LogIn" size={28} className="text-primary" />
-                Авторизация водителя
+                <Icon name={mode === 'driver' ? 'LogIn' : 'ShieldCheck'} size={28} className={mode === 'driver' ? 'text-primary' : 'text-orange-500'} />
+                {mode === 'driver' ? 'Авторизация водителя' : 'Вход администратора МРМ'}
               </h2>
 
               <div className="space-y-5 portrait:space-y-4">
-                <div>
-                  <label className="text-base font-medium text-muted-foreground mb-2.5 block">Табельный номер</label>
-                  <div className="relative">
-                    <Icon name="IdCard" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={employeeId}
-                      onChange={e => setEmployeeId(e.target.value)}
-                      onKeyDown={handleKey}
-                      placeholder="Например: 0001"
-                      className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-xl portrait:text-lg transition-all"
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-base font-medium text-muted-foreground mb-2.5 block">PIN-код</label>
-                  <div className="relative">
-                    <Icon name="Lock" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="password"
-                      value={pin}
-                      onChange={e => setPin(e.target.value)}
-                      onKeyDown={handleKey}
-                      placeholder="••••"
-                      className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-xl portrait:text-lg transition-all"
-                    />
-                  </div>
-                </div>
+                {mode === 'driver' ? (
+                  <>
+                    <div>
+                      <label className="text-base font-medium text-muted-foreground mb-2.5 block">Табельный номер</label>
+                      <div className="relative">
+                        <Icon name="IdCard" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={employeeId}
+                          onChange={e => setEmployeeId(e.target.value)}
+                          onKeyDown={handleKey}
+                          placeholder="Например: 0001"
+                          className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-xl portrait:text-lg transition-all"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-base font-medium text-muted-foreground mb-2.5 block">PIN-код</label>
+                      <div className="relative">
+                        <Icon name="Lock" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="password"
+                          value={pin}
+                          onChange={e => setPin(e.target.value)}
+                          onKeyDown={handleKey}
+                          placeholder="••••"
+                          className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-xl portrait:text-lg transition-all"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-base font-medium text-muted-foreground mb-2.5 block">Логин</label>
+                      <div className="relative">
+                        <Icon name="Building2" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={mrmLogin}
+                          onChange={e => setMrmLogin(e.target.value)}
+                          onKeyDown={handleKey}
+                          placeholder="Логин администратора МРМ"
+                          className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 text-xl portrait:text-lg transition-all"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-base font-medium text-muted-foreground mb-2.5 block">Пароль</label>
+                      <div className="relative">
+                        <Icon name="Lock" size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="password"
+                          value={mrmPassword}
+                          onChange={e => setMrmPassword(e.target.value)}
+                          onKeyDown={handleKey}
+                          placeholder="••••••••"
+                          className="w-full pl-12 pr-5 py-4 portrait:py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 text-xl portrait:text-lg transition-all"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {displayError && (
                   <div className="flex items-center gap-2.5 p-4 rounded-xl bg-destructive/10 text-destructive text-base animate-shake">
@@ -121,17 +195,17 @@ export default function LoginPage({ onLogin, error, loading }: Props) {
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="w-full py-5 portrait:py-4 rounded-xl bg-primary text-primary-foreground font-semibold text-2xl portrait:text-xl flex items-center justify-center gap-3 elevation-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-1 ripple"
+                  className={`w-full py-5 portrait:py-4 rounded-xl font-semibold text-2xl portrait:text-xl flex items-center justify-center gap-3 elevation-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-1 ripple ${mode === 'driver' ? 'bg-primary text-primary-foreground' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
                 >
                   {loading ? (
                     <>
-                      <div className="w-6 h-6 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Проверка...
                     </>
                   ) : (
                     <>
-                      <Icon name="LogIn" size={24} />
-                      Войти в систему
+                      <Icon name={mode === 'driver' ? 'LogIn' : 'ShieldCheck'} size={24} />
+                      {mode === 'driver' ? 'Войти в систему' : 'Войти как МРМ'}
                     </>
                   )}
                 </button>

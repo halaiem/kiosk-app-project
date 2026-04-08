@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
-import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver } from '@/api/driverApi';
+import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver, loginAsMrm, getStoredMrmAdmin, clearMrmAdmin, type MrmAdminInfo } from '@/api/driverApi';
 import { addToQueue, getPendingMessages, updateQueueItem, removeFromQueue, clearSentMessages, cacheMessages, getCachedMessages, generateClientId } from '@/lib/offlineQueue';
 
 
@@ -22,6 +22,7 @@ export function useKioskState() {
   const [pendingImportant, setPendingImportant] = useState<Message | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [mrmAdmin, setMrmAdmin] = useState<MrmAdminInfo | null>(() => getStoredMrmAdmin());
   const lastMessageIdRef = useRef(0);
   const syncingRef = useRef(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -233,6 +234,20 @@ export function useKioskState() {
     }
   }, []);
 
+  const loginMrm = useCallback(async (login: string, password: string) => {
+    setLoginError(null);
+    setLoginLoading(true);
+    try {
+      const admin = await loginAsMrm(login, password);
+      setMrmAdmin(admin);
+      setScreen('main');
+    } catch (e: unknown) {
+      setLoginError(e instanceof Error ? e.message : 'Ошибка входа');
+    } finally {
+      setLoginLoading(false);
+    }
+  }, []);
+
   const startShift = useCallback(() => {
     setScreen('main');
     setIsMoving(true);
@@ -240,7 +255,9 @@ export function useKioskState() {
 
   const logout = useCallback(async () => {
     await apiLogout();
+    clearMrmAdmin();
     setDriver(null);
+    setMrmAdmin(null);
     setMessages([]);
     lastMessageIdRef.current = 0;
     setScreen('login');
@@ -348,6 +365,7 @@ export function useKioskState() {
   return {
     screen, setScreen,
     driver,
+    mrmAdmin,
     messages,
     connection,
     theme, setTheme,
@@ -364,6 +382,7 @@ export function useKioskState() {
     loginError,
     loginLoading,
     login,
+    loginMrm,
     startShift,
     logout,
     confirmImportant,

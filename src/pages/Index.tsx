@@ -205,6 +205,10 @@ export default function Index() {
     state.login(employeeId, pin);
   };
 
+  const handleLoginMrm = (login: string, password: string) => {
+    state.loginMrm(login, password);
+  };
+
   // Как только screen переключился на welcome — показываем loading на 3 сек
   useEffect(() => {
     if (state.screen === 'welcome') {
@@ -216,7 +220,7 @@ export default function Index() {
     <div className="h-full w-full overflow-hidden relative">
       {state.screen === 'login' && !loginLoading && (
         <>
-          <LoginPage onLogin={handleLogin} error={state.loginError} loading={state.loginLoading} />
+          <LoginPage onLogin={handleLogin} onLoginMrm={handleLoginMrm} error={state.loginError} loading={state.loginLoading} />
         </>
       )}
 
@@ -267,6 +271,7 @@ export default function Index() {
             isOpen={menuOpen}
             onClose={() => { setMenuOpen(false); setActiveSection(null); }}
             driver={state.driver}
+            mrmAdmin={state.mrmAdmin}
             unreadCount={state.unreadCount}
             activeSection={activeSection}
             onSection={s => {
