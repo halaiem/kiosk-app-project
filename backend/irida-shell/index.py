@@ -222,6 +222,277 @@ def cmd_date(args):
 def cmd_version(args):
     return 'IRIDA Platform v2.6.0\nShell v1.0.0\nRuntime: Python 3.11\nDB: PostgreSQL 15'
 
+# ── Пользователи ──────────────────────────────────────────
+
+@register('user:list', 'Список пользователей дашборда')
+def cmd_user_list(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, role, is_active FROM {}.dashboard_users ORDER BY id".format(schema))
+    rows = cur.fetchall()
+    conn.close()
+    lines = [f'{"ID":<8} {"Имя":<25} {"Роль":<15} Активен']
+    lines.append('-' * 60)
+    for r in rows:
+        lines.append(f'{r[0]:<8} {r[1]:<25} {r[2]:<15} {"да" if r[3] else "нет"}')
+    lines.append(f'\nВсего: {len(rows)}')
+    return '\n'.join(lines)
+
+@register('user:create', 'Создать пользователя: user:create <id> <name> <role> <pass>')
+def cmd_user_create(args):
+    if len(args) < 4:
+        return 'Usage: user:create <id> <name> <role> <password>\nРоли: dispatcher, technician, admin'
+    uid, name, role, password = args[0], args[1], args[2], args[3]
+    if role not in ('dispatcher', 'technician', 'admin'):
+        return f'Неизвестная роль: {role}\nДопустимые: dispatcher, technician, admin'
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    import hashlib
+    pw_hash = hashlib.sha256(password.encode()).hexdigest()
+    cur.execute("INSERT INTO {}.dashboard_users (id, name, role, password_hash, is_active) VALUES (%s, %s, %s, %s, true)".format(schema),
+                (uid, name, role, pw_hash))
+    conn.commit()
+    conn.close()
+    return f'Пользователь создан: {uid} ({name}) — роль: {role}'
+
+@register('user:delete', 'Удалить пользователя: user:delete <id>')
+def cmd_user_delete(args):
+    if not args:
+        return 'Usage: user:delete <user_id>'
+    uid = args[0]
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM {}.dashboard_users WHERE id = %s".format(schema), (uid,))
+    affected = cur.rowcount
+    conn.commit()
+    conn.close()
+    return f'Удалено: {affected} пользователь(ей)' if affected else f'Пользователь {uid} не найден'
+
+@register('user:activate', 'Активировать/деактивировать: user:activate <id> <on|off>')
+def cmd_user_activate(args):
+    if len(args) < 2:
+        return 'Usage: user:activate <user_id> <on|off>'
+    uid, state = args[0], args[1].lower()
+    active = state in ('on', 'true', '1', 'yes')
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE {}.dashboard_users SET is_active = %s WHERE id = %s".format(schema), (active, uid))
+    conn.commit()
+    conn.close()
+    return f'Пользователь {uid}: is_active = {active}'
+
+# ── Водители ──────────────────────────────────────────────
+
+@register('driver:list', 'Список водителей (лимит 20)')
+def cmd_driver_list(args):
+    limit = int(args[0]) if args else 20
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, tab_number, full_name, status FROM {}.drivers ORDER BY id LIMIT %s".format(schema), (limit,))
+    rows = cur.fetchall()
+    cur.execute("SELECT count(*) FROM {}.drivers".format(schema))
+    total = cur.fetchone()[0]
+    conn.close()
+    lines = [f'{"ID":<6} {"Таб.№":<10} {"Имя":<30} Статус']
+    lines.append('-' * 60)
+    for r in rows:
+        lines.append(f'{r[0]:<6} {r[1] or "":<10} {r[2] or "":<30} {r[3] or ""}')
+    lines.append(f'\nПоказано: {len(rows)} из {total}')
+    return '\n'.join(lines)
+
+@register('driver:count', 'Количество водителей')
+def cmd_driver_count(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM {}.drivers".format(schema))
+    total = cur.fetchone()[0]
+    cur.execute("SELECT count(*) FROM {}.drivers WHERE status = 'on_shift'".format(schema))
+    on_shift = cur.fetchone()[0]
+    conn.close()
+    return f'Всего водителей: {total}\nНа смене: {on_shift}\nНе на смене: {total - on_shift}'
+
+@register('driver:find', 'Найти водителя: driver:find <имя или таб.номер>')
+def cmd_driver_find(args):
+    if not args:
+        return 'Usage: driver:find <name_or_tab_number>'
+    q = ' '.join(args)
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, tab_number, full_name, status, phone FROM {}.drivers WHERE full_name ILIKE %s OR tab_number = %s ORDER BY id LIMIT 10".format(schema),
+                (f'%{q}%', q))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        return f'Водитель не найден: {q}'
+    lines = []
+    for r in rows:
+        lines.append(f'ID: {r[0]}  Таб: {r[1] or "-"}  {r[2]}  [{r[3] or "-"}]  {r[4] or ""}')
+    return '\n'.join(lines)
+
+# ── Маршруты ──────────────────────────────────────────────
+
+@register('route:list', 'Список маршрутов')
+def cmd_route_list(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, number, name, is_active FROM {}.routes ORDER BY number".format(schema))
+    rows = cur.fetchall()
+    conn.close()
+    lines = [f'{"ID":<6} {"№":<8} {"Название":<35} Активен']
+    lines.append('-' * 60)
+    for r in rows:
+        lines.append(f'{r[0]:<6} {r[1] or "":<8} {r[2] or "":<35} {"да" if r[3] else "нет"}')
+    lines.append(f'\nВсего маршрутов: {len(rows)}')
+    return '\n'.join(lines)
+
+@register('route:info', 'Информация о маршруте: route:info <number>')
+def cmd_route_info(args):
+    if not args:
+        return 'Usage: route:info <route_number>'
+    num = args[0]
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, number, name, is_active, route_type, stops_count, distance_km FROM {}.routes WHERE number = %s LIMIT 1".format(schema), (num,))
+    r = cur.fetchone()
+    conn.close()
+    if not r:
+        return f'Маршрут {num} не найден'
+    return f'Маршрут №{r[1]}\n  Название:    {r[2] or "-"}\n  Активен:     {"да" if r[3] else "нет"}\n  Тип:         {r[4] or "-"}\n  Остановок:   {r[5] or "-"}\n  Расстояние:  {r[6] or "-"} км'
+
+# ── Транспорт ─────────────────────────────────────────────
+
+@register('vehicle:list', 'Список транспорта (лимит 20)')
+def cmd_vehicle_list(args):
+    limit = int(args[0]) if args else 20
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, number, type, status FROM {}.vehicles ORDER BY id LIMIT %s".format(schema), (limit,))
+    rows = cur.fetchall()
+    cur.execute("SELECT count(*) FROM {}.vehicles".format(schema))
+    total = cur.fetchone()[0]
+    conn.close()
+    lines = [f'{"ID":<8} {"Борт №":<12} {"Тип":<15} Статус']
+    lines.append('-' * 50)
+    for r in rows:
+        lines.append(f'{r[0]:<8} {r[1] or "":<12} {r[2] or "":<15} {r[3] or ""}')
+    lines.append(f'\nПоказано: {len(rows)} из {total}')
+    return '\n'.join(lines)
+
+@register('vehicle:count', 'Количество транспортных средств')
+def cmd_vehicle_count(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM {}.vehicles".format(schema))
+    total = cur.fetchone()[0]
+    cur.execute("SELECT status, count(*) FROM {}.vehicles GROUP BY status ORDER BY count(*) DESC".format(schema))
+    stats = cur.fetchall()
+    conn.close()
+    lines = [f'Всего ТС: {total}', '']
+    for s in stats:
+        lines.append(f'  {s[0] or "unknown":<15} {s[1]}')
+    return '\n'.join(lines)
+
+# ── Сообщения ─────────────────────────────────────────────
+
+@register('msg:count', 'Статистика сообщений')
+def cmd_msg_count(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT count(*) FROM {}.messages".format(schema))
+    total = cur.fetchone()[0]
+    cur.execute("SELECT direction, count(*) FROM {}.messages GROUP BY direction".format(schema))
+    dirs = cur.fetchall()
+    conn.close()
+    lines = [f'Всего сообщений: {total}']
+    for d in dirs:
+        lines.append(f'  {d[0] or "unknown":<12} {d[1]}')
+    return '\n'.join(lines)
+
+@register('msg:recent', 'Последние 10 сообщений')
+def cmd_msg_recent(args):
+    limit = int(args[0]) if args else 10
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, driver_name, text, direction, created_at FROM {}.messages ORDER BY created_at DESC LIMIT %s".format(schema), (limit,))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        return 'Сообщений нет'
+    lines = []
+    for r in rows:
+        ts = str(r[4])[:16] if r[4] else ''
+        arrow = '→' if r[3] == 'outgoing' else '←'
+        lines.append(f'[{ts}] {arrow} {r[1] or "?"}: {(r[2] or "")[:60]}')
+    return '\n'.join(lines)
+
+# ── Статистика ────────────────────────────────────────────
+
+@register('stats', 'Общая статистика системы')
+def cmd_stats(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    counts = {}
+    for tbl in ['drivers', 'vehicles', 'routes', 'messages', 'dashboard_users', 'documents', 'audit_logs']:
+        try:
+            cur.execute("SELECT count(*) FROM {}.{}".format(schema, tbl))
+            counts[tbl] = cur.fetchone()[0]
+        except:
+            counts[tbl] = -1
+            conn.rollback()
+    conn.close()
+    lines = ['Статистика ИРИДА:', '']
+    for k, v in counts.items():
+        lines.append(f'  {k:<20} {v if v >= 0 else "n/a"}')
+    return '\n'.join(lines)
+
+@register('audit:recent', 'Последние действия в системе')
+def cmd_audit_recent(args):
+    limit = int(args[0]) if args else 10
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_name, action, target, created_at FROM {}.audit_logs ORDER BY created_at DESC LIMIT %s".format(schema), (limit,))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        return 'Логов аудита нет'
+    lines = []
+    for r in rows:
+        ts = str(r[3])[:16] if r[3] else ''
+        lines.append(f'[{ts}] {r[0] or "?"}: {r[1] or ""} → {r[2] or ""}')
+    return '\n'.join(lines)
+
+@register('session:list', 'Активные сессии дашборда')
+def cmd_session_list(args):
+    schema = get_schema()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id, user_name, role, created_at FROM {}.dashboard_sessions ORDER BY created_at DESC LIMIT 15".format(schema))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        return 'Активных сессий нет'
+    lines = [f'{"ID":<8} {"Имя":<22} {"Роль":<14} Вход']
+    lines.append('-' * 60)
+    for r in rows:
+        ts = str(r[3])[:16] if r[3] else ''
+        lines.append(f'{r[0] or "":<8} {r[1] or "":<22} {r[2] or "":<14} {ts}')
+    return '\n'.join(lines)
+
 def handler(event, context):
     """Выполняет shell-команды ИРИДА"""
     if event.get('httpMethod') == 'OPTIONS':

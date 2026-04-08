@@ -115,13 +115,17 @@ export default function ShellTerminalSection() {
 
   const quickCommands = [
     { label: 'help', cmd: 'help' },
-    { label: 'whoami', cmd: 'whoami' },
+    { label: 'stats', cmd: 'stats' },
+    { label: 'user:list', cmd: 'user:list' },
+    { label: 'driver:list', cmd: 'driver:list' },
+    { label: 'route:list', cmd: 'route:list' },
+    { label: 'vehicle:list', cmd: 'vehicle:list' },
+    { label: 'msg:recent', cmd: 'msg:recent' },
     { label: 'db:tables', cmd: 'db:tables' },
     { label: 'api:list', cmd: 'api:list' },
     { label: 'config:get', cmd: 'config:get' },
-    { label: 'uptime', cmd: 'uptime' },
-    { label: 'version', cmd: 'version' },
-    { label: 'ping cdn', cmd: 'ping cdn.poehali.dev' },
+    { label: 'audit:recent', cmd: 'audit:recent' },
+    { label: 'session:list', cmd: 'session:list' },
   ];
 
   return (
