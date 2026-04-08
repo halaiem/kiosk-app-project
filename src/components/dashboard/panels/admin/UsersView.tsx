@@ -77,7 +77,8 @@ export function UsersView() {
   useEffect(() => { loadUsers(); }, []);
 
   const filtered = useMemo(() => {
-    let list = roleFilter === "all" ? users : users.filter((u) => u.role === roleFilter);
+    let list = users.filter((u) => u.is_active);
+    if (roleFilter !== "all") list = list.filter((u) => u.role === roleFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((u) => u.full_name.toLowerCase().includes(q) || u.employee_id.toLowerCase().includes(q));
@@ -251,14 +252,12 @@ export function UsersView() {
               <th className="text-left px-5 py-2.5 font-medium w-24">ID</th>
               <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
               <th className="text-left px-3 py-2.5 font-medium w-36">Роль</th>
-              <th className="text-left px-3 py-2.5 font-medium w-32">Статус</th>
               <th className="text-right px-5 py-2.5 font-medium w-28">Действия</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((entry) => {
               const isEditing = editingId === entry.id;
-              const isBlocked = !entry.is_active;
               const isConfirmDelete = deleteConfirmId === entry.id;
 
               if (isEditing && editState) {
@@ -335,23 +334,13 @@ export function UsersView() {
               }
 
               return (
-                <tr key={entry.id}
-                  className={`border-b border-border transition-colors ${isBlocked ? "opacity-50" : "hover:bg-muted/30"}`}
-                >
+                <tr key={entry.id} className="border-b border-border transition-colors hover:bg-muted/30">
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
                   <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
                   <td className="px-3 py-3">
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground"}`}>
                       {ROLE_LABELS[entry.role] || entry.role}
                     </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className={`flex items-center gap-1.5 text-xs font-medium`}>
-                      <div className={`w-2 h-2 rounded-full ${isBlocked ? "bg-red-500" : "bg-green-500"}`} />
-                      <span className={isBlocked ? "text-red-500" : "text-green-500"}>
-                        {isBlocked ? "Заблокирован" : "Активен"}
-                      </span>
-                    </div>
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -389,7 +378,7 @@ export function UsersView() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
               </tr>
             )}
           </tbody>
