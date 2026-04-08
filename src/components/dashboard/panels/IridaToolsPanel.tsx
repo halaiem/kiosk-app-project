@@ -549,16 +549,29 @@ function TerminalSection() {
 
     const tick = async () => {
       if (!watchActiveRef.current) return;
+      if (document.visibilityState === 'hidden') {
+        timeoutId = setTimeout(tick, 5000);
+        return;
+      }
       await fetchFileList(latestTsRef.current === '');
       if (watchActiveRef.current) {
         timeoutId = setTimeout(tick, 2000);
       }
     };
 
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && watchActiveRef.current) {
+        clearTimeout(timeoutId);
+        tick();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
     tick();
     return () => {
       watchActiveRef.current = false;
       clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [fetchFileList]);
 
