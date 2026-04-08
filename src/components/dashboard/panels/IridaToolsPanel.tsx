@@ -455,6 +455,82 @@ function TerminalSection() {
   };
 
   const [syncing, setSyncing] = useState(false);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const prevDbFilesRef = useRef<string[]>([]);
+  const prevUpdatedAtRef = useRef<Record<string, string>>({});
+
+  const fetchFileList = useCallback(async (silent = false) => {
+    try {
+      const res = await fetch(`${IRIDA_FILES_URL}?action=list`);
+      const data = await res.json();
+      const dbFiles: string[] = (data.files || []).map((f: { path: string }) => f.path);
+
+      const prev = prevDbFilesRef.current;
+      const added = dbFiles.filter((f) => !prev.includes(f));
+      const removed = prev.filter((f) => !dbFiles.includes(f));
+
+      if (added.length > 0 || removed.length > 0) {
+        const now = new Date().toLocaleTimeString();
+        const lines: string[] = [``, `> [${now}] Обнаружены изменения в файлах:`];
+        added.forEach((f) => lines.push(`>   + ${f}`));
+        removed.forEach((f) => lines.push(`>   - ${f}`));
+        setOutput((prev) => [...prev, ...lines]);
+
+        setCustomFiles((cur) => {
+          const merged = [...new Set([...cur, ...added])];
+          return merged.filter((f) => !removed.includes(f) || cur.includes(f));
+        });
+
+        added.forEach((f) => {
+          if (fileContents[f]) {
+            setFileContents((c) => {
+              const next = { ...c };
+              delete next[f];
+              return next;
+            });
+          }
+        });
+
+        if (!silent) setAutoRefreshing(true);
+        setTimeout(() => setAutoRefreshing(false), 1500);
+      }
+
+      const dbUpdatedMap: Record<string, string> = {};
+      (data.files || []).forEach((f: { path: string; updated_at: string }) => {
+        dbUpdatedMap[f.path] = f.updated_at;
+      });
+
+      if (!silent) {
+        const outdated: string[] = [];
+        Object.keys(dbUpdatedMap).forEach((path) => {
+          const prev = prevUpdatedAtRef.current[path];
+          if (prev && prev !== dbUpdatedMap[path]) outdated.push(path);
+        });
+        if (outdated.length > 0) {
+          setFileContents((cache) => {
+            const next = { ...cache };
+            outdated.forEach((path) => { delete next[path]; });
+            return next;
+          });
+          const now = new Date().toLocaleTimeString();
+          const lines = [``, `> [${now}] Файлы обновлены извне (кэш сброшен):`];
+          outdated.forEach((f) => lines.push(`>   ~ ${f}`));
+          setOutput((o) => [...o, ...lines]);
+          setAutoRefreshing(true);
+          setTimeout(() => setAutoRefreshing(false), 1500);
+        }
+      }
+
+      prevUpdatedAtRef.current = dbUpdatedMap;
+      prevDbFilesRef.current = dbFiles;
+    } catch { /* silent fail */ }
+  }, [fileContents]);
+
+  useEffect(() => {
+    fetchFileList(true);
+    const interval = setInterval(() => fetchFileList(false), 10000);
+    return () => clearInterval(interval);
+  }, [fetchFileList]);
 
   const handleSave = useCallback(async () => {
     if (!activeTab) return;
@@ -1226,16 +1302,30 @@ function TerminalSection() {
 
           {/* Explorer label + new file btn */}
           <div className="flex items-center justify-between px-3 py-1.5 shrink-0">
-            <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold">
-              {search ? `Результаты (${filteredFiles?.length ?? 0})` : `Проект (${allFiles.length} файлов)`}
-            </span>
-            <button
-              onClick={() => { setShowNewFile(true); setTimeout(() => newFileInputRef.current?.focus(), 100); }}
-              className="text-white/25 hover:text-white/60 transition-colors"
-              title="Создать файл"
-            >
-              <Icon name="FilePlus" className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-[10px] text-white/25 uppercase tracking-wider font-semibold truncate">
+                {search ? `Результаты (${filteredFiles?.length ?? 0})` : `Проект (${allFiles.length} файлов)`}
+              </span>
+              {autoRefreshing && (
+                <Icon name="RefreshCw" className="w-2.5 h-2.5 text-emerald-400 animate-spin shrink-0" />
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => fetchFileList(false)}
+                className="text-white/25 hover:text-white/60 transition-colors"
+                title="Обновить список файлов из БД"
+              >
+                <Icon name="RefreshCw" className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => { setShowNewFile(true); setTimeout(() => newFileInputRef.current?.focus(), 100); }}
+                className="text-white/25 hover:text-white/60 transition-colors"
+                title="Создать файл"
+              >
+                <Icon name="FilePlus" className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           {selectMode && (
             <div className="flex items-center gap-2 px-3 py-1 border-b border-white/10 shrink-0 bg-cyan-900/20">
