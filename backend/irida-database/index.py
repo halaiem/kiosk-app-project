@@ -182,6 +182,33 @@ def handler(event, context):
             col_names = [desc[0] for desc in cur.description] if cur.description else []
             return resp(200, {'rows': rows, 'columns': col_names, 'table': table})
 
+        if action == 'query' and method == 'POST':
+            body = json.loads(event.get('body', '{}'))
+            sql = body.get('sql', '').strip()
+            if not sql:
+                return resp(400, {'error': 'sql is required'})
+            sql_upper = sql.upper().lstrip()
+            is_select = sql_upper.startswith('SELECT') or sql_upper.startswith('WITH') or sql_upper.startswith('EXPLAIN')
+
+            import time
+            start = time.time()
+
+            cur.execute("SET search_path TO {}, public".format(schema))
+
+            if is_select:
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur.execute("SET search_path TO {}, public".format(schema))
+                cur.execute(sql)
+                rows = cur.fetchmany(500)
+                col_names = [desc[0] for desc in cur.description] if cur.description else []
+                elapsed = round((time.time() - start) * 1000, 2)
+                return resp(200, {'rows': rows, 'columns': col_names, 'total': cur.rowcount, 'time_ms': elapsed, 'type': 'select'})
+            else:
+                cur.execute(sql)
+                conn.commit()
+                elapsed = round((time.time() - start) * 1000, 2)
+                return resp(200, {'affected': cur.rowcount, 'time_ms': elapsed, 'type': 'execute'})
+
         return resp(400, {'error': 'unknown action'})
 
     except Exception as e:

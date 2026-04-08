@@ -25,11 +25,12 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Export table",
-      "method": "GET",
-      "path": "/?action=export&table=dashboard_users",
+      "name": "Run SQL query",
+      "method": "POST",
+      "path": "/?action=query",
+      "body": {"sql": "SELECT 1 as test"},
       "expectedStatus": 200,
-      "expectedBody": {"table": "dashboard_users"},
+      "expectedBody": {"type": "select"},
       "bodyMatcher": "partial"
     },
     {

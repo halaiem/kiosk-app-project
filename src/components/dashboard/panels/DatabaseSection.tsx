@@ -18,7 +18,19 @@ interface ColumnInfo {
   max_length: number | null;
 }
 
-type ViewMode = 'tables' | 'data';
+type ViewMode = 'tables' | 'data' | 'sql';
+
+interface SqlHistoryEntry {
+  sql: string;
+  time: string;
+  timeMs: number;
+  type: 'select' | 'execute' | 'error';
+  rowCount?: number;
+  affected?: number;
+  error?: string;
+  columns?: string[];
+  rows?: Record<string, unknown>[];
+}
 
 export default function DatabaseSection() {
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -47,6 +59,13 @@ export default function DatabaseSection() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const LIMIT = 50;
+
+  const [sqlQuery, setSqlQuery] = useState('SELECT * FROM ');
+  const [sqlRunning, setSqlRunning] = useState(false);
+  const [sqlHistory, setSqlHistory] = useState<SqlHistoryEntry[]>([]);
+  const [sqlActiveResult, setSqlActiveResult] = useState<number | null>(null);
+  const sqlInputRef = useRef<HTMLTextAreaElement>(null);
+  const sqlResultsRef = useRef<HTMLDivElement>(null);
 
   const fetchTables = useCallback(async () => {
     setLoading(true);
@@ -209,6 +228,52 @@ export default function DatabaseSection() {
     setSelected((prev) => prev.size === tables.length ? new Set() : new Set(tables.map((t) => t.name)));
   }, [tables]);
 
+  const runSql = useCallback(async (query?: string) => {
+    const sql = (query || sqlQuery).trim();
+    if (!sql) return;
+    setSqlRunning(true);
+    const now = new Date().toLocaleTimeString();
+    try {
+      const res = await fetch(`${DB_API}?action=query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        const entry: SqlHistoryEntry = { sql, time: now, timeMs: 0, type: 'error', error: data.error };
+        setSqlHistory((prev) => [entry, ...prev]);
+        setSqlActiveResult(0);
+      } else if (data.type === 'select') {
+        const entry: SqlHistoryEntry = {
+          sql, time: now, timeMs: data.time_ms, type: 'select',
+          rowCount: data.total, columns: data.columns, rows: data.rows,
+        };
+        setSqlHistory((prev) => [entry, ...prev]);
+        setSqlActiveResult(0);
+      } else {
+        const entry: SqlHistoryEntry = {
+          sql, time: now, timeMs: data.time_ms, type: 'execute', affected: data.affected,
+        };
+        setSqlHistory((prev) => [entry, ...prev]);
+        setSqlActiveResult(0);
+        fetchTables();
+      }
+    } catch (e) {
+      const entry: SqlHistoryEntry = { sql, time: now, timeMs: 0, type: 'error', error: String(e) };
+      setSqlHistory((prev) => [entry, ...prev]);
+      setSqlActiveResult(0);
+    }
+    setSqlRunning(false);
+  }, [sqlQuery, fetchTables]);
+
+  const handleSqlKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      runSql();
+    }
+  }, [runSql]);
+
   const exportSelected = useCallback(async () => {
     const toExport = selectMode && selected.size > 0 ? [...selected] : tables.map((t) => t.name);
     if (toExport.length === 0) return;
@@ -270,17 +335,28 @@ export default function DatabaseSection() {
           <p className="text-muted-foreground text-sm mt-0.5">
             {viewMode === 'tables'
               ? `${tables.length} таблиц · схема: ${schema}`
+              : viewMode === 'sql'
+              ? `SQL-консоль · ${sqlHistory.length} запросов`
               : `${activeTable} · ${total} строк`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {viewMode === 'data' && (
+          {(viewMode === 'data' || viewMode === 'sql') && (
             <button
               onClick={() => { setViewMode('tables'); setActiveTable(''); }}
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors font-medium"
             >
               <Icon name="ArrowLeft" className="w-3.5 h-3.5" />
               Все таблицы
+            </button>
+          )}
+          {viewMode !== 'sql' && (
+            <button
+              onClick={() => setViewMode('sql')}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-orange-600 text-white hover:bg-orange-500 transition-colors font-medium"
+            >
+              <Icon name="TerminalSquare" className="w-3.5 h-3.5" />
+              SQL-консоль
             </button>
           )}
           {viewMode === 'tables' && (
@@ -330,7 +406,172 @@ export default function DatabaseSection() {
         </div>
       </div>
 
-      {viewMode === 'tables' ? (
+      {viewMode === 'sql' ? (
+        <div className="flex-1 bg-[#0d1117] rounded-xl border border-border overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+          <div className="flex flex-col flex-1" style={{ minHeight: 0 }}>
+            <div className="shrink-0 border-b border-white/10">
+              <div className="flex items-center gap-2 px-3 py-2 bg-[#161b22]">
+                <Icon name="TerminalSquare" className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                <span className="text-[10px] text-white/30 uppercase tracking-wider font-semibold">SQL-запрос</span>
+                <span className="text-[10px] text-white/20 ml-auto">Ctrl+Enter — выполнить</span>
+              </div>
+              <div className="relative">
+                <textarea
+                  ref={sqlInputRef}
+                  value={sqlQuery}
+                  onChange={(e) => setSqlQuery(e.target.value)}
+                  onKeyDown={handleSqlKeyDown}
+                  placeholder="SELECT * FROM table_name LIMIT 10;"
+                  className="w-full bg-[#0d1117] text-xs text-white/80 font-mono px-4 py-3 resize-none focus:outline-none placeholder:text-white/15"
+                  style={{ minHeight: '80px', maxHeight: '200px' }}
+                  rows={4}
+                />
+                <div className="absolute right-2 bottom-2 flex gap-1.5">
+                  <button
+                    onClick={() => { setSqlQuery(''); sqlInputRef.current?.focus(); }}
+                    className="h-6 px-2 rounded text-[10px] bg-white/5 text-white/40 hover:bg-white/10 transition-colors"
+                  >
+                    Очистить
+                  </button>
+                  <button
+                    onClick={() => runSql()}
+                    disabled={sqlRunning || !sqlQuery.trim()}
+                    className="h-6 px-3 rounded text-[10px] bg-orange-600 text-white hover:bg-orange-500 disabled:opacity-40 transition-colors font-medium flex items-center gap-1"
+                  >
+                    <Icon name={sqlRunning ? 'Loader' : 'Play'} className={`w-3 h-3 ${sqlRunning ? 'animate-spin' : ''}`} />
+                    {sqlRunning ? 'Выполняю...' : 'Выполнить'}
+                  </button>
+                </div>
+              </div>
+              {tables.length > 0 && (
+                <div className="px-3 py-1.5 border-t border-white/5 flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] text-white/15 mr-1">Таблицы:</span>
+                  {tables.slice(0, 20).map((t) => (
+                    <button
+                      key={t.name}
+                      onClick={() => {
+                        const q = sqlQuery.trim();
+                        if (!q || q === 'SELECT * FROM ') {
+                          setSqlQuery(`SELECT * FROM ${t.name} LIMIT 50;`);
+                        } else {
+                          setSqlQuery((prev) => prev + t.name);
+                        }
+                        sqlInputRef.current?.focus();
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10 font-mono transition-colors"
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                  {tables.length > 20 && <span className="text-[10px] text-white/15">+{tables.length - 20}</span>}
+                </div>
+              )}
+            </div>
+
+            <div ref={sqlResultsRef} className="flex-1 overflow-auto" style={{ minHeight: 0 }}>
+              {sqlHistory.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Icon name="Database" className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                    <p className="text-white/25 text-sm">Введите SQL-запрос и нажмите Ctrl+Enter</p>
+                    <p className="text-white/15 text-xs mt-1">Поддерживаются SELECT, INSERT, UPDATE, DELETE, CREATE и другие</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {sqlHistory.map((entry, idx) => (
+                    <div key={idx} className="group">
+                      <button
+                        onClick={() => setSqlActiveResult(sqlActiveResult === idx ? null : idx)}
+                        className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-white/5 ${sqlActiveResult === idx ? 'bg-white/5' : ''}`}
+                      >
+                        <Icon
+                          name={entry.type === 'error' ? 'XCircle' : entry.type === 'select' ? 'Table' : 'CheckCircle'}
+                          className={`w-3.5 h-3.5 shrink-0 ${entry.type === 'error' ? 'text-red-400' : entry.type === 'select' ? 'text-blue-400' : 'text-emerald-400'}`}
+                        />
+                        <span className="text-[10px] text-white/20 shrink-0">{entry.time}</span>
+                        <span className="text-xs text-white/50 font-mono truncate flex-1">{entry.sql}</span>
+                        <span className="text-[10px] text-white/20 shrink-0">
+                          {entry.type === 'error'
+                            ? 'ошибка'
+                            : entry.type === 'select'
+                            ? `${entry.rowCount} строк`
+                            : `${entry.affected} изменено`}
+                        </span>
+                        <span className="text-[10px] text-white/15 shrink-0">{entry.timeMs}ms</span>
+                        <Icon name={sqlActiveResult === idx ? 'ChevronUp' : 'ChevronDown'} className="w-3 h-3 text-white/20 shrink-0" />
+                      </button>
+
+                      {sqlActiveResult === idx && (
+                        <div className="bg-[#0a0e13]">
+                          {entry.type === 'error' && (
+                            <div className="px-4 py-3 text-xs text-red-400 font-mono whitespace-pre-wrap">{entry.error}</div>
+                          )}
+                          {entry.type === 'execute' && (
+                            <div className="px-4 py-3 text-xs text-emerald-400">
+                              Запрос выполнен. Затронуто строк: {entry.affected}
+                            </div>
+                          )}
+                          {entry.type === 'select' && entry.columns && entry.rows && (
+                            <div className="overflow-auto max-h-[400px]">
+                              <table className="w-full">
+                                <thead className="sticky top-0">
+                                  <tr className="bg-[#161b22]">
+                                    <th className="px-2 py-1.5 text-[10px] text-white/30 text-center w-8">#</th>
+                                    {entry.columns.map((col) => (
+                                      <th key={col} className="px-3 py-1.5 text-[10px] text-white/30 uppercase tracking-wider font-semibold text-left whitespace-nowrap">{col}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {entry.rows.map((row, ri) => (
+                                    <tr key={ri} className="border-b border-white/5 hover:bg-white/5">
+                                      <td className="px-2 py-1 text-center text-[10px] text-white/15 font-mono">{ri + 1}</td>
+                                      {entry.columns!.map((col) => {
+                                        const v = row[col];
+                                        return (
+                                          <td key={col} className="px-3 py-1 text-[11px] font-mono max-w-[300px]">
+                                            <span className={`truncate block ${v === null ? 'text-white/15 italic' : 'text-white/60'}`}>
+                                              {v === null ? 'NULL' : String(v).length > 80 ? String(v).slice(0, 80) + '…' : String(v)}
+                                            </span>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {entry.rowCount && entry.rows.length < entry.rowCount && (
+                                <div className="px-4 py-2 text-[10px] text-white/20 text-center">
+                                  Показано {entry.rows.length} из {entry.rowCount} строк (макс. 500)
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="px-4 py-1.5 border-t border-white/5 flex gap-2">
+                            <button
+                              onClick={() => { setSqlQuery(entry.sql); sqlInputRef.current?.focus(); }}
+                              className="text-[10px] text-white/30 hover:text-white/60 flex items-center gap-1"
+                            >
+                              <Icon name="Copy" className="w-2.5 h-2.5" /> В редактор
+                            </button>
+                            <button
+                              onClick={() => runSql(entry.sql)}
+                              className="text-[10px] text-white/30 hover:text-white/60 flex items-center gap-1"
+                            >
+                              <Icon name="RotateCw" className="w-2.5 h-2.5" /> Повторить
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : viewMode === 'tables' ? (
         <div className="flex-1 bg-[#0d1117] rounded-xl border border-border overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
           <div className="p-3 border-b border-white/10 shrink-0 flex items-center gap-3">
             <div className="flex items-center gap-1.5 bg-black/30 rounded px-2 py-1 flex-1 max-w-xs">
