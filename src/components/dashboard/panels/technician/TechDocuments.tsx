@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { DocumentInfo, DocumentStatus } from "@/types/dashboard";
 import { formatDate, Modal } from "./TechRoutes";
 import { createDocument, updateDocument } from "@/api/dashboardApi";
@@ -137,6 +139,10 @@ export function DocumentsView({
     return c;
   }, [documents]);
 
+  const { sort: docsSort, toggle: docsToggle, sorted: sortedDocs } = useTableSort(
+    filtered as unknown as Record<string, unknown>[]
+  );
+
   const filters: { key: DocFilter; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "draft", label: "Черновики" },
@@ -179,13 +185,13 @@ export function DocumentsView({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-2.5 font-medium">Документ</th>
-              <th className="text-left px-3 py-2.5 font-medium">Тип</th>
-              <th className="text-left px-3 py-2.5 font-medium">Статус</th>
-              <th className="text-left px-3 py-2.5 font-medium">Автор</th>
-              <th className="text-left px-3 py-2.5 font-medium">Назначен</th>
-              <th className="text-left px-3 py-2.5 font-medium">Обновлён</th>
-              <th className="text-right px-5 py-2.5 font-medium">Действия</th>
+              <SortableTh label="Документ" sortKey="title" sort={docsSort} onToggle={docsToggle} className="px-5" />
+              <SortableTh label="Тип" sortKey="type" sort={docsSort} onToggle={docsToggle} className="px-3" />
+              <SortableTh label="Статус" sortKey="status" sort={docsSort} onToggle={docsToggle} className="px-3" />
+              <SortableTh label="Автор" sortKey="author" sort={docsSort} onToggle={docsToggle} className="px-3" />
+              <SortableTh label="Назначен" sortKey="assignedTo" sort={docsSort} onToggle={docsToggle} className="px-3" />
+              <SortableTh label="Обновлён" sortKey="updatedAt" sort={docsSort} onToggle={docsToggle} className="px-3" />
+              <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -197,7 +203,7 @@ export function DocumentsView({
                 </td>
               </tr>
             ) : (
-              filtered.map((doc) => (
+              (sortedDocs as typeof filtered).map((doc) => (
                 <tr key={doc.id} className="border-b border-border hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2.5">

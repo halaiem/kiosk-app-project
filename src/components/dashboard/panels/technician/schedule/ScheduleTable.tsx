@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { ScheduleEntry } from "@/types/dashboard";
 import { Modal } from "../TechRoutes";
 import { updateSchedule, deleteSchedule } from "@/api/dashboardApi";
@@ -112,18 +114,22 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
     return list;
   }, [schedule, search]);
 
+  const { sort: schedSort, toggle: schedToggle, sorted: sortedSchedule } = useTableSort(
+    sorted as unknown as Record<string, unknown>[]
+  );
+
   return (
     <>
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-2.5 font-medium">Время</th>
-              <th className="text-left px-3 py-2.5 font-medium">Маршрут</th>
-              <th className="text-left px-3 py-2.5 font-medium">Водитель</th>
-              <th className="text-left px-3 py-2.5 font-medium">Транспорт</th>
-              <th className="text-left px-3 py-2.5 font-medium">Статус</th>
-              <th className="px-3 py-2.5 font-medium text-right">Действия</th>
+              <SortableTh label="Время" sortKey="startTime" sort={schedSort} onToggle={schedToggle} className="px-5" />
+              <SortableTh label="Маршрут" sortKey="routeNumber" sort={schedSort} onToggle={schedToggle} className="px-3" />
+              <SortableTh label="Водитель" sortKey="driverName" sort={schedSort} onToggle={schedToggle} className="px-3" />
+              <SortableTh label="Транспорт" sortKey="vehicleNumber" sort={schedSort} onToggle={schedToggle} className="px-3" />
+              <SortableTh label="Статус" sortKey="status" sort={schedSort} onToggle={schedToggle} className="px-3" />
+              <th className="px-3 py-2.5 font-medium text-right text-muted-foreground">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -135,7 +141,7 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
                 </td>
               </tr>
             ) : (
-              sorted.map((entry) => (
+              (sortedSchedule as typeof sorted).map((entry) => (
                 <tr
                   key={entry.id}
                   onClick={() => setDetailEntry(entry)}

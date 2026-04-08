@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import {
   fetchMrmAdmins,
   createMrmAdmin,
@@ -121,6 +123,11 @@ export default function MrmAdminsBlock() {
 
   const togglePassword = (id: number) =>
     setShowPasswords((p) => ({ ...p, [id]: !p[id] }));
+
+  const activeAdmins = admins.filter((a) => a.isActive);
+  const { sort: mrmSort, toggle: mrmToggle, sorted: sortedMrm } = useTableSort(
+    activeAdmins as unknown as Record<string, unknown>[]
+  );
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -256,17 +263,17 @@ export default function MrmAdminsBlock() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="text-left px-4 py-2.5 font-medium w-14">ID</th>
-                <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
-                <th className="text-left px-3 py-2.5 font-medium w-28">Логин</th>
-                <th className="text-left px-3 py-2.5 font-medium w-36">Служебный пароль</th>
-                <th className="text-left px-3 py-2.5 font-medium w-28">PIN-код</th>
-                <th className="text-left px-3 py-2.5 font-medium w-28">Статус</th>
-                <th className="text-right px-4 py-2.5 font-medium w-28">Действия</th>
+                <SortableTh label="ID" sortKey="id" sort={mrmSort} onToggle={mrmToggle} className="px-4 w-14" />
+                <SortableTh label="ФИО" sortKey="fullName" sort={mrmSort} onToggle={mrmToggle} className="px-3" />
+                <SortableTh label="Логин" sortKey="login" sort={mrmSort} onToggle={mrmToggle} className="px-3 w-28" />
+                <th className="text-left px-3 py-2.5 font-medium w-36 text-muted-foreground">Служебный пароль</th>
+                <th className="text-left px-3 py-2.5 font-medium w-28 text-muted-foreground">PIN-код</th>
+                <SortableTh label="Статус" sortKey="lastSeenAt" sort={mrmSort} onToggle={mrmToggle} className="px-3 w-28" />
+                <th className="text-right px-4 py-2.5 font-medium w-28 text-muted-foreground">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {admins.filter((a) => a.isActive).map((admin) => {
+              {(sortedMrm as typeof activeAdmins).map((admin) => {
                 const isEditing = editId === admin.id;
                 const isConfirmDel = deleteConfirmId === admin.id;
                 const showPwd = showPasswords[admin.id];

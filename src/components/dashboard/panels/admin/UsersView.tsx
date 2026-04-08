@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { UserRole, DriverInfo } from "@/types/dashboard";
 import {
   fetchDashboardUsers,
@@ -35,6 +37,7 @@ const ROLE_STYLES: Record<string, string> = {
   technician:  "bg-green-500/15 text-green-500",
   admin:       "bg-red-500/15 text-red-500",
   irida_tools: "bg-purple-500/15 text-purple-500",
+  personnel:   "bg-teal-500/15 text-teal-500",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -42,6 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
   technician:  "Техник",
   admin:       "Администратор",
   irida_tools: "Irida-Tools",
+  personnel:   "Персонал",
 };
 
 type RoleFilter = "all" | UserRole;
@@ -106,11 +110,16 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     return list;
   }, [roleFilter, search, users]);
 
+  const { sort: usersSort, toggle: usersToggle, sorted: sortedUsers } = useTableSort(
+    filtered as unknown as Record<string, unknown>[]
+  );
+
   const filters: { key: RoleFilter; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "dispatcher", label: "Диспетчеры" },
     { key: "technician", label: "Техники" },
     { key: "admin", label: "Администраторы" },
+    { key: "personnel" as UserRole, label: "Персонал" },
   ];
 
   const startEdit = (entry: ApiUser) => {
@@ -243,6 +252,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 <option value="dispatcher">Диспетчер</option>
                 <option value="technician">Техник</option>
                 <option value="admin">Администратор</option>
+                <option value="personnel">Персонал</option>
               </select>
             </div>
             <div className="mt-3">
@@ -300,16 +310,16 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-2.5 font-medium w-24">ID</th>
-              <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
-              <th className="text-left px-3 py-2.5 font-medium w-36">Роль</th>
-              <th className="text-left px-3 py-2.5 font-medium w-28">Рейтинг</th>
-              <th className="text-left px-3 py-2.5 font-medium w-32">Статус</th>
-              <th className="text-right px-5 py-2.5 font-medium w-28">Действия</th>
+              <SortableTh label="ID" sortKey="employee_id" sort={usersSort} onToggle={usersToggle} className="px-5 w-24" />
+              <SortableTh label="ФИО" sortKey="full_name" sort={usersSort} onToggle={usersToggle} className="px-3" />
+              <SortableTh label="Роль" sortKey="role" sort={usersSort} onToggle={usersToggle} className="px-3 w-36" />
+              <SortableTh label="Рейтинг" sortKey="rating" sort={usersSort} onToggle={usersToggle} className="px-3 w-28" />
+              <th className="text-left px-3 py-2.5 font-medium w-32 text-muted-foreground">Статус</th>
+              <th className="text-right px-5 py-2.5 font-medium w-28 text-muted-foreground">Действия</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((entry) => {
+            {(sortedUsers as typeof filtered).map((entry) => {
               const isEditing = editingId === entry.id;
               const isConfirmDelete = deleteConfirmId === entry.id;
 
@@ -340,6 +350,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                         <option value="dispatcher">Диспетчер</option>
                         <option value="technician">Техник</option>
                         <option value="admin">Администратор</option>
+                        <option value="personnel">Персонал</option>
                       </select>
                     </td>
                     {/* Рейтинг */}

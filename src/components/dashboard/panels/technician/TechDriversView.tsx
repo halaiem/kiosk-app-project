@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type {
   VehicleInfo,
   DriverInfo,
@@ -17,6 +19,7 @@ import {
 import DriverDetailModal from "./DriverDetailModal";
 import DriverEditModal from "./DriverEditModal";
 import DriverCreateModal from "./DriverCreateModal";
+import { deleteDriver as apiDeleteDriver } from "@/api/dashboardApi";
 
 type SortKey = "name" | "status" | "rating";
 
@@ -52,6 +55,21 @@ export function DriversView({
   const [showForm, setShowForm] = useState(false);
   const [detailDriver, setDetailDriver] = useState<DriverInfo | null>(null);
   const [editingDriver, setEditingDriver] = useState<DriverInfo | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await apiDeleteDriver(Number(id));
+      setDeleteConfirmId(null);
+      onReload?.();
+    } catch (e) {
+      console.error("Delete driver:", e);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = [...drivers];
@@ -84,6 +102,10 @@ export function DriversView({
     { key: "status", label: "Статус" },
     { key: "rating", label: "Рейтинг" },
   ];
+
+  const { sort: colSort, toggle: colToggle, sorted: sortedFiltered } = useTableSort(
+    filtered as unknown as Record<string, unknown>[]
+  );
 
   return (
     <div className="bg-card border border-border rounded-2xl flex flex-col overflow-hidden h-full">
@@ -133,27 +155,15 @@ export function DriversView({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-2.5 font-medium">
-                Таб. номер
-              </th>
-              <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
-              <th className="text-left px-3 py-2.5 font-medium">
-                Статус
-              </th>
-              <th className="text-left px-3 py-2.5 font-medium">ТС</th>
-              <th className="text-left px-3 py-2.5 font-medium">
-                Маршрут
-              </th>
-              <th className="text-left px-3 py-2.5 font-medium">
-                Смена
-              </th>
-              <th className="text-left px-3 py-2.5 font-medium">PIN</th>
-              <th className="text-left px-3 py-2.5 font-medium">
-                Телефон
-              </th>
-              <th className="text-left px-3 py-2.5 font-medium">
-                Рейтинг
-              </th>
+              <SortableTh label="Таб. №" sortKey="tabNumber" sort={colSort} onToggle={colToggle} className="px-5" />
+              <SortableTh label="ФИО" sortKey="name" sort={colSort} onToggle={colToggle} className="px-3" />
+              <SortableTh label="Статус" sortKey="status" sort={colSort} onToggle={colToggle} className="px-3" />
+              <SortableTh label="ТС" sortKey="vehicleNumber" sort={colSort} onToggle={colToggle} className="px-3" />
+              <SortableTh label="Маршрут" sortKey="routeNumber" sort={colSort} onToggle={colToggle} className="px-3" />
+              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Смена</th>
+              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">PIN</th>
+              <SortableTh label="Телефон" sortKey="phone" sort={colSort} onToggle={colToggle} className="px-3" />
+              <SortableTh label="Рейтинг" sortKey="rating" sort={colSort} onToggle={colToggle} className="px-3" />
               <th className="px-3 py-2.5" />
             </tr>
           </thead>
@@ -172,7 +182,7 @@ export function DriversView({
                 </td>
               </tr>
             ) : (
-              filtered.map((d) => {
+              (sortedFiltered as typeof filtered).map((d) => {
                 const lifecycle = d.driverStatus || "active";
                 return (
                   <tr
@@ -246,18 +256,45 @@ export function DriversView({
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setDetailDriver(d)}
-                          className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                        >
-                          <Icon name="Eye" className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => setEditingDriver(d)}
-                          className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                        >
-                          <Icon name="Pencil" className="w-3 h-3" />
-                        </button>
+                        {deleteConfirmId === d.id ? (
+                          <>
+                            <span className="text-[10px] text-destructive font-medium mr-1">Удалить?</span>
+                            <button
+                              onClick={() => handleDelete(d.id)}
+                              disabled={deleting}
+                              className="px-2 py-1 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 text-[11px] flex items-center gap-1 transition-colors disabled:opacity-50"
+                            >
+                              <Icon name="Check" className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground text-[11px] flex items-center gap-1 transition-colors"
+                            >
+                              <Icon name="X" className="w-3 h-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setDetailDriver(d)}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                            >
+                              <Icon name="Eye" className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setEditingDriver(d)}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                            >
+                              <Icon name="Pencil" className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(d.id)}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 transition-colors flex items-center gap-1"
+                            >
+                              <Icon name="Trash2" className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

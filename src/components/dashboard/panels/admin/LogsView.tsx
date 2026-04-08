@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { AuditLog } from "@/types/dashboard";
 
 function formatDateTime(date: Date): string {
@@ -45,6 +47,10 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
     return list;
   }, [logs, search]);
 
+  const { sort: logsSort, toggle: logsToggle, sorted: sortedLogs } = useTableSort(
+    filtered as unknown as Record<string, unknown>[]
+  );
+
   const getActionIcon = (action: string): string => {
     const lower = action.toLowerCase();
     for (const [key, icon] of Object.entries(LOG_ACTION_ICONS)) {
@@ -76,11 +82,11 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="text-left px-5 py-2.5 font-medium w-[100px]">Время</th>
-              <th className="text-left px-3 py-2.5 font-medium">Пользователь</th>
-              <th className="text-left px-3 py-2.5 font-medium">Действие</th>
-              <th className="text-left px-3 py-2.5 font-medium">Объект</th>
-              <th className="text-left px-3 py-2.5 font-medium">Подробности</th>
+              <SortableTh label="Время" sortKey="timestamp" sort={logsSort} onToggle={logsToggle} className="px-5 w-[100px]" />
+              <SortableTh label="Пользователь" sortKey="userName" sort={logsSort} onToggle={logsToggle} className="px-3" />
+              <SortableTh label="Действие" sortKey="action" sort={logsSort} onToggle={logsToggle} className="px-3" />
+              <SortableTh label="Объект" sortKey="target" sort={logsSort} onToggle={logsToggle} className="px-3" />
+              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Подробности</th>
             </tr>
           </thead>
           <tbody>
@@ -92,7 +98,7 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
                 </td>
               </tr>
             ) : (
-              filtered.map((log, idx) => (
+              (sortedLogs as typeof filtered).map((log, idx) => (
                 <tr
                   key={log.id}
                   className={`border-b border-border transition-colors ${

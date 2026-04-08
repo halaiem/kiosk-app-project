@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import SortableTh from "@/components/ui/SortableTh";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { ScheduleEntry } from "@/types/dashboard";
 import { deleteSchedule, updateSchedule } from "@/api/dashboardApi";
 import {
@@ -60,6 +62,10 @@ export default function ExistingAssignmentsTable({
     }
   }, [onReload]);
 
+  const { sort: assignSort, toggle: assignToggle, sorted: sortedAssign } = useTableSort(
+    existingForDate as unknown as Record<string, unknown>[]
+  );
+
   if (existingForDate.length === 0) return null;
 
   return (
@@ -90,22 +96,16 @@ export default function ExistingAssignmentsTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="text-left px-5 py-2 font-medium">
-                  Маршрут
-                </th>
-                <th className="text-left px-3 py-2 font-medium">
-                  Водитель
-                </th>
-                <th className="text-left px-3 py-2 font-medium">
-                  Транспорт
-                </th>
-                <th className="text-left px-3 py-2 font-medium">Время</th>
-                <th className="text-left px-3 py-2 font-medium">Статус</th>
+                <SortableTh label="Маршрут" sortKey="routeNumber" sort={assignSort} onToggle={assignToggle} className="px-5" />
+                <SortableTh label="Водитель" sortKey="driverName" sort={assignSort} onToggle={assignToggle} className="px-3" />
+                <SortableTh label="Транспорт" sortKey="vehicleNumber" sort={assignSort} onToggle={assignToggle} className="px-3" />
+                <SortableTh label="Время" sortKey="startTime" sort={assignSort} onToggle={assignToggle} className="px-3" />
+                <SortableTh label="Статус" sortKey="status" sort={assignSort} onToggle={assignToggle} className="px-3" />
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {existingForDate.map((entry) => (
+              {(sortedAssign as typeof existingForDate).map((entry) => (
                 <tr
                   key={entry.id}
                   className={`group border-b border-border last:border-b-0 transition-colors ${entry.status === "cancelled" ? "opacity-50" : ""}`}

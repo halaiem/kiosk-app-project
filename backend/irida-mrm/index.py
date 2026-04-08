@@ -35,9 +35,9 @@ def check_admin(event, cur, schema):
         f"WHERE ds.session_token = %s AND ds.is_active = true", (token,)
     )
     r = cur.fetchone()
-    if not r or r[1] != 'admin':
+    if not r or r['role'] != 'admin':
         return None, resp(403, {'error': 'Доступ только для администратора'})
-    return {'id': r[0], 'role': r[1], 'name': r[2]}, None
+    return {'id': r['id'], 'role': r['role'], 'name': r['full_name']}, None
 
 def handler(event, context):
     """CRUD для администраторов МРМ планшетов + авторизация с планшета"""
