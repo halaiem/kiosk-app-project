@@ -202,6 +202,19 @@ export async function fetchPinned(chatId: number): Promise<{ pinned: PinnedMessa
   return request(`${BASE}?action=pinned&chat_id=${chatId}`);
 }
 
+export interface RouteItem { id: string; route_number: string; name: string }
+export interface VehicleItem { id: string; board_number: string | null; model: string | null; label: string; route_number: string | null }
+
+export async function fetchRoutesList(): Promise<RouteItem[]> {
+  const d = await request(`${BASE}?action=routes`);
+  return d.routes;
+}
+
+export async function fetchVehiclesList(): Promise<VehicleItem[]> {
+  const d = await request(`${BASE}?action=vehicles`);
+  return d.vehicles;
+}
+
 export default {
   fetchUsers, fetchDrivers, fetchChats, fetchMessages,
   fetchUnread, createChat, sendMessage, uploadFile, markRead, pingOnline,

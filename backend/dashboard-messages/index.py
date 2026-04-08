@@ -89,6 +89,10 @@ def handler(event, context):
             return toggle_pin(cur, conn, schema, user, event)
         elif method == 'GET' and action == 'pinned':
             return get_pinned(cur, schema, user, qs)
+        elif method == 'GET' and action == 'routes':
+            return get_routes_list(cur, schema)
+        elif method == 'GET' and action == 'vehicles':
+            return get_vehicles_list(cur, schema)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -513,3 +517,24 @@ def get_pinned(cur, schema, user, qs):
         (chat_id,)
     )
     return resp(200, {'pinned': cur.fetchall()})
+
+
+def get_routes_list(cur, schema):
+    """Список маршрутов."""
+    cur.execute(
+        f"SELECT id, route_number, name FROM {schema}.routes "
+        f"WHERE is_active = TRUE ORDER BY route_number"
+    )
+    return resp(200, {'routes': cur.fetchall()})
+
+
+def get_vehicles_list(cur, schema):
+    """Список транспорта."""
+    cur.execute(
+        f"SELECT v.id, v.board_number, v.model, v.label, "
+        f"r.route_number "
+        f"FROM {schema}.vehicles v "
+        f"LEFT JOIN {schema}.routes r ON r.id = v.assigned_route_id "
+        f"WHERE v.transport_status = 'active' ORDER BY v.board_number"
+    )
+    return resp(200, {'vehicles': cur.fetchall()})

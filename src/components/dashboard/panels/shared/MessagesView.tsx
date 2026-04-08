@@ -15,6 +15,8 @@ import {
   fetchReaders,
   togglePin,
   fetchPinned,
+  fetchRoutesList,
+  fetchVehiclesList,
   type Chat,
   type ChatMessage,
   type ChatUser,
@@ -23,6 +25,8 @@ import {
   type MessageStatus,
   type ReaderEntry,
   type PinnedMessage,
+  type RouteItem,
+  type VehicleItem,
 } from "@/api/chatApi";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -38,7 +42,9 @@ type RoleFilter =
   | "technician"
   | "dispatcher"
   | "personnel"
-  | "driver";
+  | "driver"
+  | "route"
+  | "vehicle";
 
 const ROLE_FILTER_LABELS: Record<RoleFilter, string> = {
   admin: "Администраторы",
@@ -46,6 +52,18 @@ const ROLE_FILTER_LABELS: Record<RoleFilter, string> = {
   dispatcher: "Диспетчеры",
   personnel: "Персонал",
   driver: "Водители",
+  route: "Маршруты",
+  vehicle: "Транспорт",
+};
+
+const ROLE_FILTER_ICONS: Record<RoleFilter, string> = {
+  admin: "Shield",
+  technician: "Wrench",
+  dispatcher: "Radio",
+  personnel: "Users",
+  driver: "User",
+  route: "Route",
+  vehicle: "Bus",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -208,6 +226,12 @@ export default function MessagesView({
   );
   const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
+
+  // ── State: routes & vehicles for new chat modal ──
+  const [routesList, setRoutesList] = useState<RouteItem[]>([]);
+  const [vehiclesList, setVehiclesList] = useState<VehicleItem[]>([]);
+  const [routesLoaded, setRoutesLoaded] = useState(false);
+  const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
 
   // ── State: optimistic sending ──
   const [isSendingMsg, setIsSendingMsg] = useState(false);
@@ -590,7 +614,7 @@ export default function MessagesView({
     }
   };
 
-  // ── Toggle role filter ──
+  // ── Toggle role filter (accordion) ──
   const toggleRoleFilter = (role: RoleFilter) => {
     setActiveRoleFilters((prev) => {
       const next = new Set(prev);
@@ -601,6 +625,12 @@ export default function MessagesView({
       }
       return next;
     });
+    if (role === "route" as RoleFilter && !routesLoaded) {
+      fetchRoutesList().then((r) => { setRoutesList(r); setRoutesLoaded(true); }).catch(() => {});
+    }
+    if (role === "vehicle" as RoleFilter && !vehiclesLoaded) {
+      fetchVehiclesList().then((v) => { setVehiclesList(v); setVehiclesLoaded(true); }).catch(() => {});
+    }
   };
 
   // ── Toggle user selection ──
@@ -975,7 +1005,6 @@ export default function MessagesView({
               ) : (
                 messages.map((msg) => {
                   const isMine = msg.sender_user_id === currentUserId;
-                  const isSearchMatch = searchResults.includes(msg.id);
                   const isCurrentMatch = searchResults[searchIndex] === msg.id;
 
                   return (
@@ -1430,172 +1459,123 @@ export default function MessagesView({
                 />
               </div>
 
-              {/* Role filters */}
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground mb-2">
-                  Категории участников
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    Object.entries(ROLE_FILTER_LABELS) as [
-                      RoleFilter,
-                      string,
-                    ][]
-                  ).map(([role, label]) => {
-                    const active = activeRoleFilters.has(role);
-                    return (
-                      <button
-                        key={role}
-                        onClick={() => toggleRoleFilter(role)}
-                        className={`text-[11px] font-medium px-3 py-1.5 rounded-lg border transition-colors ${
-                          active
-                            ? "bg-primary/15 border-primary/30 text-primary"
-                            : "bg-muted border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {active && (
-                          <Icon
-                            name="Check"
-                            className="w-3 h-3 inline mr-1"
-                          />
-                        )}
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Search */}
+              <div className="relative">
+                <Icon name="Search" className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={participantSearch}
+                  onChange={(e) => setParticipantSearch(e.target.value)}
+                  placeholder="Поиск участников..."
+                  className="w-full text-xs bg-muted/50 border border-border rounded-lg pl-8 pr-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
               </div>
 
-              {/* Search inside participants */}
-              {activeRoleFilters.size > 0 && (
-                <div className="relative">
-                  <Icon
-                    name="Search"
-                    className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2"
-                  />
-                  <input
-                    type="text"
-                    value={participantSearch}
-                    onChange={(e) => setParticipantSearch(e.target.value)}
-                    placeholder="Поиск участников..."
-                    className="w-full text-xs bg-muted/50 border border-border rounded-lg pl-8 pr-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  />
-                </div>
-              )}
+              {/* Category accordions */}
+              <div className="space-y-1.5">
+                {(Object.entries(ROLE_FILTER_LABELS) as [RoleFilter, string][]).map(([role, label]) => {
+                  const active = activeRoleFilters.has(role);
+                  const isUserRole = ["admin", "technician", "dispatcher", "personnel"].includes(role);
+                  const isDriver = role === "driver";
+                  const isRoute = role === "route";
+                  const isVehicle = role === "vehicle";
+                  const q = participantSearch.toLowerCase();
 
-              {/* Users list per active role */}
-              {(["admin", "technician", "dispatcher", "personnel"] as const)
-                .filter((role) => activeRoleFilters.has(role))
-                .map((role) => {
-                  const roleUsers = filteredUsersByRole.filter(
-                    (u) => u.role === role
-                  );
-                  if (roleUsers.length === 0) return null;
+                  const roleUsers = isUserRole ? users.filter((u) => u.role === role && (!q || u.full_name.toLowerCase().includes(q))) : [];
+                  const roleDrivers = isDriver ? driversAll.filter((d) => !q || d.full_name.toLowerCase().includes(q) || d.tab_number.toLowerCase().includes(q) || (d.board_number && d.board_number.toLowerCase().includes(q))) : [];
+                  const roleRoutes = isRoute ? routesList.filter((r) => !q || r.route_number.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q))) : [];
+                  const roleVehicles = isVehicle ? vehiclesList.filter((v) => !q || (v.board_number && v.board_number.toLowerCase().includes(q)) || (v.model && v.model.toLowerCase().includes(q)) || v.label.toLowerCase().includes(q)) : [];
+
+                  const count = isUserRole ? roleUsers.length : isDriver ? roleDrivers.length : isRoute ? roleRoutes.length : roleVehicles.length;
+                  const selectedCount = isUserRole ? roleUsers.filter((u) => selectedUserIds.has(u.id)).length : isDriver ? roleDrivers.filter((d) => selectedDriverIds.has(d.id)).length : 0;
 
                   return (
-                    <div key={role}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-semibold text-foreground">
-                          {ROLE_FILTER_LABELS[role]}
+                    <div key={role} className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleRoleFilter(role)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${active ? "bg-primary/8" : "hover:bg-muted/50"}`}
+                      >
+                        <Icon name={ROLE_FILTER_ICONS[role]} className={`w-3.5 h-3.5 shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                        <span className={`text-[11px] font-semibold flex-1 ${active ? "text-primary" : "text-foreground"}`}>
+                          {label}
                         </span>
-                        <button
-                          onClick={() => selectAllUsersInRole(role)}
-                          className="text-[10px] text-primary hover:underline"
-                        >
-                          Выбрать всех
-                        </button>
-                      </div>
-                      <div className="space-y-1 max-h-40 overflow-y-auto">
-                        {roleUsers.map((user) => (
-                          <label
-                            key={user.id}
-                            className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedUserIds.has(user.id)}
-                              onChange={() => toggleUser(user.id)}
-                              className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0"
-                            />
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                user.is_online
-                                  ? "bg-green-500"
-                                  : "bg-muted-foreground/40"
-                              }`}
-                            />
-                            <span className="text-xs text-foreground flex-1 truncate">
-                              {user.full_name}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {ROLE_LABELS[user.role] || user.role}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
+                        {selectedCount > 0 && (
+                          <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">
+                            {selectedCount}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-muted-foreground">{count}</span>
+                        <Icon name={active ? "ChevronUp" : "ChevronDown"} className="w-3 h-3 text-muted-foreground shrink-0" />
+                      </button>
+
+                      {active && (
+                        <div className="border-t border-border">
+                          {/* Select all for user/driver roles */}
+                          {(isUserRole || isDriver) && count > 0 && (
+                            <div className="px-3 py-1.5 border-b border-border/50 flex justify-end">
+                              <button onClick={() => selectAllUsersInRole(role)} className="text-[10px] text-primary hover:underline">
+                                Выбрать всех
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="max-h-44 overflow-y-auto">
+                            {/* Users */}
+                            {isUserRole && roleUsers.map((user) => (
+                              <label key={user.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 cursor-pointer transition-colors">
+                                <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={() => toggleUser(user.id)} className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0" />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user.is_online ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                                <span className="text-xs text-foreground flex-1 truncate">{user.full_name}</span>
+                              </label>
+                            ))}
+
+                            {/* Drivers */}
+                            {isDriver && roleDrivers.map((driver) => (
+                              <label key={driver.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 cursor-pointer transition-colors">
+                                <input type="checkbox" checked={selectedDriverIds.has(driver.id)} onChange={() => toggleDriver(driver.id)} className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0" />
+                                <span className="text-xs text-foreground truncate flex-1">
+                                  <span className="text-muted-foreground font-mono text-[10px] mr-1">{driver.tab_number}</span>
+                                  {driver.full_name}
+                                </span>
+                                {driver.board_number && <span className="text-[10px] text-muted-foreground shrink-0">Б{driver.board_number}</span>}
+                                {driver.route_number && <span className="text-[10px] text-primary shrink-0">M{driver.route_number}</span>}
+                              </label>
+                            ))}
+
+                            {/* Routes */}
+                            {isRoute && (roleRoutes.length === 0 ? (
+                              <p className="text-[11px] text-muted-foreground text-center py-4">Нет маршрутов</p>
+                            ) : roleRoutes.map((r) => (
+                              <div key={r.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 transition-colors">
+                                <Icon name="Route" className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="text-xs font-medium text-foreground">№{r.route_number}</span>
+                                <span className="text-xs text-muted-foreground truncate flex-1">{r.name}</span>
+                              </div>
+                            )))}
+
+                            {/* Vehicles */}
+                            {isVehicle && (roleVehicles.length === 0 ? (
+                              <p className="text-[11px] text-muted-foreground text-center py-4">Нет транспорта</p>
+                            ) : roleVehicles.map((v) => (
+                              <div key={v.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 transition-colors">
+                                <Icon name="Bus" className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="text-xs font-medium text-foreground">{v.board_number || v.label}</span>
+                                {v.model && <span className="text-xs text-muted-foreground truncate flex-1">{v.model}</span>}
+                                {v.route_number && <span className="text-[10px] text-primary shrink-0">M{v.route_number}</span>}
+                              </div>
+                            )))}
+
+                            {/* Empty for user/driver */}
+                            {(isUserRole || isDriver) && count === 0 && (
+                              <p className="text-[11px] text-muted-foreground text-center py-4">Не найдено</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
-
-              {/* Drivers list */}
-              {activeRoleFilters.has("driver") &&
-                filteredDriversList.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-semibold text-foreground">
-                        Водители
-                      </span>
-                      <button
-                        onClick={() => selectAllUsersInRole("driver")}
-                        className="text-[10px] text-primary hover:underline"
-                      >
-                        Выбрать всех
-                      </button>
-                    </div>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {filteredDriversList.map((driver) => (
-                        <label
-                          key={driver.id}
-                          className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedDriverIds.has(driver.id)}
-                            onChange={() => toggleDriver(driver.id)}
-                            className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0"
-                          />
-                          <span className="text-xs text-foreground truncate flex-1">
-                            <span className="text-muted-foreground font-mono text-[10px] mr-1">
-                              {driver.tab_number}
-                            </span>
-                            {driver.full_name}
-                          </span>
-                          {driver.board_number && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              Б{driver.board_number}
-                            </span>
-                          )}
-                          {driver.route_number && (
-                            <span className="text-[10px] text-primary shrink-0">
-                              M{driver.route_number}
-                            </span>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* Empty state when filters are active but no results */}
-              {activeRoleFilters.size > 0 &&
-                filteredUsersByRole.length === 0 &&
-                filteredDriversList.length === 0 && (
-                  <div className="text-center py-4">
-                    <p className="text-xs text-muted-foreground">
-                      Участники не найдены
-                    </p>
-                  </div>
-                )}
+              </div>
             </div>
 
             {/* Modal footer */}
