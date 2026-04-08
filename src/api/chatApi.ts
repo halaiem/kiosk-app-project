@@ -67,7 +67,7 @@ export interface ChatFile {
   content_type: string;
 }
 
-export type MessageStatus = 'sent' | 'delivered' | 'read';
+export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface ChatMessage {
   id: number;
@@ -79,6 +79,8 @@ export interface ChatMessage {
   sender_name: string;
   sender_role: string;
   status: MessageStatus;
+  is_pinned: boolean;
+  pinned_at: string | null;
   files: ChatFile[];
 }
 
@@ -178,6 +180,37 @@ export interface ReaderEntry {
 
 export async function fetchReaders(messageId: number, chatId: number): Promise<{ read: ReaderEntry[]; unread: ReaderEntry[] }> {
   return request(`${BASE}?action=readers&message_id=${messageId}&chat_id=${chatId}`);
+}
+
+export async function togglePin(messageId: number, chatId: number): Promise<{ pinned: boolean }> {
+  return request(`${BASE}?action=pin`, {
+    method: 'PUT',
+    body: JSON.stringify({ message_id: messageId, chat_id: chatId }),
+  });
+}
+
+export interface PinnedMessage {
+  id: number;
+  content: string;
+  subject: string | null;
+  created_at: string;
+  pinned_at: string;
+  sender_name: string;
+}
+
+export async function fetchPinned(chatId: number): Promise<{ pinned: PinnedMessage[] }> {
+  return request(`${BASE}?action=pinned&chat_id=${chatId}`);
+}
+
+export interface RouteItem { id: number; route_number: string; name: string }
+export interface VehicleItem { id: number; board_number: string; model: string }
+
+export async function fetchRoutes(): Promise<{ routes: RouteItem[] }> {
+  return request(`${BASE}?action=routes`);
+}
+
+export async function fetchVehicles(): Promise<{ vehicles: VehicleItem[] }> {
+  return request(`${BASE}?action=vehicles`);
 }
 
 export default {
