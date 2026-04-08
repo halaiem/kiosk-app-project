@@ -68,6 +68,7 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   const handleSecretConfirm = () => {
     if (secretBlocked) return;
     if (secretInput === IRIDA_TOOLS_SECRET_CODE) {
+      sessionStorage.setItem('irida_tools_auth', '1');
       setShowSecretPopup(false);
       setSecretInput('');
       setSecretError(false);
