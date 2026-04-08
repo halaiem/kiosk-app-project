@@ -1,4 +1,4 @@
-import type { AdminTab, ServerInfo, AuditLog } from "@/types/dashboard";
+import type { AdminTab, ServerInfo, AuditLog, DriverInfo } from "@/types/dashboard";
 import { UsersView } from "./admin/UsersView";
 import { SettingsView } from "./admin/SettingsView";
 import { ServersView } from "./admin/ServersView";
@@ -10,10 +10,12 @@ interface AdminPanelProps {
   tab: AdminTab;
   servers: ServerInfo[];
   logs: AuditLog[];
+  drivers?: DriverInfo[];
+  onReload?: () => void;
 }
 
-export default function AdminPanel({ tab, servers, logs }: AdminPanelProps) {
-  if (tab === "users") return <UsersView />;
+export default function AdminPanel({ tab, servers, logs, drivers = [], onReload }: AdminPanelProps) {
+  if (tab === "users") return <UsersView drivers={drivers} onReload={onReload} />;
   if (tab === "settings") return <SettingsView />;
   if (tab === "servers") return <ServersView servers={servers} />;
   if (tab === "logs") return <LogsView logs={logs} />;

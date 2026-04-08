@@ -7,10 +7,8 @@ import {
   createDashboardUser,
   updateDashboardUser,
   deleteDashboardUser,
-  fetchDrivers,
 } from "@/api/dashboardApi";
-import DriverCreateModal from "@/components/dashboard/panels/technician/DriverCreateModal";
-import { DRIVER_STATUS_LABELS, DRIVER_STATUS_STYLES, VEHICLE_TYPE_LABELS } from "@/components/dashboard/panels/technician/TechVDConstants";
+import { DriversView } from "@/components/dashboard/panels/technician/TechDriversView";
 
 interface ApiUser {
   id: number;
@@ -45,7 +43,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 type RoleFilter = "all" | UserRole;
 
-export function UsersView() {
+interface UsersViewProps {
+  drivers?: DriverInfo[];
+  onReload?: () => void;
+}
+
+export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let pass = '';
@@ -77,19 +80,6 @@ export function UsersView() {
   const [mrmEditForm, setMrmEditForm] = useState({ name: "", login: "", password: "" });
   const [mrmDeleteId, setMrmDeleteId] = useState<string | null>(null);
 
-  // Водитель блок — реальные данные из БД
-  const [drivers, setDrivers] = useState<DriverInfo[]>([]);
-  const [showDriverCreate, setShowDriverCreate] = useState(false);
-
-  const loadDrivers = async () => {
-    try {
-      const data = await fetchDrivers();
-      setDrivers(data as DriverInfo[]);
-    } catch (e) {
-      console.error('Load drivers:', e);
-    }
-  };
-
   const loadUsers = async () => {
     try {
       const data = await fetchDashboardUsers();
@@ -107,7 +97,7 @@ export function UsersView() {
     }
   };
 
-  useEffect(() => { loadUsers(); loadDrivers(); }, []);
+  useEffect(() => { loadUsers(); }, []);
 
   const filtered = useMemo(() => {
     let list = users.filter((u) => u.is_active);
@@ -578,65 +568,10 @@ export function UsersView() {
         )}
       </div>
 
-      {/* ── Блок: Водитель ── */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
-              <Icon name="Bus" className="w-4 h-4 text-cyan-500" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">Водители</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{drivers.length}</span>
-          </div>
-          <button
-            onClick={() => setShowDriverCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Icon name="UserPlus" className="w-3.5 h-3.5" />
-            Создать учётную запись
-          </button>
-        </div>
-
-        {drivers.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="text-left px-5 py-2.5 font-medium">ФИО</th>
-                <th className="text-left px-3 py-2.5 font-medium">Таб. №</th>
-                <th className="text-left px-3 py-2.5 font-medium">Тип ТС</th>
-                <th className="text-left px-3 py-2.5 font-medium">Маршрут</th>
-                <th className="text-left px-3 py-2.5 font-medium">Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {drivers.map((d) => (
-                <tr key={d.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-3 font-medium text-foreground">{d.name}</td>
-                  <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{d.tabNumber || '—'}</td>
-                  <td className="px-3 py-3 text-xs text-muted-foreground">{d.vehicleType ? (VEHICLE_TYPE_LABELS[d.vehicleType as keyof typeof VEHICLE_TYPE_LABELS] || d.vehicleType) : '—'}</td>
-                  <td className="px-3 py-3 text-xs text-muted-foreground">{d.routeNumber || '—'}</td>
-                  <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${DRIVER_STATUS_STYLES[d.status] || 'bg-muted text-muted-foreground'}`}>
-                      {DRIVER_STATUS_LABELS[d.status] || d.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="px-5 py-6 text-center text-sm text-muted-foreground">
-            Нет водителей
-          </div>
-        )}
+      {/* ── Блок: Водители (1:1 из панели Техника) ── */}
+      <div className="h-[600px]">
+        <DriversView drivers={drivers} onReload={onReload} />
       </div>
-
-      {showDriverCreate && (
-        <DriverCreateModal
-          onClose={() => setShowDriverCreate(false)}
-          onReload={() => { loadDrivers(); setShowDriverCreate(false); }}
-        />
-      )}
     </div>
   );
 }

@@ -144,6 +144,8 @@ export default function Dashboard() {
             tab={activeTab as AdminTab}
             servers={data.servers}
             logs={data.logs}
+            drivers={data.drivers}
+            onReload={data.reload}
           />
         )}
         {activeUser.role === 'irida_tools' && (
