@@ -64,6 +64,7 @@ const IRIDA_TOOLS_NAV: NavItem[] = [
   { tab: "server" as IridaToolsTab, icon: "Server", label: "Сервер" },
   { tab: "equipment" as IridaToolsTab, icon: "Cpu", label: "Оборудование" },
   { tab: "instructions" as IridaToolsTab, icon: "BookOpen", label: "Инструкции" },
+  { tab: "database" as IridaToolsTab, icon: "Database", label: "База данных" },
   { tab: "it_logs" as IridaToolsTab, icon: "ScrollText", label: "Логи" },
   { tab: "terminal" as IridaToolsTab, icon: "TerminalSquare", label: "Терминал" },
 ];

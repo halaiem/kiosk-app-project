@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
 import JSZip from 'jszip';
 import Icon from '@/components/ui/icon';
+import DatabaseSection from './DatabaseSection';
 import type { IridaToolsTab } from '@/types/dashboard';
 
 interface IridaToolsPanelProps {
@@ -1422,10 +1423,11 @@ function TerminalSection() {
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 export default function IridaToolsPanel({ tab }: IridaToolsPanelProps) {
+  if (tab === 'database') return <DatabaseSection />;
   if (tab === 'it_logs') return <LogsSection />;
   if (tab === 'terminal') return <TerminalSection />;
 
-  const SECTIONS: Record<Exclude<IridaToolsTab, 'it_logs' | 'terminal'>, { title: string; icon: string; description: string }> = {
+  const SECTIONS: Record<Exclude<IridaToolsTab, 'database' | 'it_logs' | 'terminal'>, { title: string; icon: string; description: string }> = {
     cities: {
       title: 'Города',
       icon: 'Building2',
@@ -1468,7 +1470,7 @@ export default function IridaToolsPanel({ tab }: IridaToolsPanelProps) {
     },
   };
 
-  const section = SECTIONS[tab as Exclude<IridaToolsTab, 'it_logs' | 'terminal'>];
+  const section = SECTIONS[tab as Exclude<IridaToolsTab, 'database' | 'it_logs' | 'terminal'>];
 
   return (
     <PlaceholderSection

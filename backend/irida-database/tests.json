@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "name": "List all tables",
+      "method": "GET",
+      "path": "/?action=tables",
+      "expectedStatus": 200,
+      "expectedBody": {"schema": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get columns for a table",
+      "method": "GET",
+      "path": "/?action=columns&table=dashboard_users",
+      "expectedStatus": 200,
+      "expectedBody": {"table": "dashboard_users"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get data from table",
+      "method": "GET",
+      "path": "/?action=data&table=dashboard_users&limit=5",
+      "expectedStatus": 200,
+      "expectedBody": {"limit": 5},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Export table",
+      "method": "GET",
+      "path": "/?action=export&table=dashboard_users",
+      "expectedStatus": 200,
+      "expectedBody": {"table": "dashboard_users"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
