@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useNewMessageNotifier } from '@/hooks/useNewMessageNotifier';
@@ -21,6 +22,7 @@ const DEFAULT_TABS: Record<string, DashboardTab> = {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, error, loading, login, logout, getRoleName } = useDashboardAuth();
   const [iridaToolsUser, setIridaToolsUser] = useState<DashboardUser | null>(null);
   const activeUser = iridaToolsUser || user;
@@ -50,14 +52,7 @@ export default function Dashboard() {
   };
 
   const handleIridaToolsLogin = () => {
-    const itUser: DashboardUser = {
-      id: 'tp-tds',
-      name: 'Irida-Tools',
-      role: 'irida_tools',
-      isActive: true,
-    };
-    setIridaToolsUser(itUser);
-    setActiveTab('cities');
+    navigate('/dashboard-irida-tools');
   };
 
   const handleLogout = async () => {
