@@ -1,16 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
-import type { UserRole, DriverInfo } from "@/types/dashboard";
+import type { UserRole } from "@/types/dashboard";
 import {
   fetchDashboardUsers,
   createDashboardUser,
   updateDashboardUser,
   deleteDashboardUser,
-  fetchDrivers,
 } from "@/api/dashboardApi";
-import DriverCreateModal from "@/components/dashboard/panels/technician/DriverCreateModal";
-import { DRIVER_STATUS_LABELS, DRIVER_STATUS_STYLES, VEHICLE_TYPE_LABELS } from "@/components/dashboard/panels/technician/TechVDConstants";
 
 interface ApiUser {
   id: number;
@@ -77,18 +74,13 @@ export function UsersView() {
   const [mrmEditForm, setMrmEditForm] = useState({ name: "", login: "", password: "" });
   const [mrmDeleteId, setMrmDeleteId] = useState<string | null>(null);
 
-  // Водитель блок — реальные данные из БД
-  const [drivers, setDrivers] = useState<DriverInfo[]>([]);
-  const [showDriverCreate, setShowDriverCreate] = useState(false);
-
-  const loadDrivers = async () => {
-    try {
-      const data = await fetchDrivers();
-      setDrivers(data as DriverInfo[]);
-    } catch (e) {
-      console.error('Load drivers:', e);
-    }
-  };
+  // Водитель блок
+  const [driverUsers, setDriverUsers] = useState<{id: string; name: string; tab: string}[]>([]);
+  const [showDriverAdd, setShowDriverAdd] = useState(false);
+  const [driverForm, setDriverForm] = useState({ name: "", tab: "", pin: "" });
+  const [driverEditId, setDriverEditId] = useState<string | null>(null);
+  const [driverEditForm, setDriverEditForm] = useState({ name: "", tab: "", pin: "" });
+  const [driverDeleteId, setDriverDeleteId] = useState<string | null>(null);
 
   const loadUsers = async () => {
     try {
@@ -107,7 +99,7 @@ export function UsersView() {
     }
   };
 
-  useEffect(() => { loadUsers(); loadDrivers(); }, []);
+  useEffect(() => { loadUsers(); }, []);
 
   const filtered = useMemo(() => {
     let list = users.filter((u) => u.is_active);
@@ -583,13 +575,13 @@ export function UsersView() {
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
-              <Icon name="Bus" className="w-4 h-4 text-cyan-500" />
+              <Icon name="Steering" className="w-4 h-4 text-cyan-500" fallback="User" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Водители</span>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{drivers.length}</span>
+            <span className="text-sm font-semibold text-foreground">Водитель</span>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{driverUsers.length}</span>
           </div>
           <button
-            onClick={() => setShowDriverCreate(true)}
+            onClick={() => { setShowDriverAdd(true); setDriverEditId(null); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Icon name="UserPlus" className="w-3.5 h-3.5" />
@@ -597,46 +589,130 @@ export function UsersView() {
           </button>
         </div>
 
-        {drivers.length > 0 ? (
+        {showDriverAdd && (
+          <div className="px-5 py-4 border-b border-border bg-muted/30">
+            <p className="text-xs font-semibold text-foreground mb-3">Новый водитель</p>
+            <div className="grid grid-cols-3 gap-3">
+              <input type="text" placeholder="ФИО" value={driverForm.name}
+                onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })}
+                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" placeholder="Табельный номер" value={driverForm.tab}
+                onChange={(e) => setDriverForm({ ...driverForm, tab: e.target.value })}
+                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="password" placeholder="PIN-код" value={driverForm.pin}
+                onChange={(e) => setDriverForm({ ...driverForm, pin: e.target.value })}
+                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setShowDriverAdd(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                Отмена
+              </button>
+              <button
+                disabled={!driverForm.name.trim() || !driverForm.tab.trim() || !driverForm.pin.trim()}
+                onClick={() => {
+                  if (!driverForm.name.trim() || !driverForm.tab.trim()) return;
+                  setDriverUsers(prev => [...prev, { id: Date.now().toString(), name: driverForm.name, tab: driverForm.tab }]);
+                  setDriverForm({ name: "", tab: "", pin: "" });
+                  setShowDriverAdd(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                Создать
+              </button>
+            </div>
+          </div>
+        )}
+
+        {driverUsers.length > 0 ? (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left px-5 py-2.5 font-medium">ФИО</th>
-                <th className="text-left px-3 py-2.5 font-medium">Таб. №</th>
-                <th className="text-left px-3 py-2.5 font-medium">Тип ТС</th>
-                <th className="text-left px-3 py-2.5 font-medium">Маршрут</th>
-                <th className="text-left px-3 py-2.5 font-medium">Статус</th>
+                <th className="text-left px-3 py-2.5 font-medium">Таб. номер</th>
+                <th className="text-right px-5 py-2.5 font-medium">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {drivers.map((d) => (
-                <tr key={d.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-3 font-medium text-foreground">{d.name}</td>
-                  <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{d.tabNumber || '—'}</td>
-                  <td className="px-3 py-3 text-xs text-muted-foreground">{d.vehicleType ? (VEHICLE_TYPE_LABELS[d.vehicleType as keyof typeof VEHICLE_TYPE_LABELS] || d.vehicleType) : '—'}</td>
-                  <td className="px-3 py-3 text-xs text-muted-foreground">{d.routeNumber || '—'}</td>
-                  <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${DRIVER_STATUS_STYLES[d.status] || 'bg-muted text-muted-foreground'}`}>
-                      {DRIVER_STATUS_LABELS[d.status] || d.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {driverUsers.map((u) => {
+                const isEditing = driverEditId === u.id;
+                const isConfirmDel = driverDeleteId === u.id;
+                return (
+                  <tr key={u.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                    {isEditing ? (
+                      <>
+                        <td className="px-5 py-2.5">
+                          <input value={driverEditForm.name} onChange={(e) => setDriverEditForm({ ...driverEditForm, name: e.target.value })}
+                            className={inputCls + " w-full"} autoFocus />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <input value={driverEditForm.tab} onChange={(e) => setDriverEditForm({ ...driverEditForm, tab: e.target.value })}
+                            className={inputCls + " w-full"} />
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <div className="flex flex-col gap-1.5 items-end">
+                            <input type="password" placeholder="Новый PIN" value={driverEditForm.pin}
+                              onChange={(e) => setDriverEditForm({ ...driverEditForm, pin: e.target.value })}
+                              className={inputCls + " w-36"} />
+                            <div className="flex gap-1.5">
+                              <button onClick={() => {
+                                setDriverUsers(prev => prev.map(x => x.id === u.id ? { ...x, name: driverEditForm.name, tab: driverEditForm.tab } : x));
+                                setDriverEditId(null);
+                              }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                                <Icon name="Check" className="w-3 h-3" /> Сохранить
+                              </button>
+                              <button onClick={() => setDriverEditId(null)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                                <Icon name="X" className="w-3 h-3" /> Отмена
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-5 py-3 font-medium text-foreground">{u.name}</td>
+                        <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{u.tab}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            {isConfirmDel ? (
+                              <>
+                                <span className="text-xs text-destructive font-medium">Удалить?</span>
+                                <button onClick={() => { setDriverUsers(prev => prev.filter(x => x.id !== u.id)); setDriverDeleteId(null); }}
+                                  className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors">
+                                  <Icon name="Check" className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => setDriverDeleteId(null)}
+                                  className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
+                                  <Icon name="X" className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => { setDriverEditId(u.id); setDriverEditForm({ name: u.name, tab: u.tab, pin: "" }); }}
+                                  className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-colors">
+                                  <Icon name="Pencil" className="w-3.5 h-3.5" /> Изменить
+                                </button>
+                                <button onClick={() => setDriverDeleteId(u.id)}
+                                  className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors">
+                                  <Icon name="Trash2" className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
           <div className="px-5 py-6 text-center text-sm text-muted-foreground">
-            Нет водителей
+            Нет учётных записей водителей
           </div>
         )}
       </div>
-
-      {showDriverCreate && (
-        <DriverCreateModal
-          onClose={() => setShowDriverCreate(false)}
-          onReload={() => { loadDrivers(); setShowDriverCreate(false); }}
-        />
-      )}
     </div>
   );
 }
