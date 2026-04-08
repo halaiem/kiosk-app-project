@@ -380,6 +380,8 @@ function TerminalSection() {
   const renameDirInputRef = useRef<HTMLInputElement>(null);
   const [dragFile, setDragFile] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<string[]>([
     '> Irida Terminal v2.1.0',
     `> ${PROJECT_FILES.length} файлов проекта`,
@@ -818,16 +820,43 @@ function TerminalSection() {
 
   const [downloading, setDownloading] = useState(false);
 
-  const downloadAllAsZip = useCallback(async () => {
+  const toggleSelect = useCallback((filePath: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(filePath)) next.delete(filePath);
+      else next.add(filePath);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectDir = useCallback((dir: string) => {
+    const dirFiles = allFiles.filter((f) => f.startsWith(dir + '/'));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = dirFiles.every((f) => next.has(f));
+      if (allSelected) {
+        dirFiles.forEach((f) => next.delete(f));
+      } else {
+        dirFiles.forEach((f) => next.add(f));
+      }
+      return next;
+    });
+  }, [allFiles]);
+
+  const selectAll = useCallback(() => {
+    setSelected((prev) => prev.size === allFiles.length ? new Set() : new Set(allFiles));
+  }, [allFiles]);
+
+  const downloadZip = useCallback(async (filesToDownload: string[], archiveName: string) => {
     setDownloading(true);
     const now = new Date().toLocaleTimeString();
-    setOutput((prev) => [...prev, ``, `> [${now}] Начинаю сборку ZIP-архива...`]);
+    setOutput((prev) => [...prev, ``, `> [${now}] Сборка ZIP (${filesToDownload.length} файлов)...`]);
 
     const zip = new JSZip();
     let loaded = 0;
     let errors = 0;
 
-    for (const filePath of allFiles) {
+    for (const filePath of filesToDownload) {
       let content = fileContents[filePath];
       if (!content) {
         try {
@@ -856,7 +885,7 @@ function TerminalSection() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'irida-project.zip';
+      a.download = archiveName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -866,7 +895,14 @@ function TerminalSection() {
       setOutput((prev) => [...prev, `> Ошибка создания архива: ${String(err)}`]);
     }
     setDownloading(false);
-  }, [allFiles, fileContents]);
+  }, [fileContents]);
+
+  const downloadAllAsZip = useCallback(() => downloadZip(allFiles, 'irida-project.zip'), [allFiles, downloadZip]);
+
+  const downloadSelectedAsZip = useCallback(() => {
+    if (selected.size === 0) return;
+    downloadZip([...selected], 'irida-selected.zip');
+  }, [selected, downloadZip]);
 
   const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -932,10 +968,23 @@ function TerminalSection() {
             onDragLeave={() => setDropTarget(null)}
             onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop(dir); }}
           >
+            {selectMode && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleSelectDir(dir); }}
+                className="shrink-0 ml-1.5 w-3.5 h-3.5 flex items-center justify-center"
+              >
+                {(() => {
+                  const dirFiles = allFiles.filter((f) => f.startsWith(dir + '/'));
+                  const selCount = dirFiles.filter((f) => selected.has(f)).length;
+                  const iconName = selCount === 0 ? 'Square' : selCount === dirFiles.length ? 'CheckSquare' : 'MinusSquare';
+                  return <Icon name={iconName} className={`w-3 h-3 ${selCount > 0 ? 'text-cyan-400' : 'text-white/30'}`} />;
+                })()}
+              </button>
+            )}
             <button
               onClick={() => toggleDir(dir)}
               className="flex items-center gap-1.5 py-0.5 px-2 flex-1 min-w-0 text-left"
-              style={{ paddingLeft: `${8 + depth * 12}px` }}
+              style={{ paddingLeft: selectMode ? '2px' : `${8 + depth * 12}px` }}
             >
               <Icon name={isOpen ? 'ChevronDown' : 'ChevronRight'} className="w-3 h-3 text-white/30 shrink-0" />
               <Icon name={dropTarget === dir ? 'FolderInput' : isOpen ? 'FolderOpen' : 'Folder'} className={`w-3.5 h-3.5 shrink-0 ${dropTarget === dir ? 'text-blue-400' : 'text-yellow-400/70'}`} />
@@ -1002,15 +1051,23 @@ function TerminalSection() {
                 return (
                   <div
                     key={f}
-                    draggable
-                    onDragStart={() => setDragFile(f)}
+                    draggable={!selectMode}
+                    onDragStart={() => !selectMode && setDragFile(f)}
                     onDragEnd={() => { setDragFile(null); setDropTarget(null); }}
-                    className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''} ${dragFile === f ? 'opacity-40' : ''}`}
-                    style={{ cursor: 'grab' }}
+                    className={`flex items-center group hover:bg-white/5 rounded ${activeTab === f ? 'bg-white/10' : ''} ${dragFile === f ? 'opacity-40' : ''} ${selected.has(f) ? 'bg-cyan-500/10' : ''}`}
+                    style={{ cursor: selectMode ? 'pointer' : 'grab' }}
                   >
+                    {selectMode && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(f); }}
+                        className="shrink-0 ml-2 w-3.5 h-3.5 flex items-center justify-center"
+                      >
+                        <Icon name={selected.has(f) ? 'CheckSquare' : 'Square'} className={`w-3 h-3 ${selected.has(f) ? 'text-cyan-400' : 'text-white/30'}`} />
+                      </button>
+                    )}
                     <button
-                      onClick={() => openFile(f)}
-                      onDoubleClick={() => isCustom && startRename(f)}
+                      onClick={() => selectMode ? toggleSelect(f) : openFile(f)}
+                      onDoubleClick={() => !selectMode && isCustom && startRename(f)}
                       className="flex items-center gap-1.5 py-0.5 flex-1 min-w-0 text-left"
                       style={{ paddingLeft: `${20 + depth * 12}px` }}
                     >
@@ -1092,14 +1149,34 @@ function TerminalSection() {
           </button>
           <div className="w-px h-5 bg-border" />
           <button
-            onClick={downloadAllAsZip}
-            disabled={downloading}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 transition-colors font-medium"
-            title="Скачать все файлы проекта в ZIP-архиве"
+            onClick={() => { setSelectMode((v) => !v); if (selectMode) setSelected(new Set()); }}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs transition-colors font-medium ${selectMode ? 'bg-cyan-600 text-white ring-2 ring-cyan-400/50' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+            title="Режим выбора файлов для скачивания"
           >
-            <Icon name={downloading ? 'Loader' : 'FolderArchive'} className={`w-3.5 h-3.5 ${downloading ? 'animate-spin' : ''}`} />
-            {downloading ? 'Сборка...' : 'Скачать ZIP'}
+            <Icon name={selectMode ? 'CheckSquare' : 'Square'} className="w-3.5 h-3.5" />
+            Выбрать
           </button>
+          {selectMode && selected.size > 0 ? (
+            <button
+              onClick={downloadSelectedAsZip}
+              disabled={downloading}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 transition-colors font-medium"
+              title="Скачать выбранные файлы в ZIP"
+            >
+              <Icon name={downloading ? 'Loader' : 'FolderArchive'} className={`w-3.5 h-3.5 ${downloading ? 'animate-spin' : ''}`} />
+              {downloading ? 'Сборка...' : `Скачать (${selected.size})`}
+            </button>
+          ) : (
+            <button
+              onClick={downloadAllAsZip}
+              disabled={downloading}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 transition-colors font-medium"
+              title="Скачать все файлы проекта в ZIP-архиве"
+            >
+              <Icon name={downloading ? 'Loader' : 'FolderArchive'} className={`w-3.5 h-3.5 ${downloading ? 'animate-spin' : ''}`} />
+              {downloading ? 'Сборка...' : 'Скачать ZIP'}
+            </button>
+          )}
           {activeTab && (
             <>
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded font-mono">{getFileLang(activeTab)}</span>
@@ -1159,6 +1236,19 @@ function TerminalSection() {
               <Icon name="FilePlus" className="w-3.5 h-3.5" />
             </button>
           </div>
+          {selectMode && (
+            <div className="flex items-center gap-2 px-3 py-1 border-b border-white/10 shrink-0 bg-cyan-900/20">
+              <button
+                onClick={selectAll}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-medium"
+              >
+                {selected.size === allFiles.length ? 'Снять всё' : 'Выбрать всё'}
+              </button>
+              {selected.size > 0 && (
+                <span className="text-[10px] text-cyan-400/60">{selected.size} из {allFiles.length}</span>
+              )}
+            </div>
+          )}
 
           {/* New file input */}
           {showNewFile && (
