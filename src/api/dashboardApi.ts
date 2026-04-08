@@ -73,7 +73,7 @@ export async function getDashboardUsers() {
 export const fetchDashboardUsers = getDashboardUsers;
 
 export async function deleteDashboardUser(userId: number) {
-  return updateDashboardUser({ id: userId, is_active: false });
+  return request(`${AUTH_URL}?action=delete_user&id=${userId}`, { method: 'DELETE' });
 }
 
 export async function createDashboardUser(payload: {
