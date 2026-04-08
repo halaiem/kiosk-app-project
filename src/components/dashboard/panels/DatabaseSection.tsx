@@ -344,7 +344,7 @@ export default function DatabaseSection() {
           {(viewMode === 'data' || viewMode === 'sql') && (
             <button
               onClick={() => { setViewMode('tables'); setActiveTable(''); }}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors font-medium"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border transition-colors font-medium"
             >
               <Icon name="ArrowLeft" className="w-3.5 h-3.5" />
               Все таблицы
@@ -363,7 +363,7 @@ export default function DatabaseSection() {
             <>
               <button
                 onClick={() => { setSelectMode((v) => !v); if (selectMode) setSelected(new Set()); }}
-                className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs transition-colors font-medium ${selectMode ? 'bg-cyan-600 text-white ring-2 ring-cyan-400/50' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs transition-colors font-medium ${selectMode ? 'bg-cyan-600 text-white ring-2 ring-cyan-400/50' : 'bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border'}`}
               >
                 <Icon name={selectMode ? 'CheckSquare' : 'Square'} className="w-3.5 h-3.5" />
                 Выбрать
@@ -399,7 +399,8 @@ export default function DatabaseSection() {
           )}
           <button
             onClick={fetchTables}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors font-medium"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border transition-colors font-medium"
+            title="Обновить список таблиц"
           >
             <Icon name="RefreshCw" className="w-3.5 h-3.5" />
           </button>
@@ -768,10 +769,7 @@ export default function DatabaseSection() {
                         ) : (
                           <button
                             onClick={() => setDeleteConfirm(rowIdx)}
-                            className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500/20"
-                            style={{ opacity: 0 }}
-                            onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1'; }}
-                            onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = '0'; }}
+                            className="w-5 h-5 rounded flex items-center justify-center opacity-30 hover:opacity-100 hover:bg-red-500/20 transition-opacity"
                           >
                             <Icon name="Trash2" className="w-2.5 h-2.5 text-red-400" />
                           </button>

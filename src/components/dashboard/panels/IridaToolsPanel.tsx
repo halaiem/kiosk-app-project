@@ -1151,7 +1151,7 @@ function TerminalSection() {
           <div className="w-px h-5 bg-border" />
           <button
             onClick={() => { setSelectMode((v) => !v); if (selectMode) setSelected(new Set()); }}
-            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs transition-colors font-medium ${selectMode ? 'bg-cyan-600 text-white ring-2 ring-cyan-400/50' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs transition-colors font-medium ${selectMode ? 'bg-cyan-600 text-white ring-2 ring-cyan-400/50' : 'bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border'}`}
             title="Режим выбора файлов для скачивания"
           >
             <Icon name={selectMode ? 'CheckSquare' : 'Square'} className="w-3.5 h-3.5" />
@@ -1183,7 +1183,7 @@ function TerminalSection() {
               <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded font-mono">{getFileLang(activeTab)}</span>
               <button
                 onClick={() => downloadFile(activeTab)}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-white/10 text-white/80 hover:bg-white/20 transition-colors font-medium"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs bg-secondary text-secondary-foreground hover:bg-secondary/70 border border-border transition-colors font-medium"
                 title="Скачать текущий файл"
               >
                 <Icon name="Download" className="w-3.5 h-3.5" />
