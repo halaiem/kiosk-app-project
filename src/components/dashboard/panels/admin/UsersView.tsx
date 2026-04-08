@@ -69,7 +69,15 @@ export function UsersView() {
   const loadUsers = async () => {
     try {
       const data = await fetchDashboardUsers();
-      setUsers(data as ApiUser[]);
+      const mapped = (data as Record<string, unknown>[]).map((u) => ({
+        id: u.id as number,
+        employee_id: (u.employee_id || u.employeeId) as string,
+        full_name: (u.full_name || u.name) as string,
+        role: u.role as UserRole,
+        is_active: u.is_active !== undefined ? u.is_active as boolean : u.isActive as boolean,
+        phone: u.phone as string | undefined,
+      }));
+      setUsers(mapped);
     } catch (e) {
       console.error('Load users:', e);
     }
