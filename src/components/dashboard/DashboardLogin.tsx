@@ -19,6 +19,9 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   const [secretInput, setSecretInput] = useState('');
   const [secretError, setSecretError] = useState(false);
   const [secretShake, setSecretShake] = useState(false);
+  const [secretAttempts, setSecretAttempts] = useState(0);
+  const [secretBlocked, setSecretBlocked] = useState(false);
+  const MAX_ATTEMPTS = 3;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +30,8 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
       setShowSecretPopup(true);
       setSecretInput('');
       setSecretError(false);
+      setSecretAttempts(0);
+      setSecretBlocked(false);
       return;
     }
 
@@ -39,15 +44,23 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   };
 
   const handleSecretConfirm = () => {
+    if (secretBlocked) return;
     if (secretInput === IRIDA_TOOLS_SECRET_CODE) {
       setShowSecretPopup(false);
       setSecretInput('');
       setSecretError(false);
+      setSecretAttempts(0);
       onIridaToolsLogin();
     } else {
+      const next = secretAttempts + 1;
+      setSecretAttempts(next);
       setSecretError(true);
       setSecretShake(true);
+      setSecretInput('');
       setTimeout(() => setSecretShake(false), 500);
+      if (next >= MAX_ATTEMPTS) {
+        setSecretBlocked(true);
+      }
     }
   };
 
@@ -138,38 +151,63 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
               <h2 className="text-lg font-bold text-foreground mb-1">Двойная проверка</h2>
               <p className="text-sm text-muted-foreground">Введите секретный код для входа в Irida-Tools</p>
             </div>
-            <div className="w-full">
-              <input
-                type="password"
-                value={secretInput}
-                onChange={(e) => { setSecretInput(e.target.value); setSecretError(false); }}
-                onKeyDown={(e) => e.key === 'Enter' && handleSecretConfirm()}
-                placeholder="••••••••"
-                autoFocus
-                className={`w-full h-12 px-4 rounded-lg border text-center text-xl font-mono tracking-[0.4em] bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${secretError ? 'border-destructive ring-destructive/30 bg-destructive/5' : 'border-border focus:ring-ring'}`}
-              />
-              {secretError && (
-                <p className="text-xs text-destructive mt-1.5 text-center flex items-center justify-center gap-1">
-                  <Icon name="AlertCircle" className="w-3 h-3" />
-                  Неверный код
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2 w-full">
-              <button
-                onClick={() => { setShowSecretPopup(false); setSecretInput(''); setSecretError(false); }}
-                className="flex-1 h-10 bg-secondary text-secondary-foreground font-medium text-sm rounded-lg hover:bg-secondary/80 transition-all border border-border"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleSecretConfirm}
-                disabled={!secretInput}
-                className="flex-1 h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-40"
-              >
-                Подтвердить
-              </button>
-            </div>
+            {secretBlocked ? (
+              <>
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
+                  <Icon name="Ban" className="w-7 h-7 text-destructive" />
+                </div>
+                <div className="text-center">
+                  <p className="text-base font-semibold text-destructive">Доступ заблокирован</p>
+                  <p className="text-xs text-muted-foreground mt-1">Превышено количество попыток ввода кода</p>
+                </div>
+                <button
+                  onClick={() => { setShowSecretPopup(false); setSecretInput(''); setSecretError(false); setSecretAttempts(0); setSecretBlocked(false); setId(''); setPassword(''); }}
+                  className="w-full h-10 bg-secondary text-secondary-foreground font-medium text-sm rounded-lg hover:bg-secondary/80 transition-all border border-border"
+                >
+                  Вернуться к входу
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-full">
+                  <input
+                    type="password"
+                    value={secretInput}
+                    onChange={(e) => { setSecretInput(e.target.value); setSecretError(false); }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSecretConfirm()}
+                    placeholder="••••••••"
+                    autoFocus
+                    className={`w-full h-12 px-4 rounded-lg border text-center text-xl font-mono tracking-[0.4em] bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${secretError ? 'border-destructive ring-destructive/30 bg-destructive/5' : 'border-border focus:ring-ring'}`}
+                  />
+                  <div className="flex items-center justify-between mt-1.5 px-0.5">
+                    {secretError ? (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <Icon name="AlertCircle" className="w-3 h-3" />
+                        Неверный код
+                      </p>
+                    ) : <span />}
+                    <p className="text-xs text-muted-foreground">
+                      Попыток: <span className={`font-semibold ${secretAttempts >= 2 ? 'text-destructive' : 'text-foreground'}`}>{MAX_ATTEMPTS - secretAttempts}</span> из {MAX_ATTEMPTS}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 w-full">
+                  <button
+                    onClick={() => { setShowSecretPopup(false); setSecretInput(''); setSecretError(false); setSecretAttempts(0); }}
+                    className="flex-1 h-10 bg-secondary text-secondary-foreground font-medium text-sm rounded-lg hover:bg-secondary/80 transition-all border border-border"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={handleSecretConfirm}
+                    disabled={!secretInput}
+                    className="flex-1 h-10 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-40"
+                  >
+                    Подтвердить
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
