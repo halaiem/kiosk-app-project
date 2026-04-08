@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import type { VehicleInfo } from "@/types/dashboard";
 import { createDriver as apiCreateDriver } from "@/api/driverApi";
 import { generatePin } from "./TechVDConstants";
 
@@ -14,26 +13,18 @@ export default function DriverCreateModal({
   onReload,
 }: DriverCreateModalProps) {
   const [fName, setFName] = useState("");
+  const [fTabNumber, setFTabNumber] = useState("");
   const [fPin, setFPin] = useState(() => generatePin());
   const [fPhone, setFPhone] = useState("");
-  const [fVehicleType, setFVehicleType] = useState<VehicleInfo["type"] | "">(
-    ""
-  );
-  const [fVehicleNumber, setFVehicleNumber] = useState("");
-  const [fRoute, setFRoute] = useState("");
-  const [fShiftStart, setFShiftStart] = useState("08:00");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [createdPin, setCreatedPin] = useState<string | null>(null);
 
   const resetForm = () => {
     setFName("");
+    setFTabNumber("");
     setFPin(generatePin());
     setFPhone("");
-    setFVehicleType("");
-    setFVehicleNumber("");
-    setFRoute("");
-    setFShiftStart("08:00");
     setError("");
     setCreatedPin(null);
     onClose();
@@ -50,12 +41,13 @@ export default function DriverCreateModal({
       await apiCreateDriver({
         fullName: fName.trim(),
         pin: fPin.trim(),
-        vehicleType: fVehicleType || "tram",
-        vehicleNumber: fVehicleNumber.trim(),
-        routeNumber: fRoute.trim(),
-        shiftStart: fShiftStart,
+        tabNumber: fTabNumber.trim() || undefined,
+        vehicleType: "tram",
+        vehicleNumber: "",
+        routeNumber: "",
+        shiftStart: "08:00",
         phone: fPhone.trim() || undefined,
-      });
+      } as Parameters<typeof apiCreateDriver>[0]);
       setCreatedPin(fPin);
       onReload?.();
     } catch (e) {
@@ -63,16 +55,7 @@ export default function DriverCreateModal({
     } finally {
       setSaving(false);
     }
-  }, [
-    fName,
-    fPin,
-    fPhone,
-    fVehicleType,
-    fVehicleNumber,
-    fRoute,
-    fShiftStart,
-    onReload,
-  ]);
+  }, [fName, fTabNumber, fPin, fPhone, onReload]);
 
   return (
     <div
@@ -141,7 +124,19 @@ export default function DriverCreateModal({
                   type="text"
                   value={fName}
                   onChange={(e) => setFName(e.target.value)}
-                  placeholder="Оссама Иванов Петрович"
+                  placeholder="Иванов Иван Иванович"
+                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Таб. номер
+                </label>
+                <input
+                  type="text"
+                  value={fTabNumber}
+                  onChange={(e) => setFTabNumber(e.target.value)}
+                  placeholder="0001"
                   className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -154,61 +149,6 @@ export default function DriverCreateModal({
                   value={fPhone}
                   onChange={(e) => setFPhone(e.target.value)}
                   placeholder="+7 (9XX) XXX-XX-XX"
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Тип ТС
-                </label>
-                <select
-                  value={fVehicleType}
-                  onChange={(e) =>
-                    setFVehicleType(
-                      e.target.value as VehicleInfo["type"]
-                    )
-                  }
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">— выберите —</option>
-                  <option value="tram">Трамвай</option>
-                  <option value="trolleybus">Троллейбус</option>
-                  <option value="bus">Автобус</option>
-                  <option value="electrobus">Электробус</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Бортовой номер
-                </label>
-                <input
-                  type="text"
-                  value={fVehicleNumber}
-                  onChange={(e) => setFVehicleNumber(e.target.value)}
-                  placeholder="ТМ-3450"
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Маршрут
-                </label>
-                <input
-                  type="text"
-                  value={fRoute}
-                  onChange={(e) => setFRoute(e.target.value)}
-                  placeholder="5"
-                  className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Начало смены
-                </label>
-                <input
-                  type="time"
-                  value={fShiftStart}
-                  onChange={(e) => setFShiftStart(e.target.value)}
                   className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
@@ -229,7 +169,7 @@ export default function DriverCreateModal({
                         setFPin(
                           e.target.value
                             .replace(/\D/g, "")
-                            .slice(0, 6)
+                            .slice(0, 8)
                         )
                       }
                       placeholder="1234"

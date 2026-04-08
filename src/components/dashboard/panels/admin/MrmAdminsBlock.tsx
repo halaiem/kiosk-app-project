@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import ReportButton from "@/components/dashboard/ReportButton";
 import {
   fetchMrmAdmins,
   createMrmAdmin,
@@ -134,13 +135,27 @@ export default function MrmAdminsBlock() {
             {admins.filter((a) => a.isActive).length}
           </span>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditId(null); setDeleteConfirmId(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Icon name="UserPlus" className="w-3.5 h-3.5" />
-          Создать учётную запись
-        </button>
+        <div className="flex items-center gap-2">
+          <ReportButton
+            filename="mrm_admins"
+            data={admins.filter(a => a.isActive).map(a => ({
+              id: a.id,
+              ФИО: a.fullName,
+              Логин: a.login,
+              Статус: a.lastSeenAt && Date.now() - new Date(a.lastSeenAt).getTime() < 5 * 60 * 1000 ? 'На планшете' : 'Неактивен',
+              'Последний_вход': a.lastSeenAt || '',
+              'IP_планшета': a.lastTabletIp || '',
+              'Дата_создания': a.createdAt,
+            }))}
+          />
+          <button
+            onClick={() => { setShowForm(true); setEditId(null); setDeleteConfirmId(null); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Icon name="UserPlus" className="w-3.5 h-3.5" />
+            Создать учётную запись
+          </button>
+        </div>
       </div>
 
       {/* Create form */}

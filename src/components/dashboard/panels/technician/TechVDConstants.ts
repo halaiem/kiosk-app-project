@@ -43,5 +43,5 @@ export const DRIVER_STATUS_LABELS: Record<DriverStatus, string> = {
 };
 
 export function generatePin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  return String(Math.floor(10000000 + Math.random() * 90000000));
 }

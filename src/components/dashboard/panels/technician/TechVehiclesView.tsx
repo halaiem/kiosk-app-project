@@ -1,44 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
-import type { VehicleInfo, VehicleStatus } from "@/types/dashboard";
-import { formatDate } from "./TechRoutes";
-import { createVehicle as apiCreateVehicle, updateVehicle as apiUpdateVehicle, fetchVehicles } from "@/api/dashboardApi";
-import {
-  VEHICLE_TYPE_ICONS,
-  VEHICLE_TYPE_LABELS,
-  VEHICLE_STATUS_STYLES,
-  VEHICLE_STATUS_LABELS,
-} from "./TechVDConstants";
-import {
-  Command,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import type { VehicleInfo } from "@/types/dashboard";
+import VehicleCard from "./VehicleCard";
+import VehicleCreateModal from "./VehicleCreateModal";
+import VehicleEditModal from "./VehicleEditModal";
 
-interface AdminVehicleOption {
-  id: string;
-  number: string;
-  boardNumber?: string;
-  vinNumber?: string;
-  type?: string;
-  mileage?: number;
-}
-
-interface VehiclesViewProps {
-  vehicles: VehicleInfo[];
-  onReload?: () => void;
-}
-
-const TRANSPORT_TYPE_MAP: Record<string, VehicleInfo["type"]> = {
+export const TRANSPORT_TYPE_MAP: Record<string, VehicleInfo["type"]> = {
   tram: "tram",
   trolleybus: "trolleybus",
   bus: "bus",
@@ -46,49 +14,16 @@ const TRANSPORT_TYPE_MAP: Record<string, VehicleInfo["type"]> = {
   electrobus: "electrobus",
 };
 
+interface VehiclesViewProps {
+  vehicles: VehicleInfo[];
+  onReload?: () => void;
+}
+
 export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleInfo["type"]>("all");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const [fNumber, setFNumber] = useState("");
-  const [fSelectedVehicleId, setFSelectedVehicleId] = useState("");
-  const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
-  const [adminVehicles, setAdminVehicles] = useState<AdminVehicleOption[]>([]);
-  const [adminVehiclesLoading, setAdminVehiclesLoading] = useState(false);
-  const [fType, setFType] = useState<VehicleInfo["type"] | "">("");
-  const [fRoute, setFRoute] = useState("");
-  const [fMileage, setFMileage] = useState("");
-  const [fLastMaint, setFLastMaint] = useState("");
-  const [fNextMaint, setFNextMaint] = useState("");
-  const [fStatus, setFStatus] = useState<VehicleStatus | "">("");
-
-  // Load admin vehicles when form opens
-  useEffect(() => {
-    if (!showForm) return;
-    let cancelled = false;
-    setAdminVehiclesLoading(true);
-    fetchVehicles()
-      .then((data: unknown) => {
-        if (cancelled) return;
-        const list = data as AdminVehicleOption[];
-        setAdminVehicles(
-          list.map((v) => ({
-            id: v.id,
-            number: v.number,
-            boardNumber: v.boardNumber,
-            vinNumber: v.vinNumber,
-            type: v.type,
-            mileage: v.mileage,
-          }))
-        );
-      })
-      .catch((e) => console.error("Load admin vehicles:", e))
-      .finally(() => { if (!cancelled) setAdminVehiclesLoading(false); });
-    return () => { cancelled = true; };
-  }, [showForm]);
+  const [editingVehicle, setEditingVehicle] = useState<VehicleInfo | null>(null);
 
   const isOverdue = (date: Date) => new Date(date).getTime() < Date.now();
 
@@ -101,118 +36,6 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
     }
     return list;
   }, [vehicles, search, typeFilter]);
-
-  const resetForm = () => {
-    setFNumber(""); setFSelectedVehicleId(""); setBoardPopoverOpen(false);
-    setFType(""); setFRoute(""); setFMileage("");
-    setFLastMaint(""); setFNextMaint(""); setFStatus(""); setError("");
-    setShowForm(false);
-  };
-
-  const handleCreate = useCallback(async () => {
-    if (!fNumber.trim() || !fType) { setError("Заполните бортовой номер и тип"); return; }
-    setSaving(true); setError("");
-    try {
-      await apiCreateVehicle({
-        number: fNumber.trim(),
-        label: fNumber.trim(),
-        type: fType,
-        status: fStatus || "active",
-        mileage: Number(fMileage) || 0,
-        lastMaintenance: fLastMaint || undefined,
-        nextMaintenance: fNextMaint || undefined,
-        routeNumber: fRoute.trim() || undefined,
-      });
-      resetForm();
-      onReload?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка создания");
-    } finally {
-      setSaving(false);
-    }
-  }, [fNumber, fType, fRoute, fMileage, fLastMaint, fNextMaint, fStatus, onReload]);
-
-  // ── Edit state ──────────────────────────────────────────────────
-  const [editingVehicle, setEditingVehicle] = useState<VehicleInfo | null>(null);
-  const [eVin, setEVin] = useState("");
-  const [eType, setEType] = useState<VehicleInfo["type"] | "">("");
-  const [eBoardNumber, setEBoardNumber] = useState("");
-  const [eGovReg, setEGovReg] = useState("");
-  const [eModel, setEModel] = useState("");
-  const [eManufacturer, setEManufacturer] = useState("");
-  const [eRegCert, setERegCert] = useState("");
-  const [eYear, setEYear] = useState("");
-  const [ePassengerCap, setEPassengerCap] = useState("");
-  const [eFuelType, setEFuelType] = useState("");
-  const [eColor, setEColor] = useState("");
-  const [eMileage, setEMileage] = useState("");
-  const [eInsuranceNumber, setEInsuranceNumber] = useState("");
-  const [eInsuranceExpiry, setEInsuranceExpiry] = useState("");
-  const [eTechInspExpiry, setETechInspExpiry] = useState("");
-  const [eIsAccessible, setEIsAccessible] = useState(false);
-  const [eDocsInfo, setEDocsInfo] = useState("");
-  const [eStatus, setEStatus] = useState<VehicleStatus | "">("");
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState("");
-
-  const openEdit = useCallback((v: VehicleInfo) => {
-    setEVin(v.vinNumber || "");
-    setEType(v.type);
-    setEBoardNumber(v.boardNumber || v.number || "");
-    setEGovReg(v.govRegNumber || "");
-    setEModel(v.model || "");
-    setEManufacturer(v.manufacturer || "");
-    setERegCert(v.regCertificateNumber || "");
-    setEYear(v.year != null ? String(v.year) : "");
-    setEPassengerCap(v.passengerCapacity != null ? String(v.passengerCapacity) : "");
-    setEFuelType(v.fuelType || "");
-    setEColor(v.vehicleColor || "");
-    setEMileage(String(v.mileage || 0));
-    setEInsuranceNumber(v.insuranceNumber || "");
-    setEInsuranceExpiry(v.insuranceExpiry || "");
-    setETechInspExpiry(v.techInspectionExpiry || "");
-    setEIsAccessible(v.isAccessible || false);
-    setEDocsInfo(v.documentsInfo || "");
-    setEStatus(v.status);
-    setEditError("");
-    setEditingVehicle(v);
-  }, []);
-
-  const handleUpdateVehicle = useCallback(async () => {
-    if (!editingVehicle) return;
-    setEditSaving(true);
-    setEditError("");
-    try {
-      await apiUpdateVehicle({
-        id: editingVehicle.id,
-        vinNumber: eVin.trim() || null,
-        type: eType || undefined,
-        boardNumber: eBoardNumber.trim() || undefined,
-        number: eBoardNumber.trim() || undefined,
-        govRegNumber: eGovReg.trim() || null,
-        model: eModel.trim() || null,
-        manufacturer: eManufacturer.trim() || null,
-        regCertificateNumber: eRegCert.trim() || null,
-        year: eYear ? Number(eYear) : null,
-        passengerCapacity: ePassengerCap ? Number(ePassengerCap) : null,
-        fuelType: eFuelType.trim() || null,
-        vehicleColor: eColor.trim() || null,
-        mileage: Number(eMileage) || 0,
-        insuranceNumber: eInsuranceNumber.trim() || null,
-        insuranceExpiry: eInsuranceExpiry || null,
-        techInspectionExpiry: eTechInspExpiry || null,
-        isAccessible: eIsAccessible,
-        documentsInfo: eDocsInfo.trim() || null,
-        status: eStatus || undefined,
-      });
-      setEditingVehicle(null);
-      onReload?.();
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Ошибка сохранения");
-    } finally {
-      setEditSaving(false);
-    }
-  }, [editingVehicle, eVin, eType, eBoardNumber, eGovReg, eModel, eManufacturer, eRegCert, eYear, ePassengerCap, eFuelType, eColor, eMileage, eInsuranceNumber, eInsuranceExpiry, eTechInspExpiry, eIsAccessible, eDocsInfo, eStatus, onReload]);
 
   return (
     <div className="space-y-4">
@@ -244,278 +67,17 @@ export function VehiclesView({ vehicles, onReload }: VehiclesViewProps) {
           </div>
         ) : (
           filteredVehicles.map((v) => (
-            <div key={v.id} className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Icon name={VEHICLE_TYPE_ICONS[v.type]} className="w-5 h-5 text-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-foreground">#{v.number}</p>
-                    <p className="text-[11px] text-muted-foreground">{VEHICLE_TYPE_LABELS[v.type]}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${VEHICLE_STATUS_STYLES[v.status]}`}>
-                    {VEHICLE_STATUS_LABELS[v.status]}
-                  </span>
-                  <button
-                    onClick={() => openEdit(v)}
-                    className="w-7 h-7 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
-                    title="Редактировать"
-                  >
-                    <Icon name="Pencil" className="w-3 h-3 text-muted-foreground" />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1.5 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Icon name="Route" className="w-3 h-3" />Маршрут</span>
-                  <span className="text-foreground font-medium">{v.routeNumber || "---"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Icon name="User" className="w-3 h-3" />Водитель</span>
-                  <span className="text-foreground font-medium truncate ml-2 max-w-[120px]">{v.driverName || "---"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Icon name="Gauge" className="w-3 h-3" />Пробег</span>
-                  <span className="text-foreground font-medium">{v.mileage.toLocaleString()} км</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Icon name="Wrench" className="w-3 h-3" />Последнее ТО</span>
-                  <span className="text-foreground font-medium">{formatDate(v.lastMaintenance)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5"><Icon name="CalendarClock" className="w-3 h-3" />Следующее ТО</span>
-                  <span className={`font-medium ${isOverdue(v.nextMaintenance) ? "text-red-500" : "text-foreground"}`}>
-                    {formatDate(v.nextMaintenance)}
-                    {isOverdue(v.nextMaintenance) && <Icon name="AlertTriangle" className="w-3 h-3 inline ml-1 text-red-500" />}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <VehicleCard key={v.id} vehicle={v} isOverdue={isOverdue} onEdit={setEditingVehicle} />
           ))
         )}
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={resetForm}>
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Новое транспортное средство</h3>
-              <button onClick={resetForm} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
-                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер *</label>
-                <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-full h-9 px-3 rounded-lg border border-border bg-background text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <span className={fNumber ? "text-foreground truncate" : "text-muted-foreground"}>
-                        {fNumber || (adminVehiclesLoading ? "Загрузка..." : "Выберите ТС")}
-                      </span>
-                      <Icon name="ChevronsUpDown" className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-2" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Поиск по бортовому номеру..." />
-                      <CommandList>
-                        <CommandEmpty>Ничего не найдено</CommandEmpty>
-                        <CommandGroup>
-                          {adminVehicles.map((v) => {
-                            const boardLabel = v.boardNumber || v.number;
-                            return (
-                              <CommandItem
-                                key={v.id}
-                                value={`${boardLabel} ${v.vinNumber ?? ""}`}
-                                onSelect={() => {
-                                  setFNumber(boardLabel);
-                                  setFSelectedVehicleId(v.id);
-                                  // Auto-fill type from admin vehicle
-                                  if (v.type && TRANSPORT_TYPE_MAP[v.type]) {
-                                    setFType(TRANSPORT_TYPE_MAP[v.type]);
-                                  }
-                                  // Auto-fill mileage if available
-                                  if (v.mileage) {
-                                    setFMileage(String(v.mileage));
-                                  }
-                                  setBoardPopoverOpen(false);
-                                }}
-                                className="flex items-center justify-between"
-                              >
-                                <span className="truncate">{boardLabel}</span>
-                                {fSelectedVehicleId === v.id && (
-                                  <Icon name="Check" className="w-4 h-4 text-primary shrink-0 ml-2" />
-                                )}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип *</label>
-                <select value={fType} onChange={e => setFType(e.target.value as VehicleInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— выберите —</option>
-                  <option value="tram">Трамвай</option>
-                  <option value="trolleybus">Троллейбус</option>
-                  <option value="bus">Автобус</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Маршрут</label>
-                <input type="text" value={fRoute} onChange={e => setFRoute(e.target.value)} placeholder="5" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Пробег км</label>
-                <input type="number" value={fMileage} onChange={e => setFMileage(e.target.value)} placeholder="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Дата посл. ТО</label>
-                <input type="date" value={fLastMaint} onChange={e => setFLastMaint(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Дата след. ТО</label>
-                <input type="date" value={fNextMaint} onChange={e => setFNextMaint(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select value={fStatus} onChange={e => setFStatus(e.target.value as VehicleStatus)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">— активен —</option>
-                  <option value="active">Активен</option>
-                  <option value="maintenance">ТО</option>
-                  <option value="idle">Простой</option>
-                  <option value="offline">Офлайн</option>
-                </select>
-              </div>
-            </div>
-            {error && <p className="text-xs text-destructive mt-3">{error}</p>}
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={resetForm} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button onClick={handleCreate} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {saving ? "Создаю..." : "Создать"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <VehicleCreateModal onClose={() => setShowForm(false)} onReload={onReload} />
       )}
 
       {editingVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingVehicle(null)}>
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Редактирование ТС — #{editingVehicle.boardNumber || editingVehicle.number}</h3>
-              <button onClick={() => setEditingVehicle(null)} className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center">
-                <Icon name="X" className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">VIN-номер</label>
-                <input type="text" value={eVin} onChange={e => setEVin(e.target.value)} placeholder="XTA..." className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип ТС *</label>
-                <select value={eType} onChange={e => setEType(e.target.value as VehicleInfo["type"])} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="tram">Трамвай</option>
-                  <option value="trolleybus">Троллейбус</option>
-                  <option value="bus">Автобус</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Бортовой номер</label>
-                <input type="text" value={eBoardNumber} onChange={e => setEBoardNumber(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Гос. рег. номер</label>
-                <input type="text" value={eGovReg} onChange={e => setEGovReg(e.target.value)} placeholder="А000АА00" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Модель</label>
-                <input type="text" value={eModel} onChange={e => setEModel(e.target.value)} placeholder="71-623" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Производитель</label>
-                <input type="text" value={eManufacturer} onChange={e => setEManufacturer(e.target.value)} placeholder="УКВЗ" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Рег. свидетельство</label>
-                <input type="text" value={eRegCert} onChange={e => setERegCert(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Год выпуска</label>
-                <input type="number" value={eYear} onChange={e => setEYear(e.target.value)} placeholder="2020" min="1990" max="2030" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Вместимость (чел.)</label>
-                <input type="number" value={ePassengerCap} onChange={e => setEPassengerCap(e.target.value)} min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тип топлива</label>
-                <input type="text" value={eFuelType} onChange={e => setEFuelType(e.target.value)} placeholder="Электро / Дизель" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Цвет</label>
-                <input type="text" value={eColor} onChange={e => setEColor(e.target.value)} placeholder="Красный" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Пробег (км)</label>
-                <input type="number" value={eMileage} onChange={e => setEMileage(e.target.value)} min="0" className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Номер страховки</label>
-                <input type="text" value={eInsuranceNumber} onChange={e => setEInsuranceNumber(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Страховка до</label>
-                <input type="date" value={eInsuranceExpiry} onChange={e => setEInsuranceExpiry(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Тех. осмотр до</label>
-                <input type="date" value={eTechInspExpiry} onChange={e => setETechInspExpiry(e.target.value)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Статус</label>
-                <select value={eStatus} onChange={e => setEStatus(e.target.value as VehicleStatus)} className="w-full h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="active">Активен</option>
-                  <option value="maintenance">ТО</option>
-                  <option value="idle">Простой</option>
-                  <option value="offline">Офлайн</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 cursor-pointer h-9">
-                  <input type="checkbox" checked={eIsAccessible} onChange={e => setEIsAccessible(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-ring" />
-                  <span className="text-sm text-foreground">Доступность</span>
-                </label>
-              </div>
-              <div className="col-span-3">
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Информация о документах</label>
-                <textarea value={eDocsInfo} onChange={e => setEDocsInfo(e.target.value)} rows={2} placeholder="Дополнительная информация о документах ТС..." className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-              </div>
-            </div>
-            {editError && <p className="text-xs text-destructive mt-3">{editError}</p>}
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setEditingVehicle(null)} className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:bg-muted/80 transition-colors">Отмена</button>
-              <button
-                disabled={editSaving}
-                onClick={handleUpdateVehicle}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {editSaving ? "Сохранение..." : "Сохранить"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <VehicleEditModal vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onReload={onReload} />
       )}
     </div>
   );

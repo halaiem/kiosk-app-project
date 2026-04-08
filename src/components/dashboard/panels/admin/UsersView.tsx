@@ -18,6 +18,7 @@ interface ApiUser {
   role: UserRole;
   is_active: boolean;
   phone?: string;
+  rating?: number;
 }
 
 interface EditState {
@@ -26,6 +27,7 @@ interface EditState {
   role: UserRole;
   password: string;
   is_active: boolean;
+  rating: number;
 }
 
 const ROLE_STYLES: Record<string, string> = {
@@ -71,6 +73,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("dispatcher");
   const [newPassword, setNewPassword] = useState("");
+  const [newRating, setNewRating] = useState<number>(5);
   const [createError, setCreateError] = useState("");
 
   const loadUsers = async () => {
@@ -83,6 +86,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         role: u.role as UserRole,
         is_active: u.is_active !== undefined ? u.is_active as boolean : u.isActive as boolean,
         phone: u.phone as string | undefined,
+        rating: u.rating as number | undefined,
       }));
       setUsers(mapped);
     } catch (e) {
@@ -117,6 +121,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
       role: entry.role,
       password: "",
       is_active: entry.is_active,
+      rating: entry.rating ?? 5,
     });
     setDeleteConfirmId(null);
   };
@@ -152,7 +157,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setSaving(true);
     setCreateError("");
     try {
-      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole, password: newPassword });
+      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
       resetAddForm();
       await loadUsers();
     } catch (e) {
@@ -179,6 +184,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setNewId("");
     setNewRole("dispatcher");
     setNewPassword("");
+    setNewRating(5);
     setCreateError("");
   };
 
@@ -187,6 +193,14 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+            <Icon name="Users" className="w-4 h-4 text-blue-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Пользователи</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{users.filter(u => u.is_active).length}</span>
+        </div>
         {/* Toolbar */}
         <div className="px-5 py-3 border-b border-border flex items-center gap-3">
           {filters.map((f) => (
@@ -230,6 +244,18 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 <option value="technician">Техник</option>
                 <option value="admin">Администратор</option>
               </select>
+            </div>
+            <div className="mt-3">
+              <label className="text-xs text-muted-foreground mb-1.5 block">Рейтинг (1–5)</label>
+              <div className="flex items-center gap-1.5">
+                {[1,2,3,4,5].map(s => (
+                  <button key={s} type="button" onClick={() => setNewRating(s)}
+                    className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${newRating >= s ? "bg-yellow-400 text-yellow-900" : "bg-muted text-muted-foreground"}`}>
+                    {s}
+                  </button>
+                ))}
+                <span className="text-xs text-muted-foreground ml-2">{newRating} / 5</span>
+              </div>
             </div>
             <div className="mt-3">
               <label className="text-xs text-muted-foreground mb-1.5 block">Пароль</label>
@@ -277,6 +303,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <th className="text-left px-5 py-2.5 font-medium w-24">ID</th>
               <th className="text-left px-3 py-2.5 font-medium">ФИО</th>
               <th className="text-left px-3 py-2.5 font-medium w-36">Роль</th>
+              <th className="text-left px-3 py-2.5 font-medium w-28">Рейтинг</th>
               <th className="text-left px-3 py-2.5 font-medium w-32">Статус</th>
               <th className="text-right px-5 py-2.5 font-medium w-28">Действия</th>
             </tr>
@@ -314,6 +341,17 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                         <option value="technician">Техник</option>
                         <option value="admin">Администратор</option>
                       </select>
+                    </td>
+                    {/* Рейтинг */}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-0.5">
+                        {[1,2,3,4,5].map(s => (
+                          <button key={s} type="button" onClick={() => setEditState({ ...editState, rating: s })}
+                            className={`w-5 h-5 text-[11px] rounded transition-colors ${(editState.rating ?? 5) >= s ? "text-yellow-500" : "text-muted-foreground/30"}`}>
+                            ★
+                          </button>
+                        ))}
+                      </div>
                     </td>
                     {/* Статус */}
                     <td className="px-3 py-3">
@@ -367,6 +405,14 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground"}`}>
                       {ROLE_LABELS[entry.role] || entry.role}
                     </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <span key={i} className={`text-xs ${i < (entry.rating ?? 5) ? "text-yellow-500" : "text-muted-foreground/25"}`}>★</span>
+                      ))}
+                      <span className="text-[10px] text-muted-foreground ml-1">{(entry.rating ?? 5).toFixed(1)}</span>
+                    </div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium">
@@ -423,8 +469,17 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
 
 
       {/* ── Блок: Водители (1:1 из панели Техника) ── */}
-      <div className="h-[600px]">
-        <DriversView drivers={drivers} onReload={onReload} />
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+            <Icon name="Bus" className="w-4 h-4 text-cyan-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Водители</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{drivers.length}</span>
+        </div>
+        <div className="h-[560px]">
+          <DriversView drivers={drivers} onReload={onReload} />
+        </div>
       </div>
     </div>
   );
