@@ -64,6 +64,7 @@ export function UsersView() {
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("dispatcher");
   const [newPassword, setNewPassword] = useState("");
+  const [createError, setCreateError] = useState("");
 
   const loadUsers = async () => {
     try {
@@ -134,12 +135,14 @@ export function UsersView() {
   const handleCreate = async () => {
     if (!newId.trim() || !newName.trim() || !newPassword.trim()) return;
     setSaving(true);
+    setCreateError("");
     try {
       await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole, password: newPassword });
       resetAddForm();
       await loadUsers();
     } catch (e) {
-      console.error('Create user:', e);
+      const msg = e instanceof Error ? e.message : 'Ошибка создания';
+      setCreateError(msg);
     } finally {
       setSaving(false);
     }
@@ -161,6 +164,7 @@ export function UsersView() {
     setNewId("");
     setNewRole("dispatcher");
     setNewPassword("");
+    setCreateError("");
   };
 
   const inputCls = "h-8 px-2.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground";
@@ -232,6 +236,12 @@ export function UsersView() {
                 )}
               </div>
             </div>
+            {createError && (
+              <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">
+                <Icon name="AlertCircle" className="w-3.5 h-3.5 shrink-0" />
+                {createError}
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-3">
               <button onClick={resetAddForm}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
