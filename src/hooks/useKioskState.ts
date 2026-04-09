@@ -3,6 +3,28 @@ import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types
 import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver, loginAsMrm, getStoredMrmAdmin, clearMrmAdmin, type MrmAdminInfo } from '@/api/driverApi';
 import { addToQueue, getPendingMessages, updateQueueItem, removeFromQueue, clearSentMessages, cacheMessages, getCachedMessages, generateClientId } from '@/lib/offlineQueue';
 
+let kioskNotifPermission: NotificationPermission = 'default';
+
+function requestKioskNotifPermission() {
+  if (!('Notification' in window)) return;
+  kioskNotifPermission = Notification.permission;
+  if (kioskNotifPermission === 'default') {
+    Notification.requestPermission().then(p => { kioskNotifPermission = p; });
+  }
+}
+
+function showKioskNotification(text: string, sender: string) {
+  if (!('Notification' in window) || kioskNotifPermission !== 'granted') return;
+  if (document.hasFocus()) return;
+  const n = new Notification(sender || 'Диспетчер', {
+    body: text.slice(0, 200),
+    icon: '/favicon.ico',
+    tag: 'kiosk-msg-' + Date.now(),
+    silent: true,
+  });
+  n.onclick = () => { window.focus(); n.close(); };
+  setTimeout(() => n.close(), 8000);
+}
 
 export function useKioskState() {
   const [screen, setScreen] = useState<AppScreen>('login');
@@ -194,6 +216,10 @@ export function useKioskState() {
             const important = fresh.find(m => m.type === 'important');
             if (important) setPendingImportant(important);
 
+            fresh.filter(m => m.type === 'dispatcher').forEach(m => {
+              showKioskNotification(m.text, 'Диспетчер');
+            });
+
             updated = [...updated, ...fresh].slice(-50);
             cacheMessages(updated);
             return updated;
@@ -251,6 +277,7 @@ export function useKioskState() {
   const startShift = useCallback(() => {
     setScreen('main');
     setIsMoving(true);
+    requestKioskNotifPermission();
   }, []);
 
   const logout = useCallback(async () => {

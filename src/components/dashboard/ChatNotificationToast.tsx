@@ -33,9 +33,54 @@ function playNotificationSound() {
   } catch (e) { void e; }
 }
 
+let notifPermission: NotificationPermission = "default";
+
+async function requestNotifPermission() {
+  if (!("Notification" in window)) return;
+  notifPermission = Notification.permission;
+  if (notifPermission === "default") {
+    notifPermission = await Notification.requestPermission();
+  }
+}
+
+function showBrowserNotification(
+  n: UnreadNotification,
+  onOpenChat: (chatId: number) => void
+) {
+  if (!("Notification" in window) || notifPermission !== "granted") return;
+  if (document.hasFocus()) return;
+
+  const body = n.subject
+    ? `Тема: ${n.subject}\n${n.content}`
+    : n.content;
+
+  const notif = new Notification(n.sender_name, {
+    body: body.slice(0, 200),
+    icon: "/favicon.ico",
+    tag: `chat-${n.message_id}`,
+    silent: true,
+  });
+
+  notif.onclick = () => {
+    window.focus();
+    onOpenChat(n.chat_id);
+    notif.close();
+  };
+
+  setTimeout(() => notif.close(), 10000);
+}
+
 export default function ChatNotificationToast({ currentUserId, onOpenChat }: ChatNotificationToastProps) {
   const [toasts, setToasts] = useState<UnreadNotification[]>([]);
   const seenIds = useRef<Set<number>>(new Set());
+  const permissionRequested = useRef(false);
+
+  useEffect(() => {
+    if (!permissionRequested.current) {
+      permissionRequested.current = true;
+      requestNotifPermission();
+    }
+  }, []);
 
   const poll = useCallback(async () => {
     if (!currentUserId) return;
@@ -46,9 +91,10 @@ export default function ChatNotificationToast({ currentUserId, onOpenChat }: Cha
         fresh.forEach((n) => seenIds.current.add(n.message_id));
         setToasts((prev) => [...fresh.slice(0, 3), ...prev].slice(0, 5));
         playNotificationSound();
+        fresh.forEach((n) => showBrowserNotification(n, onOpenChat));
       }
     } catch (e) { void e; }
-  }, [currentUserId]);
+  }, [currentUserId, onOpenChat]);
 
   useEffect(() => {
     poll();
