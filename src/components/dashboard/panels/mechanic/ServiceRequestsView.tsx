@@ -96,7 +96,7 @@ interface ServiceRequestsViewProps {
   onReload?: () => void;
 }
 
-export default function ServiceRequestsView({ onReload }: ServiceRequestsViewProps) {
+export default function ServiceRequestsView({ vehicles = [], onReload }: ServiceRequestsViewProps) {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, new: 0, in_progress: 0, resolved: 0, closed: 0, needs_info: 0, critical: 0 });
   const [loading, setLoading] = useState(true);
@@ -106,6 +106,8 @@ export default function ServiceRequestsView({ onReload }: ServiceRequestsViewPro
   const [showResolveForm, setShowResolveForm] = useState(false);
   const [resolveData, setResolveData] = useState({ resolved_by_name: "", resolved_by_position: "", resolved_by_employee_id: "", resolution_note: "" });
   const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ vehicle_label: "", title: "", description: "", priority: "normal", category: "", equipment_info: "" });
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -182,6 +184,34 @@ export default function ServiceRequestsView({ onReload }: ServiceRequestsViewPro
     setSaving(false);
   };
 
+  const handleCreate = async () => {
+    if (!createForm.title.trim()) return;
+    setSaving(true);
+    try {
+      const veh = vehicles.find((v: Record<string, unknown>) => v.number === createForm.vehicle_label);
+      await fetch(`${API_URL}?action=requests`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          title: createForm.title,
+          description: createForm.description,
+          vehicle_id: veh ? (veh as Record<string, unknown>).id : null,
+          vehicle_label: createForm.vehicle_label,
+          priority: createForm.priority,
+          category: createForm.category,
+          equipment_info: createForm.equipment_info || null,
+          source: "mechanic",
+          source_type: "request",
+        }),
+      });
+      setShowCreate(false);
+      setCreateForm({ vehicle_label: "", title: "", description: "", priority: "normal", category: "", equipment_info: "" });
+      await loadAll();
+      onReload?.();
+    } catch { /* skip */ }
+    setSaving(false);
+  };
+
   const FILTER_TABS: { key: FilterStatus; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "new", label: "Новые" },
@@ -200,9 +230,18 @@ export default function ServiceRequestsView({ onReload }: ServiceRequestsViewPro
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Заявки на обслуживание</h2>
-        <p className="text-muted-foreground mt-1">Управление заявками и сервисными запросами</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Заявки на обслуживание</h2>
+          <p className="text-muted-foreground mt-1">Управление заявками и сервисными запросами</p>
+        </div>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          <Icon name="Plus" className="w-4 h-4" />
+          Создать заявку
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -429,6 +468,103 @@ export default function ServiceRequestsView({ onReload }: ServiceRequestsViewPro
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreate(false)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground">Новая заявка</h3>
+              <button onClick={() => setShowCreate(false)} className="p-1 rounded hover:bg-muted">
+                <Icon name="X" className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground">Заголовок *</label>
+                <input
+                  value={createForm.title}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Опишите неисправность кратко"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">ТС (бортовой номер)</label>
+                <select
+                  value={createForm.vehicle_label}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, vehicle_label: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">— не указано —</option>
+                  {vehicles.map((v: Record<string, unknown>) => (
+                    <option key={String(v.id || v.number)} value={String(v.number)}>
+                      {String(v.number)} {v.type ? `(${v.type})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Приоритет</label>
+                  <select
+                    value={createForm.priority}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, priority: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="low">Низкий</option>
+                    <option value="normal">Обычный</option>
+                    <option value="high">Высокий</option>
+                    <option value="critical">Критический</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Категория</label>
+                  <input
+                    value={createForm.category}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, category: e.target.value }))}
+                    placeholder="Тормоза, двигатель..."
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Описание</label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
+                  rows={3}
+                  placeholder="Подробное описание неисправности..."
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Оборудование / узел</label>
+                <input
+                  value={createForm.equipment_info}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, equipment_info: e.target.value }))}
+                  placeholder="Конкретный узел или деталь"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleCreate}
+                  disabled={saving || !createForm.title.trim()}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Создание..." : "Создать заявку"}
+                </button>
+                <button
+                  onClick={() => setShowCreate(false)}
+                  className="px-3 py-2 rounded-lg text-sm font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
           </div>
         </div>
