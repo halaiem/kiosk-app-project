@@ -34,7 +34,7 @@ const STATUS_DOTS: Record<VehicleStatus, string> = {
 };
 
 function getVehicleType(v: MapVehicleInfo): VehicleType {
-  const types: VehicleType[] = ["tram", "tram", "tram", "trolleybus", "trolleybus", "bus"];
+  const types: VehicleType[] = ["tram", "trolleybus", "bus", "electrobus", "technical"];
   const seed = parseInt(v.number, 10) || 1;
   return types[seed % types.length];
 }

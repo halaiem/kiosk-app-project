@@ -154,6 +154,7 @@ def handle_batch(cur, conn, user):
         FROM vehicles v
         LEFT JOIN routes r ON r.id = v.assigned_route_id
         LEFT JOIN drivers d ON d.id = v.assigned_driver_id
+        WHERE v.transport_status != 'decommissioned'
         ORDER BY v.label
     """)
     vehicles = [{'id': r[0], 'number': r[1] or '', 'type': r[2] or 'bus', 'status': r[3] or 'active', 'mileage': r[4] or 0, 'lastMaintenance': str(r[5]) if r[5] else None, 'nextMaintenance': str(r[6]) if r[6] else None, 'routeNumber': r[7] or '', 'driverName': r[8] or ''} for r in cur.fetchall()]
@@ -345,7 +346,7 @@ def handle_routes(method, qs, event, cur, conn, user):
         cur.execute("""
             SELECT id, route_number, name, transport_type, color, is_active,
                    distance_km, avg_time_min, route_status, created_at
-            FROM routes ORDER BY route_number
+            FROM routes WHERE is_active = true ORDER BY route_number
         """)
         rows = cur.fetchall()
 
@@ -447,6 +448,7 @@ def handle_vehicles(method, qs, event, cur, conn, user):
             FROM vehicles v
             LEFT JOIN routes r ON r.id = v.assigned_route_id
             LEFT JOIN drivers d ON d.id = v.assigned_driver_id
+            WHERE v.transport_status != 'decommissioned'
             ORDER BY v.label
         """)
         rows = cur.fetchall()

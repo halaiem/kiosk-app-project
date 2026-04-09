@@ -169,6 +169,7 @@ export default function VehicleCreateModal({ onClose, onReload }: VehicleCreateM
               <option value="trolleybus">Троллейбус</option>
               <option value="bus">Автобус</option>
               <option value="electrobus">Электробус</option>
+              <option value="technical">Технический</option>
             </select>
           </div>
           <div>
