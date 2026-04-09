@@ -674,6 +674,34 @@ export default function MessagesView({
       return next;
     });
   };
+  const selectDriversByRoute = (routeNumber: string) => {
+    setSelectedDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+  const deselectDriversByRoute = (routeNumber: string) => {
+    setSelectedDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.delete(d.id));
+      return next;
+    });
+  };
+  const selectDriversByVehicle = (boardNumber: string) => {
+    setSelectedDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+  const deselectDriversByVehicle = (boardNumber: string) => {
+    setSelectedDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.delete(d.id));
+      return next;
+    });
+  };
 
   // ── Add members to existing chat ──
   const toggleAddMemberUser = (id: number) => {
@@ -703,6 +731,34 @@ export default function MessagesView({
     setAddMemberDriverIds((prev) => {
       const next = new Set(prev);
       driversAll.forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+  const selectAddDriversByRoute = (routeNumber: string) => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+  const deselectAddDriversByRoute = (routeNumber: string) => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.delete(d.id));
+      return next;
+    });
+  };
+  const selectAddDriversByVehicle = (boardNumber: string) => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+  const deselectAddDriversByVehicle = (boardNumber: string) => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.delete(d.id));
       return next;
     });
   };
@@ -1504,6 +1560,10 @@ export default function MessagesView({
                         onToggleDriver={toggleAddMemberDriver}
                         onSelectAllUsers={selectAllAddUsers}
                         onSelectAllDrivers={selectAllAddDrivers}
+                        onSelectDriversByRoute={selectAddDriversByRoute}
+                        onDeselectDriversByRoute={deselectAddDriversByRoute}
+                        onSelectDriversByVehicle={selectAddDriversByVehicle}
+                        onDeselectDriversByVehicle={deselectAddDriversByVehicle}
                       />
                       {(addMemberUserIds.size > 0 || addMemberDriverIds.size > 0) && (
                         <div className="flex items-center justify-between">
@@ -1611,6 +1671,10 @@ export default function MessagesView({
                   onToggleDriver={toggleDriver}
                   onSelectAllUsers={selectAllUsersInRole}
                   onSelectAllDrivers={selectAllDrivers}
+                  onSelectDriversByRoute={selectDriversByRoute}
+                  onDeselectDriversByRoute={deselectDriversByRoute}
+                  onSelectDriversByVehicle={selectDriversByVehicle}
+                  onDeselectDriversByVehicle={deselectDriversByVehicle}
                 />
               </div>
             </div>
