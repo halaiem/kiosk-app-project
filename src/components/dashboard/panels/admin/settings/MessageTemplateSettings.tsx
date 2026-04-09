@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import IconPickerModal from "./IconPickerModal";
 import urls from "../../../../../../backend/func2url.json";
 
 const API_URL = (urls as Record<string, string>)["dashboard-messages"];
@@ -87,6 +88,7 @@ export default function MessageTemplateSettings() {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -396,24 +398,23 @@ export default function MessageTemplateSettings() {
                   Иконка
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editor.icon}
-                    onChange={(e) =>
-                      setEditor({ ...editor, icon: e.target.value })
-                    }
-                    placeholder="MessageSquare"
-                    className="flex-1 text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  />
-                  {editor.icon && (
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Icon
-                        name={editor.icon}
-                        className="w-5 h-5 text-primary"
-                      />
+                  <button
+                    type="button"
+                    onClick={() => setIconPickerOpen(true)}
+                    className="flex items-center gap-2 flex-1 text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground hover:bg-muted transition-colors text-left"
+                  >
+                    <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                      <Icon name={editor.icon || "MessageSquare"} className="w-4 h-4 text-primary" />
                     </div>
-                  )}
+                    <span className="truncate">{editor.icon || "Выбрать иконку"}</span>
+                  </button>
                 </div>
+                <IconPickerModal
+                  open={iconPickerOpen}
+                  onClose={() => setIconPickerOpen(false)}
+                  selected={editor.icon}
+                  onSelect={(name) => setEditor({ ...editor, icon: name })}
+                />
               </div>
 
               <div>

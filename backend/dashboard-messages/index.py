@@ -145,8 +145,18 @@ def handler(event, context):
             return delete_notif_template(cur, conn, schema, user, qs)
         elif method == 'GET' and action == 'ratings':
             return get_ratings(cur, schema, user, qs)
+        elif method == 'GET' and action == 'rating_details':
+            return get_rating_details(cur, schema, user, qs)
         elif method == 'POST' and action == 'rate':
             return create_rating(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'geo_zones':
+            return get_geo_zones(cur, schema, user)
+        elif method == 'POST' and action == 'geo_zone':
+            return create_geo_zone(cur, conn, schema, user, event)
+        elif method == 'PUT' and action == 'geo_zone':
+            return update_geo_zone(cur, conn, schema, user, event)
+        elif method == 'DELETE' and action == 'geo_zone':
+            return delete_geo_zone(cur, conn, schema, user, qs)
         elif method == 'GET' and action == 'logout_summary':
             return get_logout_summary(cur, schema, user)
         elif method == 'GET' and action == 'driver_unread':
@@ -1103,6 +1113,109 @@ def create_rating(cur, conn, schema, user, event):
         )
     conn.commit()
     return resp(201, {'id': rid})
+
+
+def get_rating_details(cur, schema, user, qs):
+    """Детали оценок для конкретного сотрудника или водителя"""
+    uid = qs.get('user_id')
+    did = qs.get('driver_id')
+    if not uid and not did:
+        return resp(400, {'error': 'user_id или driver_id обязателен'})
+    if uid:
+        cur.execute(
+            f"SELECT r.id, r.rating, r.comment, r.created_at, r.rater_role, "
+            f"COALESCE(du.full_name, dr.full_name, 'Неизвестно') as rater_name "
+            f"FROM {schema}.user_ratings r "
+            f"LEFT JOIN {schema}.dashboard_users du ON du.id = r.rater_user_id "
+            f"LEFT JOIN {schema}.drivers dr ON dr.id = r.rater_driver_id "
+            f"WHERE r.target_user_id = %s ORDER BY r.created_at DESC LIMIT 100",
+            (int(uid),)
+        )
+    else:
+        cur.execute(
+            f"SELECT r.id, r.rating, r.comment, r.created_at, r.rater_role, "
+            f"COALESCE(du.full_name, dr.full_name, 'Неизвестно') as rater_name "
+            f"FROM {schema}.user_ratings r "
+            f"LEFT JOIN {schema}.dashboard_users du ON du.id = r.rater_user_id "
+            f"LEFT JOIN {schema}.drivers dr ON dr.id = r.rater_driver_id "
+            f"WHERE r.target_driver_id = %s ORDER BY r.created_at DESC LIMIT 100",
+            (int(did),)
+        )
+    return resp(200, {'details': cur.fetchall()})
+
+
+def get_geo_zones(cur, schema, user):
+    """Список гео-зон"""
+    cur.execute(
+        f"SELECT gz.*, nt.title as notification_template_title "
+        f"FROM {schema}.geo_zones gz "
+        f"LEFT JOIN {schema}.notification_templates nt ON nt.id = gz.notification_template_id "
+        f"ORDER BY gz.created_at DESC"
+    )
+    zones = cur.fetchall()
+    for z in zones:
+        if isinstance(z.get('coordinates'), str):
+            z['coordinates'] = json.loads(z['coordinates'])
+        z['trigger'] = z.pop('trigger_type', 'entry')
+    return resp(200, {'zones': zones})
+
+
+def create_geo_zone(cur, conn, schema, user, event):
+    """Создать гео-зону"""
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    coords = json.dumps(body.get('coordinates', []))
+    cur.execute(
+        f"INSERT INTO {schema}.geo_zones "
+        f"(name, type, coordinates, radius_km, color, trigger_type, nearby_distance_km, "
+        f"notification_template_id, is_active, city) "
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (body.get('name', '').strip(), body.get('type', 'circle'), coords,
+         body.get('radius_km'), body.get('color', '#3b82f6'),
+         body.get('trigger', 'entry'), body.get('nearby_distance_km'),
+         body.get('notification_template_id'), body.get('is_active', True),
+         body.get('city'))
+    )
+    zid = cur.fetchone()['id']
+    conn.commit()
+    return resp(201, {'id': zid})
+
+
+def update_geo_zone(cur, conn, schema, user, event):
+    """Обновить гео-зону"""
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    zid = body.get('id')
+    if not zid:
+        return resp(400, {'error': 'id обязателен'})
+    coords = json.dumps(body.get('coordinates', []))
+    cur.execute(
+        f"UPDATE {schema}.geo_zones SET name = %s, type = %s, coordinates = %s, "
+        f"radius_km = %s, color = %s, trigger_type = %s, nearby_distance_km = %s, "
+        f"notification_template_id = %s, is_active = %s, city = %s, updated_at = NOW() "
+        f"WHERE id = %s",
+        (body.get('name', '').strip(), body.get('type', 'circle'), coords,
+         body.get('radius_km'), body.get('color', '#3b82f6'),
+         body.get('trigger', 'entry'), body.get('nearby_distance_km'),
+         body.get('notification_template_id'), body.get('is_active', True),
+         body.get('city'), int(zid))
+    )
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def delete_geo_zone(cur, conn, schema, user, qs):
+    """Удалить гео-зону"""
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    zid = qs.get('id')
+    if not zid:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(f"DELETE FROM {schema}.geo_zones WHERE id = %s", (int(zid),))
+    conn.commit()
+    return resp(200, {'ok': True})
 
 
 def get_logout_summary(cur, schema, user):

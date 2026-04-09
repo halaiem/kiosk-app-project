@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import Icon from "@/components/ui/icon";
 import { InterfaceSettingsView } from "./settings/InterfaceSettingsView";
 import { SystemSettingsView } from "./settings/SystemSettingsView";
@@ -9,6 +9,8 @@ import MessageTemplateSettings from "./settings/MessageTemplateSettings";
 import NotificationTemplateSettings from "./settings/NotificationTemplateSettings";
 import RatingsView from "./settings/RatingsView";
 
+const GeoTargetingSettings = lazy(() => import("./settings/GeoTargetingSettings"));
+
 type SettingsTab =
   | 'system'
   | 'interface'
@@ -17,6 +19,7 @@ type SettingsTab =
   | 'chat_visibility'
   | 'message_templates'
   | 'notif_templates'
+  | 'geo_targeting'
   | 'ratings';
 
 export function SettingsView() {
@@ -34,6 +37,7 @@ export function SettingsView() {
             { key: 'chat_visibility', label: 'Видимость чатов', icon: 'Eye' },
             { key: 'message_templates', label: 'Шаблоны ответов', icon: 'FileText' },
             { key: 'notif_templates', label: 'Шаблоны уведомлений', icon: 'BellRing' },
+            { key: 'geo_targeting', label: 'Гео-таргетинг', icon: 'MapPin' },
             { key: 'ratings', label: 'Рейтинги', icon: 'Star' },
           ] as const).map((t) => (
             <button
@@ -59,6 +63,11 @@ export function SettingsView() {
       {settingsTab === 'chat_visibility' && <ChatVisibilitySettings />}
       {settingsTab === 'message_templates' && <MessageTemplateSettings />}
       {settingsTab === 'notif_templates' && <NotificationTemplateSettings />}
+      {settingsTab === 'geo_targeting' && (
+        <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Загрузка...</div>}>
+          <GeoTargetingSettings />
+        </Suspense>
+      )}
       {settingsTab === 'ratings' && <RatingsView />}
     </div>
   );
