@@ -1,10 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import IconPickerModal from "./IconPickerModal";
 
-/* ── Types ── */
+/* ──────────────────────────────────────────────────────────
+   Types
+   ────────────────────────────────────────────────────────── */
 
-type Platform = "dashboard" | "tablet";
+type Platform = "tablet" | "dashboard";
+type Category = "notifications" | "messages";
 type ButtonRadius = "none" | "sm" | "md" | "lg" | "full";
 type NotifSize = "compact" | "normal" | "large";
 
@@ -13,39 +16,60 @@ interface TypeStyle {
   textColor: string;
   borderColor: string;
   icon: string;
+  iconColor: string;
+  iconBgColor: string;
   buttonColor: string;
   buttonTextColor: string;
   buttonRadius: ButtonRadius;
   size: NotifSize;
+  showActions: boolean;
 }
 
-type NotifDesignConfig = Record<Platform, Record<string, TypeStyle>>;
+type DesignConfig = Record<Platform, Record<Category, Record<string, TypeStyle>>>;
 
-/* ── Constants ── */
+/* ──────────────────────────────────────────────────────────
+   Type definitions (what the user can customize)
+   ────────────────────────────────────────────────────────── */
 
-const NOTIF_TYPES: {
+interface TypeDef {
   key: string;
   label: string;
   defaultIcon: string;
   defaultBg: string;
-}[] = [
-  { key: "info", label: "Информационное", defaultIcon: "Info", defaultBg: "#3b82f6" },
-  { key: "warning", label: "Предупреждение", defaultIcon: "AlertTriangle", defaultBg: "#f59e0b" },
-  { key: "error", label: "Ошибка", defaultIcon: "AlertCircle", defaultBg: "#ef4444" },
-  { key: "success", label: "Успешно", defaultIcon: "CheckCircle", defaultBg: "#22c55e" },
-  { key: "transport", label: "Транспорт", defaultIcon: "Bus", defaultBg: "#6366f1" },
-  { key: "weather", label: "Погода", defaultIcon: "CloudRain", defaultBg: "#0ea5e9" },
-  { key: "emergency", label: "Экстренное", defaultIcon: "Siren", defaultBg: "#dc2626" },
-  { key: "schedule", label: "Расписание", defaultIcon: "Clock", defaultBg: "#8b5cf6" },
-  { key: "road", label: "Дорожное", defaultIcon: "Construction", defaultBg: "#f97316" },
-  { key: "message", label: "Сообщение", defaultIcon: "MessageSquare", defaultBg: "#14b8a6" },
+  previewText: string;
+}
+
+const NOTIF_TYPES: TypeDef[] = [
+  { key: "info", label: "Информационное", defaultIcon: "Info", defaultBg: "#3b82f6", previewText: "Новая информация доступна" },
+  { key: "warning", label: "Предупреждение", defaultIcon: "AlertTriangle", defaultBg: "#f59e0b", previewText: "Внимание! Проверьте параметры" },
+  { key: "error", label: "Ошибка", defaultIcon: "AlertCircle", defaultBg: "#ef4444", previewText: "Произошла ошибка системы" },
+  { key: "success", label: "Успешно", defaultIcon: "CheckCircle", defaultBg: "#22c55e", previewText: "Операция выполнена успешно" },
+  { key: "transport", label: "Транспорт", defaultIcon: "Bus", defaultBg: "#6366f1", previewText: "Обновление данных транспорта" },
+  { key: "weather", label: "Погода", defaultIcon: "CloudRain", defaultBg: "#0ea5e9", previewText: "Ожидается ухудшение погоды" },
+  { key: "emergency", label: "Экстренное", defaultIcon: "Siren", defaultBg: "#dc2626", previewText: "Экстренное уведомление!" },
+  { key: "schedule", label: "Расписание", defaultIcon: "Clock", defaultBg: "#8b5cf6", previewText: "Изменение в расписании" },
+  { key: "road", label: "Дорожное", defaultIcon: "Construction", defaultBg: "#f97316", previewText: "Дорожные работы впереди" },
+  { key: "message", label: "Сообщение", defaultIcon: "MessageSquare", defaultBg: "#14b8a6", previewText: "Новое сообщение" },
 ];
+
+const MESSAGE_TYPES: TypeDef[] = [
+  { key: "normal", label: "Обычное сообщение", defaultIcon: "MessageSquare", defaultBg: "#3b82f6", previewText: "Обратите внимание на расписание" },
+  { key: "dispatcher", label: "От диспетчера", defaultIcon: "Radio", defaultBg: "#ec660c", previewText: "Срочно вернитесь в парк! Техническая проверка ТС." },
+  { key: "important", label: "Важное (требует подтверждения)", defaultIcon: "AlertOctagon", defaultBg: "#dc2626", previewText: "Объезд! Перекрыта улица Садовая. Подтвердите получение." },
+  { key: "can_error", label: "Ошибка CAN-системы", defaultIcon: "AlertTriangle", defaultBg: "#f59e0b", previewText: "Температура двигателя превышена" },
+  { key: "voice", label: "Голосовое сообщение", defaultIcon: "Mic", defaultBg: "#22c55e", previewText: "Голосовое сообщение 12с" },
+];
+
+const TYPES_BY_CATEGORY: Record<Category, TypeDef[]> = {
+  notifications: NOTIF_TYPES,
+  messages: MESSAGE_TYPES,
+};
 
 const RADIUS_OPTIONS: { key: ButtonRadius; label: string; css: string }[] = [
   { key: "none", label: "0", css: "0px" },
-  { key: "sm", label: "SM", css: "4px" },
-  { key: "md", label: "MD", css: "8px" },
-  { key: "lg", label: "LG", css: "12px" },
+  { key: "sm", label: "SM", css: "6px" },
+  { key: "md", label: "MD", css: "12px" },
+  { key: "lg", label: "LG", css: "20px" },
   { key: "full", label: "Full", css: "9999px" },
 ];
 
@@ -55,45 +79,59 @@ const SIZE_OPTIONS: { key: NotifSize; label: string }[] = [
   { key: "large", label: "Крупный" },
 ];
 
-const STORAGE_KEY = "notification_design";
+const STORAGE_KEY = "notification_design_v2";
 
-/* ── Helpers ── */
+/* ──────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────── */
 
-function defaultStyleForType(nt: (typeof NOTIF_TYPES)[number]): TypeStyle {
+function defaultStyleForType(def: TypeDef): TypeStyle {
   return {
-    bgColor: nt.defaultBg + "1a",
-    textColor: nt.defaultBg,
-    borderColor: nt.defaultBg + "33",
-    icon: nt.defaultIcon,
-    buttonColor: nt.defaultBg,
+    bgColor: def.defaultBg + "1a",
+    textColor: "#0f172a",
+    borderColor: def.defaultBg + "55",
+    icon: def.defaultIcon,
+    iconColor: def.defaultBg,
+    iconBgColor: def.defaultBg + "22",
+    buttonColor: def.defaultBg,
     buttonTextColor: "#ffffff",
-    buttonRadius: "md",
+    buttonRadius: "lg",
     size: "normal",
+    showActions: true,
   };
 }
 
-function buildDefaults(): NotifDesignConfig {
-  const platform: Record<string, TypeStyle> = {};
-  for (const nt of NOTIF_TYPES) {
-    platform[nt.key] = defaultStyleForType(nt);
-  }
+function buildDefaults(): DesignConfig {
+  const makeCategory = (types: TypeDef[]): Record<string, TypeStyle> => {
+    const obj: Record<string, TypeStyle> = {};
+    for (const t of types) obj[t.key] = defaultStyleForType(t);
+    return obj;
+  };
+  const tabletNotif = makeCategory(NOTIF_TYPES);
+  const tabletMsg = makeCategory(MESSAGE_TYPES);
+  const dashNotif = makeCategory(NOTIF_TYPES);
+  const dashMsg = makeCategory(MESSAGE_TYPES);
   return {
-    dashboard: { ...platform },
-    tablet: JSON.parse(JSON.stringify(platform)) as Record<string, TypeStyle>,
+    tablet: { notifications: tabletNotif, messages: tabletMsg },
+    dashboard: { notifications: dashNotif, messages: dashMsg },
   };
 }
 
-function loadConfig(): NotifDesignConfig {
+function loadConfig(): DesignConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<NotifDesignConfig>;
+      const parsed = JSON.parse(raw) as Partial<DesignConfig>;
       const defaults = buildDefaults();
-      for (const p of ["dashboard", "tablet"] as Platform[]) {
-        if (parsed[p]) {
-          for (const nt of NOTIF_TYPES) {
-            if (parsed[p]![nt.key]) {
-              defaults[p][nt.key] = { ...defaults[p][nt.key], ...parsed[p]![nt.key] };
+      for (const p of ["tablet", "dashboard"] as Platform[]) {
+        for (const c of ["notifications", "messages"] as Category[]) {
+          const types = TYPES_BY_CATEGORY[c];
+          if (parsed?.[p]?.[c]) {
+            for (const t of types) {
+              const src = parsed[p]?.[c]?.[t.key];
+              if (src) {
+                defaults[p][c][t.key] = { ...defaults[p][c][t.key], ...src };
+              }
             }
           }
         }
@@ -106,15 +144,21 @@ function loadConfig(): NotifDesignConfig {
   return buildDefaults();
 }
 
-function saveConfig(config: NotifDesignConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+function saveConfig(config: DesignConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // ignore
+  }
 }
 
 function radiusToCss(r: ButtonRadius): string {
-  return RADIUS_OPTIONS.find((o) => o.key === r)?.css ?? "8px";
+  return RADIUS_OPTIONS.find((o) => o.key === r)?.css ?? "12px";
 }
 
-/* ── Color picker row ── */
+/* ──────────────────────────────────────────────────────────
+   Reusable: color row
+   ────────────────────────────────────────────────────────── */
 
 function ColorRow({
   label,
@@ -125,7 +169,6 @@ function ColorRow({
   value: string;
   onChange: (v: string) => void;
 }) {
-  // Normalize hex for the native color picker (needs 7-char hex)
   const hexForPicker = value.startsWith("#") && (value.length === 7 || value.length === 4)
     ? value.slice(0, 7)
     : "#888888";
@@ -158,50 +201,489 @@ function ColorRow({
   );
 }
 
-/* ── Main component ── */
+/* ──────────────────────────────────────────────────────────
+   PREVIEW — Tablet Message Toast (mirrors MessageToast layout)
+   ────────────────────────────────────────────────────────── */
+
+function previewAlert() {
+  alert("Это предпросмотр");
+}
+
+function TabletMessageToastPreview({
+  style,
+  typeKey,
+  text,
+}: {
+  style: TypeStyle;
+  typeKey: string;
+  text: string;
+}) {
+  const isVoice = typeKey === "voice";
+  const radius = radiusToCss(style.buttonRadius);
+
+  const sizeMap: Record<NotifSize, { wrap: string; pad: string; iconBox: string; iconSize: number; titleClass: string; textClass: string; btnClass: string; outerRadius: string }> = {
+    compact: { wrap: "gap-3", pad: "p-4", iconBox: "w-12 h-12", iconSize: 22, titleClass: "text-xs", textClass: "text-sm", btnClass: "h-10 text-sm", outerRadius: "1rem" },
+    normal: { wrap: "gap-4", pad: "p-6", iconBox: "w-16 h-16", iconSize: 30, titleClass: "text-sm", textClass: "text-lg", btnClass: "h-14 text-base", outerRadius: "1.25rem" },
+    large: { wrap: "gap-5", pad: "p-8", iconBox: "w-20 h-20", iconSize: 38, titleClass: "text-base", textClass: "text-2xl", btnClass: "h-16 text-lg", outerRadius: "1.5rem" },
+  };
+  const s = sizeMap[style.size];
+
+  const label = isVoice
+    ? "Голосовое сообщение"
+    : typeKey === "dispatcher"
+      ? "Диспетчер"
+      : typeKey === "can_error"
+        ? "CAN-система"
+        : "Уведомление";
+
+  return (
+    <div
+      className={`flex flex-col ${s.wrap} ${s.pad} border-2 w-full pointer-events-auto`}
+      style={{
+        background: style.bgColor,
+        borderColor: style.borderColor,
+        color: style.textColor,
+        borderRadius: s.outerRadius,
+      }}
+    >
+      <div className="flex items-start gap-4">
+        <div
+          className={`${s.iconBox} rounded-2xl flex items-center justify-center flex-shrink-0`}
+          style={{ backgroundColor: style.iconBgColor }}
+        >
+          <Icon name={style.icon} size={s.iconSize} style={{ color: style.iconColor }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div
+            className={`${s.titleClass} font-bold uppercase mb-1 opacity-70`}
+            style={{ color: style.textColor }}
+          >
+            {label}
+          </div>
+          {isVoice ? (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={previewAlert}
+                className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-all"
+                style={{ backgroundColor: style.buttonColor }}
+              >
+                <Icon name="Play" size={20} style={{ color: style.buttonTextColor }} />
+              </button>
+              <div>
+                <span className={`${s.textClass} font-semibold tabular-nums`} style={{ color: style.textColor }}>
+                  12 сек
+                </span>
+                <p className="text-xs opacity-70 mt-0.5" style={{ color: style.textColor }}>
+                  Нажмите ▶ для воспроизведения
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className={`${s.textClass} font-semibold leading-snug`} style={{ color: style.textColor }}>
+              {text}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {style.showActions && (
+        <div className="flex gap-3 w-full">
+          {isVoice ? (
+            <>
+              <button
+                onClick={previewAlert}
+                className={`flex-1 ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: style.buttonColor,
+                  color: style.buttonTextColor,
+                  borderRadius: radius,
+                }}
+              >
+                Прослушать
+              </button>
+              <button
+                onClick={previewAlert}
+                className={`flex-1 ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: style.buttonColor,
+                  color: style.buttonTextColor,
+                  borderRadius: radius,
+                  filter: "brightness(0.85)",
+                }}
+              >
+                Принято
+              </button>
+            </>
+          ) : typeKey === "can_error" ? (
+            <button
+              onClick={previewAlert}
+              className={`flex-1 ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+              style={{
+                backgroundColor: style.buttonColor,
+                color: style.buttonTextColor,
+                borderRadius: radius,
+              }}
+            >
+              Принято
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={previewAlert}
+                className={`flex-[2] ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: style.buttonColor,
+                  color: style.buttonTextColor,
+                  borderRadius: radius,
+                }}
+              >
+                Принято
+              </button>
+              <button
+                onClick={previewAlert}
+                className={`flex-[2] ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: style.buttonColor,
+                  color: style.buttonTextColor,
+                  borderRadius: radius,
+                  filter: "brightness(0.85)",
+                }}
+              >
+                Ответить
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   PREVIEW — Tablet Important Overlay (mirrors ImportantMessageOverlay)
+   ────────────────────────────────────────────────────────── */
+
+function TabletImportantPreview({
+  style,
+  text,
+}: {
+  style: TypeStyle;
+  text: string;
+}) {
+  const radius = radiusToCss(style.buttonRadius);
+
+  const sizeMap: Record<NotifSize, { headerPad: string; bodyPad: string; iconBox: string; iconSize: number; title: string; subtitle: string; body: string; btn: string; outerRadius: string }> = {
+    compact: { headerPad: "p-4", bodyPad: "p-4", iconBox: "w-14 h-14", iconSize: 28, title: "text-xs", subtitle: "text-base", body: "text-sm", btn: "py-3 text-base", outerRadius: "1rem" },
+    normal: { headerPad: "p-6", bodyPad: "p-6", iconBox: "w-16 h-16", iconSize: 34, title: "text-sm", subtitle: "text-xl", body: "text-lg", btn: "py-5 text-xl", outerRadius: "1.25rem" },
+    large: { headerPad: "p-8", bodyPad: "p-8", iconBox: "w-20 h-20", iconSize: 40, title: "text-base", subtitle: "text-2xl", body: "text-xl", btn: "py-6 text-2xl", outerRadius: "1.5rem" },
+  };
+  const s = sizeMap[style.size];
+
+  return (
+    <div className="w-full">
+      <div
+        className={`${s.headerPad} flex items-center gap-4`}
+        style={{
+          background: style.buttonColor,
+          borderTopLeftRadius: s.outerRadius,
+          borderTopRightRadius: s.outerRadius,
+        }}
+      >
+        <div
+          className={`${s.iconBox} rounded-2xl flex items-center justify-center flex-shrink-0`}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+        >
+          <Icon name={style.icon} size={s.iconSize} style={{ color: style.buttonTextColor }} />
+        </div>
+        <div>
+          <div
+            className={`${s.title} font-medium uppercase tracking-wide opacity-80`}
+            style={{ color: style.buttonTextColor }}
+          >
+            ⚠ ВАЖНОЕ СООБЩЕНИЕ
+          </div>
+          <div className={`${s.subtitle} font-bold`} style={{ color: style.buttonTextColor }}>
+            Требует подтверждения
+          </div>
+        </div>
+        <div
+          className="ml-auto text-3xl font-mono tabular-nums opacity-70"
+          style={{ color: style.buttonTextColor }}
+        >
+          3с
+        </div>
+      </div>
+
+      <div
+        className={s.bodyPad}
+        style={{
+          background: style.bgColor,
+          borderBottomLeftRadius: s.outerRadius,
+          borderBottomRightRadius: s.outerRadius,
+          borderLeft: `2px solid ${style.borderColor}`,
+          borderRight: `2px solid ${style.borderColor}`,
+          borderBottom: `2px solid ${style.borderColor}`,
+        }}
+      >
+        <p className={`${s.body} leading-relaxed mb-4`} style={{ color: style.textColor }}>
+          {text}
+        </p>
+
+        <div className="flex items-center justify-between text-xs mb-4 opacity-70" style={{ color: style.textColor }}>
+          <span>12:34</span>
+          <span className="flex items-center gap-1">
+            <Icon name="Clock" size={14} />
+            Время реакции фиксируется
+          </span>
+        </div>
+
+        {style.showActions && (
+          <div className="flex gap-3">
+            <button
+              onClick={previewAlert}
+              className={`flex-[2] ${s.btn} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+              style={{
+                backgroundColor: style.buttonColor,
+                color: style.buttonTextColor,
+                borderRadius: radius,
+              }}
+            >
+              Принял
+            </button>
+            <button
+              onClick={previewAlert}
+              className={`flex-[2] ${s.btn} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+              style={{
+                backgroundColor: style.buttonColor,
+                color: style.buttonTextColor,
+                borderRadius: radius,
+                filter: "brightness(0.85)",
+              }}
+            >
+              Ответить
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   PREVIEW — Dashboard toast / chat bubble
+   ────────────────────────────────────────────────────────── */
+
+function DashboardNotifPreview({
+  style,
+  def,
+  text,
+}: {
+  style: TypeStyle;
+  def: TypeDef;
+  text: string;
+}) {
+  const radius = radiusToCss(style.buttonRadius);
+  const sizeMap: Record<NotifSize, { pad: string; iconBox: string; iconSize: number; title: string; body: string; btn: string }> = {
+    compact: { pad: "p-3", iconBox: "w-8 h-8", iconSize: 14, title: "text-xs font-semibold", body: "text-[11px]", btn: "px-3 py-1 text-[11px]" },
+    normal: { pad: "p-4", iconBox: "w-10 h-10", iconSize: 18, title: "text-sm font-semibold", body: "text-xs", btn: "px-4 py-1.5 text-xs" },
+    large: { pad: "p-5", iconBox: "w-12 h-12", iconSize: 22, title: "text-base font-bold", body: "text-sm", btn: "px-5 py-2 text-sm" },
+  };
+  const s = sizeMap[style.size];
+
+  return (
+    <div
+      className={`${s.pad} border rounded-xl shadow-sm w-full max-w-md flex items-start gap-3`}
+      style={{
+        background: style.bgColor,
+        borderColor: style.borderColor,
+        color: style.textColor,
+      }}
+    >
+      <div
+        className={`${s.iconBox} rounded-lg flex items-center justify-center shrink-0`}
+        style={{ backgroundColor: style.iconBgColor }}
+      >
+        <Icon name={style.icon} size={s.iconSize} style={{ color: style.iconColor }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={s.title} style={{ color: style.textColor }}>
+          {def.label}
+        </p>
+        <p className={`${s.body} mt-0.5 opacity-80`} style={{ color: style.textColor }}>
+          {text}
+        </p>
+        {style.showActions && (
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={previewAlert}
+              className={`${s.btn} font-medium`}
+              style={{
+                backgroundColor: style.buttonColor,
+                color: style.buttonTextColor,
+                borderRadius: radius,
+              }}
+            >
+              Принято
+            </button>
+            <button
+              onClick={previewAlert}
+              className={`${s.btn} font-medium`}
+              style={{
+                backgroundColor: "transparent",
+                color: style.textColor,
+                borderRadius: radius,
+                border: `1px solid ${style.borderColor}`,
+              }}
+            >
+              Закрыть
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardChatBubblePreview({
+  style,
+  def,
+  text,
+}: {
+  style: TypeStyle;
+  def: TypeDef;
+  text: string;
+}) {
+  const radius = radiusToCss(style.buttonRadius);
+  const sizeMap: Record<NotifSize, { pad: string; iconBox: string; iconSize: number; title: string; body: string; btn: string }> = {
+    compact: { pad: "p-3", iconBox: "w-7 h-7", iconSize: 14, title: "text-[11px] font-semibold", body: "text-xs", btn: "px-2.5 py-1 text-[11px]" },
+    normal: { pad: "p-4", iconBox: "w-9 h-9", iconSize: 16, title: "text-xs font-semibold", body: "text-sm", btn: "px-3 py-1.5 text-xs" },
+    large: { pad: "p-5", iconBox: "w-11 h-11", iconSize: 20, title: "text-sm font-bold", body: "text-base", btn: "px-4 py-2 text-sm" },
+  };
+  const s = sizeMap[style.size];
+
+  return (
+    <div
+      className={`${s.pad} border rounded-2xl w-full max-w-md`}
+      style={{
+        background: style.bgColor,
+        borderColor: style.borderColor,
+        color: style.textColor,
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`${s.iconBox} rounded-lg flex items-center justify-center shrink-0`}
+          style={{ backgroundColor: style.iconBgColor }}
+        >
+          <Icon name={style.icon} size={s.iconSize} style={{ color: style.iconColor }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className={s.title} style={{ color: style.textColor }}>
+              {def.label}
+            </p>
+            <span className="text-[10px] opacity-60" style={{ color: style.textColor }}>
+              12:34
+            </span>
+          </div>
+          <p className={`${s.body} mt-1 leading-snug`} style={{ color: style.textColor }}>
+            {text}
+          </p>
+          {style.showActions && (
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={previewAlert}
+                className={`${s.btn} font-medium`}
+                style={{
+                  backgroundColor: style.buttonColor,
+                  color: style.buttonTextColor,
+                  borderRadius: radius,
+                }}
+              >
+                Ответить
+              </button>
+              <button
+                onClick={previewAlert}
+                className={`${s.btn} font-medium`}
+                style={{
+                  backgroundColor: "transparent",
+                  color: style.textColor,
+                  borderRadius: radius,
+                  border: `1px solid ${style.borderColor}`,
+                }}
+              >
+                Отметить прочитанным
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────
+   Main component
+   ────────────────────────────────────────────────────────── */
 
 export default function NotificationDesignSettings() {
-  const [config, setConfig] = useState<NotifDesignConfig>(loadConfig);
-  const [platform, setPlatform] = useState<Platform>("dashboard");
-  const [selectedType, setSelectedType] = useState(NOTIF_TYPES[0].key);
+  const [config, setConfig] = useState<DesignConfig>(loadConfig);
+  const [platform, setPlatform] = useState<Platform>("tablet");
+  const [category, setCategory] = useState<Category>("notifications");
+  const [selectedType, setSelectedType] = useState<string>(NOTIF_TYPES[0].key);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const currentStyle = config[platform][selectedType] ?? defaultStyleForType(
-    NOTIF_TYPES.find((t) => t.key === selectedType) ?? NOTIF_TYPES[0],
+  // When category changes, make sure selectedType exists in that category
+  useEffect(() => {
+    const list = TYPES_BY_CATEGORY[category];
+    if (!list.some((t) => t.key === selectedType)) {
+      setSelectedType(list[0].key);
+    }
+  }, [category, selectedType]);
+
+  const currentTypes = TYPES_BY_CATEGORY[category];
+  const selectedMeta = useMemo(
+    () => currentTypes.find((t) => t.key === selectedType) ?? currentTypes[0],
+    [currentTypes, selectedType],
   );
-  const selectedMeta = NOTIF_TYPES.find((t) => t.key === selectedType) ?? NOTIF_TYPES[0];
+  const currentStyle: TypeStyle =
+    config[platform][category][selectedMeta.key] ?? defaultStyleForType(selectedMeta);
 
   const updateStyle = useCallback(
     (patch: Partial<TypeStyle>) => {
       setConfig((prev) => {
-        const next: NotifDesignConfig = {
+        const next: DesignConfig = {
           ...prev,
           [platform]: {
             ...prev[platform],
-            [selectedType]: { ...prev[platform][selectedType], ...patch },
+            [category]: {
+              ...prev[platform][category],
+              [selectedMeta.key]: { ...prev[platform][category][selectedMeta.key], ...patch },
+            },
           },
         };
         saveConfig(next);
         return next;
       });
     },
-    [platform, selectedType],
+    [platform, category, selectedMeta.key],
   );
 
   const resetType = useCallback(() => {
-    const nt = NOTIF_TYPES.find((t) => t.key === selectedType);
-    if (!nt) return;
-    const style = defaultStyleForType(nt);
+    const style = defaultStyleForType(selectedMeta);
     setConfig((prev) => {
-      const next: NotifDesignConfig = {
+      const next: DesignConfig = {
         ...prev,
-        [platform]: { ...prev[platform], [selectedType]: style },
+        [platform]: {
+          ...prev[platform],
+          [category]: { ...prev[platform][category], [selectedMeta.key]: style },
+        },
       };
       saveConfig(next);
       return next;
     });
-  }, [platform, selectedType]);
+  }, [platform, category, selectedMeta]);
 
   const resetAll = useCallback(() => {
     const defaults = buildDefaults();
@@ -214,13 +696,48 @@ export default function NotificationDesignSettings() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  /* Size helpers for preview */
-  const sizeClasses: Record<NotifSize, { card: string; title: string; text: string; btn: string }> = {
-    compact: { card: "p-3", title: "text-xs font-semibold", text: "text-[11px]", btn: "px-3 py-1 text-[11px]" },
-    normal: { card: "p-4", title: "text-sm font-semibold", text: "text-xs", btn: "px-4 py-1.5 text-xs" },
-    large: { card: "p-5", title: "text-base font-bold", text: "text-sm", btn: "px-5 py-2 text-sm" },
+  /* ── Preview renderer ── */
+  const renderPreview = () => {
+    if (platform === "tablet") {
+      if (category === "messages") {
+        if (selectedMeta.key === "important") {
+          return <TabletImportantPreview style={currentStyle} text={selectedMeta.previewText} />;
+        }
+        return (
+          <TabletMessageToastPreview
+            style={currentStyle}
+            typeKey={selectedMeta.key}
+            text={selectedMeta.previewText}
+          />
+        );
+      }
+      // tablet notifications — use the message toast layout as it matches the tablet style
+      return (
+        <TabletMessageToastPreview
+          style={currentStyle}
+          typeKey="normal"
+          text={selectedMeta.previewText}
+        />
+      );
+    }
+    // dashboard
+    if (category === "messages") {
+      return (
+        <DashboardChatBubblePreview
+          style={currentStyle}
+          def={selectedMeta}
+          text={selectedMeta.previewText}
+        />
+      );
+    }
+    return (
+      <DashboardNotifPreview
+        style={currentStyle}
+        def={selectedMeta}
+        text={selectedMeta.previewText}
+      />
+    );
   };
-  const sc = sizeClasses[currentStyle.size];
 
   return (
     <div className="space-y-4">
@@ -228,10 +745,10 @@ export default function NotificationDesignSettings() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="text-lg font-bold text-foreground">
-            Дизайн уведомлений
+            Дизайн уведомлений и сообщений
           </h3>
           <p className="text-sm text-muted-foreground">
-            Настройте внешний вид уведомлений и сообщений для дашборда и планшета
+            Настройте внешний вид уведомлений и сообщений для планшета и дашборда
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -245,25 +762,25 @@ export default function NotificationDesignSettings() {
             onClick={() => { resetAll(); flash(); }}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
-            Сбросить все
+            Сбросить всё
           </button>
         </div>
       </div>
 
-      {/* Platform toggle */}
+      {/* Platform tabs (outer) */}
       <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
         {(
           [
+            { key: "tablet" as Platform, label: "Планшет водителя", icon: "Tablet" },
             { key: "dashboard" as Platform, label: "Дашборд", icon: "Monitor" },
-            { key: "tablet" as Platform, label: "Планшет", icon: "Tablet" },
           ] as const
         ).map((p) => (
           <button
             key={p.key}
             onClick={() => setPlatform(p.key)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               platform === p.key
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -273,25 +790,53 @@ export default function NotificationDesignSettings() {
         ))}
       </div>
 
+      {/* Category tabs (inner) */}
+      <div className="flex gap-1 border-b border-border">
+        {(
+          [
+            { key: "notifications" as Category, label: "Уведомления", icon: "Bell" },
+            { key: "messages" as Category, label: "Сообщения", icon: "MessageCircle" },
+          ] as const
+        ).map((c) => (
+          <button
+            key={c.key}
+            onClick={() => setCategory(c.key)}
+            className={`flex items-center gap-2 px-4 py-2 -mb-px border-b-2 text-sm font-medium transition-colors ${
+              category === c.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon name={c.icon} className="w-4 h-4" />
+            {c.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main layout */}
-      <div className="flex gap-4 min-h-[500px]">
+      <div className="flex gap-4 min-h-[600px]">
         {/* ── Left: type list ── */}
-        <div className="w-[280px] shrink-0 bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
+        <div className="w-[280px] shrink-0 bg-card border border-border rounded-2xl overflow-hidden flex flex-col max-h-[80vh]">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-            <Icon name="Bell" className="w-4 h-4 text-primary" />
-            <h4 className="text-sm font-semibold text-foreground">Типы</h4>
+            <Icon
+              name={category === "notifications" ? "Bell" : "MessageCircle"}
+              className="w-4 h-4 text-primary"
+            />
+            <h4 className="text-sm font-semibold text-foreground">
+              {category === "notifications" ? "Типы уведомлений" : "Типы сообщений"}
+            </h4>
             <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-auto">
-              {NOTIF_TYPES.length}
+              {currentTypes.length}
             </span>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {NOTIF_TYPES.map((nt) => {
-              const style = config[platform][nt.key] ?? defaultStyleForType(nt);
-              const isSelected = selectedType === nt.key;
+            {currentTypes.map((t) => {
+              const style = config[platform][category][t.key] ?? defaultStyleForType(t);
+              const isSelected = selectedType === t.key;
               return (
                 <button
-                  key={nt.key}
-                  onClick={() => setSelectedType(nt.key)}
+                  key={t.key}
+                  onClick={() => setSelectedType(t.key)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
                     isSelected
                       ? "bg-primary/5 border-l-2 border-l-primary"
@@ -300,32 +845,31 @@ export default function NotificationDesignSettings() {
                 >
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: style.bgColor }}
+                    style={{ backgroundColor: style.iconBgColor }}
                   >
                     <Icon
                       name={style.icon}
                       className="w-4 h-4"
-                      style={{ color: style.textColor }}
+                      style={{ color: style.iconColor }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {nt.label}
+                      {t.label}
                     </p>
-                    {/* Color preview bar */}
                     <div className="flex gap-1 mt-1">
                       <div
-                        className="w-4 h-2 rounded-sm"
+                        className="w-4 h-2 rounded-sm border border-border/40"
                         style={{ backgroundColor: style.bgColor }}
                         title="Фон"
                       />
                       <div
-                        className="w-4 h-2 rounded-sm"
-                        style={{ backgroundColor: style.textColor }}
-                        title="Текст"
+                        className="w-4 h-2 rounded-sm border border-border/40"
+                        style={{ backgroundColor: style.iconColor }}
+                        title="Иконка"
                       />
                       <div
-                        className="w-4 h-2 rounded-sm"
+                        className="w-4 h-2 rounded-sm border border-border/40"
                         style={{ backgroundColor: style.buttonColor }}
                         title="Кнопка"
                       />
@@ -343,23 +887,24 @@ export default function NotificationDesignSettings() {
         {/* ── Right: editor + preview ── */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {/* Editor */}
-          <div className="bg-card border border-border rounded-2xl overflow-hidden flex-1">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b border-border flex items-center gap-2">
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center"
-                style={{ backgroundColor: currentStyle.bgColor }}
+                style={{ backgroundColor: currentStyle.iconBgColor }}
               >
                 <Icon
                   name={currentStyle.icon}
                   className="w-3.5 h-3.5"
-                  style={{ color: currentStyle.textColor }}
+                  style={{ color: currentStyle.iconColor }}
                 />
               </div>
               <h4 className="text-sm font-semibold text-foreground">
                 {selectedMeta.label}
               </h4>
               <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {platform === "dashboard" ? "Дашборд" : "Планшет"}
+                {platform === "tablet" ? "Планшет" : "Дашборд"} ·{" "}
+                {category === "notifications" ? "Уведомления" : "Сообщения"}
               </span>
               <button
                 onClick={() => { resetType(); flash(); }}
@@ -369,14 +914,14 @@ export default function NotificationDesignSettings() {
               </button>
             </div>
 
-            <div className="p-5 grid grid-cols-2 gap-x-8 gap-y-4">
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
               {/* Colors column */}
               <div className="space-y-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-                  Цвета уведомления
+                  Цвета
                 </p>
                 <ColorRow
-                  label="Цвет фона"
+                  label="Фон"
                   value={currentStyle.bgColor}
                   onChange={(v) => updateStyle({ bgColor: v })}
                 />
@@ -390,6 +935,7 @@ export default function NotificationDesignSettings() {
                   value={currentStyle.borderColor}
                   onChange={(v) => updateStyle({ borderColor: v })}
                 />
+
                 {/* Icon */}
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-muted-foreground">Иконка</label>
@@ -401,39 +947,45 @@ export default function NotificationDesignSettings() {
                     <Icon name={currentStyle.icon} className="w-4 h-4 text-primary" />
                     <span className="truncate max-w-[80px]">{currentStyle.icon}</span>
                   </button>
-                  <IconPickerModal
-                    open={iconPickerOpen}
-                    onClose={() => setIconPickerOpen(false)}
-                    selected={currentStyle.icon}
-                    onSelect={(name) => { updateStyle({ icon: name }); setIconPickerOpen(false); }}
-                  />
                 </div>
+
+                <ColorRow
+                  label="Цвет иконки"
+                  value={currentStyle.iconColor}
+                  onChange={(v) => updateStyle({ iconColor: v })}
+                />
+                <ColorRow
+                  label="Фон иконки"
+                  value={currentStyle.iconBgColor}
+                  onChange={(v) => updateStyle({ iconBgColor: v })}
+                />
               </div>
 
               {/* Button + size column */}
               <div className="space-y-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-                  Кнопка и размер
+                  Кнопки и размер
                 </p>
                 <ColorRow
-                  label="Кнопка (фон)"
+                  label="Цвет кнопки"
                   value={currentStyle.buttonColor}
                   onChange={(v) => updateStyle({ buttonColor: v })}
                 />
                 <ColorRow
-                  label="Кнопка (текст)"
+                  label="Цвет текста кнопки"
                   value={currentStyle.buttonTextColor}
                   onChange={(v) => updateStyle({ buttonTextColor: v })}
                 />
+
                 {/* Button radius */}
                 <div className="flex items-center justify-between">
-                  <label className="text-xs text-muted-foreground">Скругление</label>
+                  <label className="text-xs text-muted-foreground">Скругление кнопки</label>
                   <div className="flex gap-1">
                     {RADIUS_OPTIONS.map((r) => (
                       <button
                         key={r.key}
                         onClick={() => updateStyle({ buttonRadius: r.key })}
-                        className={`w-8 h-7 flex items-center justify-center rounded text-[10px] font-medium transition-colors ${
+                        className={`w-9 h-7 flex items-center justify-center rounded text-[10px] font-medium transition-colors ${
                           currentStyle.buttonRadius === r.key
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-muted-foreground hover:text-foreground"
@@ -444,109 +996,84 @@ export default function NotificationDesignSettings() {
                     ))}
                   </div>
                 </div>
+
                 {/* Size */}
                 <div className="flex items-center justify-between">
                   <label className="text-xs text-muted-foreground">Размер</label>
                   <div className="flex gap-1">
-                    {SIZE_OPTIONS.map((s) => (
+                    {SIZE_OPTIONS.map((sz) => (
                       <button
-                        key={s.key}
-                        onClick={() => updateStyle({ size: s.key })}
-                        className={`px-3 h-7 rounded text-[11px] font-medium transition-colors ${
-                          currentStyle.size === s.key
+                        key={sz.key}
+                        onClick={() => updateStyle({ size: sz.key })}
+                        className={`px-3 h-7 flex items-center justify-center rounded text-[10px] font-medium transition-colors ${
+                          currentStyle.size === sz.key
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        {s.label}
+                        {sz.label}
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Show actions */}
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-muted-foreground">
+                    Показывать кнопки действий
+                  </label>
+                  <button
+                    onClick={() => updateStyle({ showActions: !currentStyle.showActions })}
+                    className={`relative w-10 h-6 rounded-full transition-colors ${
+                      currentStyle.showActions ? "bg-primary" : "bg-muted"
+                    }`}
+                    aria-pressed={currentStyle.showActions}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${
+                        currentStyle.showActions ? "translate-x-[18px]" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Live preview */}
+          {/* Preview */}
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-              <Icon name="Eye" className="w-4 h-4 text-orange-500" />
-              <h4 className="text-sm font-semibold text-foreground">
-                Предпросмотр
-              </h4>
+              <Icon name="Eye" className="w-4 h-4 text-primary" />
+              <h4 className="text-sm font-semibold text-foreground">Предпросмотр</h4>
+              <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {platform === "tablet" ? "Как на планшете водителя" : "Как на дашборде"}
+              </span>
             </div>
-            <div className="p-5">
-              <div
-                className={`rounded-xl ${sc.card}`}
-                style={{
-                  backgroundColor: currentStyle.bgColor,
-                  border: `1px solid ${currentStyle.borderColor}`,
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: currentStyle.textColor + "1a",
-                    }}
-                  >
-                    <Icon
-                      name={currentStyle.icon}
-                      className="w-5 h-5"
-                      style={{ color: currentStyle.textColor }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={sc.title}
-                      style={{ color: currentStyle.textColor }}
-                    >
-                      Пример уведомления
-                    </p>
-                    <p
-                      className={`${sc.text} mt-0.5 opacity-80`}
-                      style={{ color: currentStyle.textColor }}
-                    >
-                      Текст уведомления для предпросмотра. Здесь может быть описание
-                      события или действия.
-                    </p>
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        type="button"
-                        className={`${sc.btn} font-medium transition-opacity hover:opacity-80`}
-                        style={{
-                          backgroundColor: currentStyle.buttonColor,
-                          color: currentStyle.buttonTextColor,
-                          borderRadius: radiusToCss(currentStyle.buttonRadius),
-                        }}
-                      >
-                        Подробнее
-                      </button>
-                      <button
-                        type="button"
-                        className={`${sc.btn} font-medium transition-opacity hover:opacity-80`}
-                        style={{
-                          backgroundColor: "transparent",
-                          color: currentStyle.textColor,
-                          border: `1px solid ${currentStyle.borderColor}`,
-                          borderRadius: radiusToCss(currentStyle.buttonRadius),
-                        }}
-                      >
-                        Закрыть
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            <div
+              className={`p-6 flex items-center justify-center min-h-[260px] ${
+                platform === "tablet"
+                  ? "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900"
+                  : "bg-muted/30"
+              }`}
+            >
+              <div className={platform === "tablet" ? "w-full max-w-2xl" : "w-full flex justify-start"}>
+                {renderPreview()}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-3 text-center">
-                {selectedMeta.label} &middot;{" "}
-                {platform === "dashboard" ? "Дашборд" : "Планшет"} &middot;{" "}
-                {SIZE_OPTIONS.find((s) => s.key === currentStyle.size)?.label}
-              </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Icon picker modal */}
+      <IconPickerModal
+        open={iconPickerOpen}
+        onClose={() => setIconPickerOpen(false)}
+        selected={currentStyle.icon}
+        onSelect={(name) => {
+          updateStyle({ icon: name });
+          setIconPickerOpen(false);
+        }}
+      />
     </div>
   );
 }

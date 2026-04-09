@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import Icon from '@/components/ui/icon';
-import { useAppSettings, type BrandColors } from '@/context/AppSettingsContext';
+import { useAppSettings, FONT_SIZE_LABELS, type BrandColors, type FontSize } from '@/context/AppSettingsContext';
 
 const PRESET_THEMES = [
   { name: 'ИРИДА (по умолчанию)', sidebar: '#ec660c', header: '#ec660c', primary: '#ec660c', text: '#141414', sidebarText: '#141414' },
@@ -31,6 +31,14 @@ const VEHICLE_ICONS = [
   { name: 'Троллейбус', icon: 'Bus', desc: 'Троллейбусы и автобусы' },
   { name: 'Электробус', icon: 'Zap', desc: 'Электробусы' },
   { name: 'Маршрутка', icon: 'Truck', desc: 'Маршрутные такси' },
+];
+
+const FONT_SIZES: { key: FontSize; px: number }[] = [
+  { key: 'xs', px: 12 },
+  { key: 'sm', px: 13 },
+  { key: 'md', px: 14 },
+  { key: 'lg', px: 16 },
+  { key: 'xl', px: 18 },
 ];
 
 export default function UiDesignSection() {
@@ -244,30 +252,52 @@ export default function UiDesignSection() {
       )}
 
       {activeTab === 'fonts' && (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-            <Icon name="Type" className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold">Шрифт интерфейса</h3>
-            <span className="ml-auto text-xs text-muted-foreground">Активен: {settings.brandFont?.name || 'Golos Text'}</span>
+        <div className="space-y-4">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+              <Icon name="Type" className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Шрифт интерфейса</h3>
+              <span className="ml-auto text-xs text-muted-foreground">Активен: {settings.brandFont?.name || 'Golos Text'}</span>
+            </div>
+            <div className="p-4 space-y-2">
+              {GOOGLE_FONTS.map(font => {
+                const isActive = settings.brandFont?.family === font.family || (!settings.brandFont && font.name === 'Golos Text');
+                return (
+                  <button key={font.name} onClick={() => applyFont(font)}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}`}>
+                    <div>
+                      <p className={`text-base font-medium ${isActive ? 'text-primary' : 'text-foreground'}`} style={{ fontFamily: font.family !== 'system-ui' ? font.family : undefined }}>
+                        {font.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: font.family !== 'system-ui' ? font.family : undefined }}>
+                        Пример текста: Автобус №7 отправляется с остановки
+                      </p>
+                    </div>
+                    {isActive && <Icon name="CheckCircle" className="w-5 h-5 text-primary shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="p-4 space-y-2">
-            {GOOGLE_FONTS.map(font => {
-              const isActive = settings.brandFont?.family === font.family || (!settings.brandFont && font.name === 'Golos Text');
-              return (
-                <button key={font.name} onClick={() => applyFont(font)}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${isActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}`}>
-                  <div>
-                    <p className={`text-base font-medium ${isActive ? 'text-primary' : 'text-foreground'}`} style={{ fontFamily: font.family !== 'system-ui' ? font.family : undefined }}>
-                      {font.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5" style={{ fontFamily: font.family !== 'system-ui' ? font.family : undefined }}>
-                      Пример текста: Автобус №7 отправляется с остановки
-                    </p>
-                  </div>
-                  {isActive && <Icon name="CheckCircle" className="w-5 h-5 text-primary shrink-0" />}
-                </button>
-              );
-            })}
+
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+              <Icon name="Ruler" className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Размер шрифтов</h3>
+            </div>
+            <div className="p-4 grid grid-cols-5 gap-2">
+              {FONT_SIZES.map(s => {
+                const active = (settings.fontSize || 'md') === s.key;
+                return (
+                  <button key={s.key} onClick={() => { updateSettings({ fontSize: s.key }); flash(); }}
+                    className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${active ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'}`}>
+                    <span className="font-bold text-foreground" style={{ fontSize: `${s.px}px` }}>Aa</span>
+                    <span className={`text-xs ${active ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{FONT_SIZE_LABELS[s.key]}</span>
+                    <span className="text-[10px] text-muted-foreground/60">{s.px}px</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

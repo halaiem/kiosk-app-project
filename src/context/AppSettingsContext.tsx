@@ -381,6 +381,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     (document.body.style as CSSStyleDeclaration & { fontFamily: string }).fontFamily = `"${font.family}", "Golos Text", system-ui, sans-serif`;
   }, [settings.brandFont]);
 
+  // Apply font size
+  useEffect(() => {
+    const sizeMap: Record<FontSize, string> = { xs: '12px', sm: '13px', md: '14px', lg: '16px', xl: '18px' };
+    const px = sizeMap[settings.fontSize || 'md'];
+    document.documentElement.style.setProperty('--base-font-size', px);
+    document.documentElement.style.fontSize = px;
+  }, [settings.fontSize]);
+
   return (
     <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, resetSettings }}>
       {children}
