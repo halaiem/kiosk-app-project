@@ -56,6 +56,7 @@ export interface Chat {
   last_message: string | null;
   last_sender: string | null;
   unread_count: number;
+  default_type: MessageType;
   members: ChatMember[];
 }
 
@@ -69,6 +70,8 @@ export interface ChatFile {
 
 export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed';
 
+export type MessageType = 'message' | 'notification';
+
 export interface ChatMessage {
   id: number;
   content: string;
@@ -81,6 +84,7 @@ export interface ChatMessage {
   status: MessageStatus;
   is_pinned: boolean;
   pinned_at: string | null;
+  message_type: MessageType;
   files: ChatFile[];
 }
 
@@ -128,18 +132,18 @@ export async function fetchUnread(): Promise<UnreadNotification[]> {
   return d.unread;
 }
 
-export async function createChat(title: string, userIds: number[], driverIds: number[]): Promise<number> {
+export async function createChat(title: string, userIds: number[], driverIds: number[], defaultType: MessageType = 'message'): Promise<number> {
   const d = await request(`${BASE}?action=create_chat`, {
     method: 'POST',
-    body: JSON.stringify({ title, user_ids: userIds, driver_ids: driverIds }),
+    body: JSON.stringify({ title, user_ids: userIds, driver_ids: driverIds, default_type: defaultType }),
   });
   return d.chat_id;
 }
 
-export async function sendMessage(chatId: number, content: string, subject?: string) {
+export async function sendMessage(chatId: number, content: string, subject?: string, messageType: MessageType = 'message') {
   return request(`${BASE}?action=send`, {
     method: 'POST',
-    body: JSON.stringify({ chat_id: chatId, content, subject: subject || undefined }),
+    body: JSON.stringify({ chat_id: chatId, content, subject: subject || undefined, message_type: messageType }),
   });
 }
 

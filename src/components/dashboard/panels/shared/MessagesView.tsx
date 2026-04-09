@@ -24,6 +24,7 @@ import {
   type MessageStatus,
   type ReaderEntry,
   type PinnedMessage,
+  type MessageType,
 } from "@/api/chatApi";
 import CategoryPicker from "./CategoryPicker";
 
@@ -178,10 +179,12 @@ export default function MessagesView({
   const [showSubject, setShowSubject] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [sendAsType, setSendAsType] = useState<MessageType>("message");
 
   // ── State: new chat modal ──
   const [showNewChat, setShowNewChat] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState("");
+  const [newChatType, setNewChatType] = useState<MessageType>("message");
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [driversAll, setDriversAll] = useState<ChatDriver[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(
@@ -407,6 +410,8 @@ export default function MessagesView({
     loadMessages(chatId);
     onChatOpen?.(chatId);
     setReplyTo(null);
+    const chat = chats.find((c) => c.id === chatId);
+    if (chat?.default_type) setSendAsType(chat.default_type);
   };
 
   // ── Send message ──
@@ -424,7 +429,8 @@ export default function MessagesView({
       const result = await sendMessage(
         activeChatId,
         bodyText,
-        showSubject && inputSubject.trim() ? inputSubject.trim() : undefined
+        showSubject && inputSubject.trim() ? inputSubject.trim() : undefined,
+        sendAsType
       );
       if (pendingFile && result?.message_id) {
         await uploadFile(result.message_id, pendingFile);
@@ -597,6 +603,7 @@ export default function MessagesView({
   const openNewChatModal = async () => {
     setShowNewChat(true);
     setNewChatTitle("");
+    setNewChatType("message");
     setSelectedUserIds(new Set());
     setSelectedDriverIds(new Set());
     try {
@@ -617,7 +624,8 @@ export default function MessagesView({
       const chatId = await createChat(
         newChatTitle.trim(),
         Array.from(selectedUserIds),
-        Array.from(selectedDriverIds)
+        Array.from(selectedDriverIds),
+        newChatType
       );
       setShowNewChat(false);
       await loadChats();
@@ -841,14 +849,19 @@ export default function MessagesView({
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span
-                          className={`text-xs font-semibold truncate ${
-                            hasUnread
-                              ? "text-foreground"
-                              : "text-foreground/80"
-                          }`}
-                        >
-                          {chat.title}
+                        <span className="flex items-center gap-1 truncate">
+                          {chat.default_type === "notification" && (
+                            <Icon name="Bell" className="w-3 h-3 text-amber-500 shrink-0" />
+                          )}
+                          <span
+                            className={`text-xs font-semibold truncate ${
+                              hasUnread
+                                ? "text-foreground"
+                                : "text-foreground/80"
+                            }`}
+                          >
+                            {chat.title}
+                          </span>
                         </span>
                         <span className="text-[9px] text-muted-foreground shrink-0">
                           {chat.last_message_at
@@ -1048,17 +1061,24 @@ export default function MessagesView({
                         {/* Bubble */}
                         <div
                           className={`rounded-xl px-3 py-2 min-w-[120px] ${
-                            isMine ? "bg-primary/15" : "bg-muted"
+                            msg.message_type === "notification"
+                              ? "bg-amber-500/10 border border-amber-500/20"
+                              : isMine ? "bg-primary/15" : "bg-muted"
                           }`}
                         >
                           {/* Sender name & time */}
                           <div className="flex items-center justify-between gap-3 mb-1">
-                            <span
-                              className={`text-[10px] font-semibold ${
-                                isMine ? "text-primary" : "text-foreground"
-                              }`}
-                            >
-                              {msg.sender_name}
+                            <span className="flex items-center gap-1">
+                              {msg.message_type === "notification" && (
+                                <Icon name="Bell" className="w-3 h-3 text-amber-500 shrink-0" />
+                              )}
+                              <span
+                                className={`text-[10px] font-semibold ${
+                                  isMine ? "text-primary" : "text-foreground"
+                                }`}
+                              >
+                                {msg.sender_name}
+                              </span>
                             </span>
                             <span className="inline-flex items-center gap-0.5 text-[9px] text-muted-foreground shrink-0">
                               {formatTime(msg.created_at)}
@@ -1348,6 +1368,19 @@ export default function MessagesView({
 
               {/* Text input row */}
               <div className="flex items-end gap-2">
+                {/* Message type toggle */}
+                <button
+                  onClick={() => setSendAsType((t) => t === "message" ? "notification" : "message")}
+                  className={`p-2 rounded-lg transition-colors shrink-0 ${
+                    sendAsType === "notification"
+                      ? "bg-amber-500/15 text-amber-600"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={sendAsType === "notification" ? "Режим: Уведомление" : "Режим: Сообщение"}
+                >
+                  <Icon name={sendAsType === "notification" ? "Bell" : "MessageSquare"} className="w-4 h-4" />
+                </button>
+
                 {/* Subject button */}
                 <button
                   onClick={() => setShowSubject((v) => !v)}
@@ -1531,6 +1564,36 @@ export default function MessagesView({
                   placeholder="Введите название..."
                   className="w-full text-xs bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-muted-foreground mb-2">
+                  Тип чата
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setNewChatType("message")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
+                      newChatType === "message"
+                        ? "bg-primary/15 border-primary/30 text-primary"
+                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon name="MessageSquare" className="w-3.5 h-3.5" />
+                    Сообщения
+                  </button>
+                  <button
+                    onClick={() => setNewChatType("notification")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
+                      newChatType === "notification"
+                        ? "bg-amber-500/15 border-amber-500/30 text-amber-600"
+                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon name="Bell" className="w-3.5 h-3.5" />
+                    Уведомления
+                  </button>
+                </div>
               </div>
 
               <div>

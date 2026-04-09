@@ -130,7 +130,7 @@ def get_drivers(cur, schema):
 
 def get_chats(cur, schema, user):
     cur.execute(
-        f"SELECT c.id, c.title, c.created_at, c.last_message_at, "
+        f"SELECT c.id, c.title, c.created_at, c.last_message_at, c.default_type, "
         f"(SELECT content FROM {schema}.chat_messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message, "
         f"(SELECT COALESCE(du.full_name, dr.full_name) FROM {schema}.chat_messages cm2 "
         f"  LEFT JOIN {schema}.dashboard_users du ON du.id = cm2.sender_user_id "
@@ -183,7 +183,7 @@ def get_messages(cur, conn, schema, user, qs):
 
     cur.execute(
         f"SELECT cm.id, cm.content, cm.subject, cm.created_at, cm.sender_user_id, cm.sender_driver_id, "
-        f"cm.status, cm.is_pinned, cm.pinned_at, "
+        f"cm.status, cm.is_pinned, cm.pinned_at, cm.message_type, "
         f"COALESCE(du.full_name, dr.full_name) as sender_name, "
         f"COALESCE(du.role, 'driver') as sender_role "
         f"FROM {schema}.chat_messages cm "
@@ -250,6 +250,9 @@ def create_chat(cur, conn, schema, user, event):
     title = body.get('title', '').strip()
     member_user_ids = body.get('user_ids', [])
     member_driver_ids = body.get('driver_ids', [])
+    default_type = body.get('default_type', 'message')
+    if default_type not in ('message', 'notification'):
+        default_type = 'message'
 
     if not title:
         return resp(400, {'error': 'Укажите название чата'})
@@ -257,8 +260,8 @@ def create_chat(cur, conn, schema, user, event):
         return resp(400, {'error': 'Добавьте хотя бы одного участника'})
 
     cur.execute(
-        f"INSERT INTO {schema}.chats (title, created_by) VALUES (%s, %s) RETURNING id",
-        (title, user['id'])
+        f"INSERT INTO {schema}.chats (title, created_by, default_type) VALUES (%s, %s, %s) RETURNING id",
+        (title, user['id'], default_type)
     )
     chat_id = cur.fetchone()['id']
 
@@ -288,6 +291,9 @@ def send_message(cur, conn, schema, user, event):
     chat_id = body.get('chat_id')
     content = body.get('content', '').strip()
     subject = body.get('subject', '').strip() or None
+    message_type = body.get('message_type', 'message')
+    if message_type not in ('message', 'notification'):
+        message_type = 'message'
 
     if not chat_id or not content:
         return resp(400, {'error': 'chat_id и content обязательны'})
@@ -300,9 +306,9 @@ def send_message(cur, conn, schema, user, event):
         return resp(403, {'error': 'Нет доступа к чату'})
 
     cur.execute(
-        f"INSERT INTO {schema}.chat_messages (chat_id, sender_user_id, content, subject) "
-        f"VALUES (%s, %s, %s, %s) RETURNING id, created_at",
-        (chat_id, user['id'], content, subject)
+        f"INSERT INTO {schema}.chat_messages (chat_id, sender_user_id, content, subject, message_type) "
+        f"VALUES (%s, %s, %s, %s, %s) RETURNING id, created_at",
+        (chat_id, user['id'], content, subject, message_type)
     )
     msg = cur.fetchone()
 
