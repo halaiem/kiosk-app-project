@@ -2,8 +2,11 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
 import { transcribeAudio, uploadAudio } from '@/api/transcribeApi';
+import urls from '../../../backend/func2url.json';
 
-const QUICK_TEMPLATES = [
+const DRIVER_MESSAGES_URL = (urls as Record<string, string>)['driver-messages'];
+
+const DEFAULT_TEMPLATES = [
   '🚦 Задержка на светофоре',
   '🔧 Техническая неисправность',
   '👥 Большой пассажиропоток',
@@ -181,6 +184,31 @@ export default function Messenger({
   const [transcribing, setTranscribing] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<string[]>(DEFAULT_TEMPLATES);
+
+  useEffect(() => {
+    let active = true;
+    const loadTemplates = async () => {
+      try {
+        const res = await fetch(`${DRIVER_MESSAGES_URL}?action=templates`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: Array<{ content?: string }> = Array.isArray(data?.templates) ? data.templates : [];
+        const contents = list
+          .map((t) => (typeof t.content === 'string' ? t.content.trim() : ''))
+          .filter((s) => s.length > 0);
+        if (active && contents.length > 0) {
+          setTemplates(contents);
+        }
+      } catch {
+        if (active) setTemplates(DEFAULT_TEMPLATES);
+      }
+    };
+    loadTemplates();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -396,10 +424,10 @@ export default function Messenger({
       </div>
 
       {/* Быстрые шаблоны */}
-      {!inputFocused && !recording && !isMoving && (
+      {!inputFocused && !recording && !isMoving && templates.length > 0 && (
         <div className="px-3 py-1.5 border-t border-border flex-shrink-0">
           <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {QUICK_TEMPLATES.map((t, i) => (
+            {templates.map((t, i) => (
               <button key={i} onClick={() => onSend(t)} type="button"
                 className="flex-shrink-0 px-3 py-1.5 rounded-full bg-muted text-base text-foreground whitespace-nowrap active:scale-95 ripple">{t}</button>
             ))}

@@ -138,13 +138,15 @@ export async function fetchMessages(sinceId = 0) {
   return data.messages || [];
 }
 
-export async function sendMessage(text: string, type = 'normal', clientId?: string) {
+export async function sendMessage(text: string, type = 'normal', clientId?: string, audioUrl?: string, audioDuration?: number) {
   const token = getStoredToken();
   const driver = getStoredDriver();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['X-Auth-Token'] = token;
   const body: Record<string, unknown> = { text, type };
   if (clientId) body.clientId = clientId;
+  if (audioUrl) body.audio_url = audioUrl;
+  if (audioDuration) body.audio_duration = audioDuration;
   if (!token && driver) body.driver_id = driver.id;
   const res = await fetch(URLS.messages, { method: 'POST', headers, body: JSON.stringify(body) });
   return res.json();

@@ -16,6 +16,8 @@ import {
   togglePin,
   fetchPinned,
   addMembers,
+  removeMember,
+  fetchDashboardTemplates,
   type Chat,
   type ChatMessage,
   type ChatUser,
@@ -32,6 +34,7 @@ import CategoryPicker from "./CategoryPicker";
 
 interface MessagesViewProps {
   currentUserId: number;
+  currentUserRole?: string;
   onChatOpen?: (chatId: number) => void;
   initialChatId?: number | null;
 }
@@ -160,6 +163,7 @@ function exportChat(chat: Chat, msgs: ChatMessage[]) {
 
 export default function MessagesView({
   currentUserId,
+  currentUserRole = "admin",
   onChatOpen,
   initialChatId = null,
 }: MessagesViewProps) {
@@ -194,6 +198,9 @@ export default function MessagesView({
     new Set()
   );
   const [creatingChat, setCreatingChat] = useState(false);
+  const [visibleRoles, setVisibleRoles] = useState<Set<string>>(
+    new Set(["admin", "dispatcher", "technician", "mechanic", "driver"])
+  );
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [addingMembers, setAddingMembers] = useState(false);
   const [addMemberUserIds, setAddMemberUserIds] = useState<Set<number>>(new Set());
@@ -223,6 +230,15 @@ export default function MessagesView({
   // ── State: reactions ──
   const [reactions, setReactions] = useState<ReactionMap>({});
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<number | null>(null);
+
+  // ── State: templates popover ──
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templatesList, setTemplatesList] = useState<Array<{ id: number; title: string; content: string; icon: string; category: string }>>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+
+  // ── State: remove member confirm ──
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ userId?: number; driverId?: number; name: string } | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
 
   // ── State: reply (quote) ──
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -662,7 +678,8 @@ export default function MessagesView({
         newChatTitle.trim(),
         Array.from(selectedUserIds),
         Array.from(selectedDriverIds),
-        newChatType
+        newChatType,
+        Array.from(visibleRoles)
       );
       setShowNewChat(false);
       await loadChats();
@@ -672,6 +689,62 @@ export default function MessagesView({
     } finally {
       setCreatingChat(false);
     }
+  };
+
+  // ── Toggle visible role ──
+  const toggleVisibleRole = (role: string) => {
+    setVisibleRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) next.delete(role);
+      else next.add(role);
+      return next;
+    });
+  };
+
+  // ── Templates: load ──
+  const openTemplates = async () => {
+    setShowTemplates((v) => !v);
+    if (templatesList.length === 0 && !templatesLoading) {
+      setTemplatesLoading(true);
+      try {
+        const list = await fetchDashboardTemplates(currentUserRole, 'dashboard');
+        setTemplatesList(list);
+      } catch (e) {
+        console.error("Templates load failed:", e);
+      } finally {
+        setTemplatesLoading(false);
+      }
+    }
+  };
+
+  const insertTemplate = (content: string) => {
+    setInputText((prev) => (prev ? prev + " " + content : content));
+    setShowTemplates(false);
+    textareaRef.current?.focus();
+  };
+
+  // ── Remove member ──
+  const handleRemoveMember = async () => {
+    if (!activeChatId || !removeMemberTarget) return;
+    setRemovingMember(true);
+    try {
+      await removeMember(activeChatId, {
+        userId: removeMemberTarget.userId,
+        driverId: removeMemberTarget.driverId,
+      });
+      setRemoveMemberTarget(null);
+      await loadChats();
+      if (activeChatId) await loadMessages(activeChatId);
+    } catch (e) {
+      console.error("Remove member failed:", e);
+    } finally {
+      setRemovingMember(false);
+    }
+  };
+
+  // ── Open messenger in separate window ──
+  const openMessengerWindow = () => {
+    window.open('/messenger-window', 'messenger', 'width=1200,height=800,resizable=yes');
   };
 
   // ── Toggle user selection ──
@@ -837,6 +910,13 @@ export default function MessagesView({
           <h3 className="text-sm font-semibold text-foreground flex-1">
             Чаты
           </h3>
+          <button
+            onClick={openMessengerWindow}
+            className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="Открыть в отдельном окне"
+          >
+            <Icon name="ExternalLink" className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={openNewChatModal}
             className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -1021,21 +1101,39 @@ export default function MessagesView({
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {activeChat.members.slice(0, 6).map((member, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"
-                  >
+                {activeChat.members.slice(0, 6).map((member, idx) => {
+                  const canRemove = currentUserRole === 'admin' && !(member.user_id === currentUserId);
+                  return (
                     <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        member.is_online
-                          ? "bg-green-500"
-                          : "bg-muted-foreground/40"
-                      }`}
-                    />
-                    {member.name}
-                  </span>
-                ))}
+                      key={idx}
+                      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/40 rounded-full px-2 py-0.5"
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          member.is_online
+                            ? "bg-green-500"
+                            : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      {member.name}
+                      {canRemove && (
+                        <button
+                          onClick={() =>
+                            setRemoveMemberTarget({
+                              userId: member.user_id ?? undefined,
+                              driverId: member.driver_id ?? undefined,
+                              name: member.name,
+                            })
+                          }
+                          className="ml-0.5 hover:text-red-500 transition-colors"
+                          title="Удалить из чата"
+                        >
+                          <Icon name="X" className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
                 {activeChat.members.length > 6 && (
                   <span className="text-[10px] text-muted-foreground">
                     +{activeChat.members.length - 6}
@@ -1492,6 +1590,71 @@ export default function MessagesView({
                   onChange={handleFileSelect}
                 />
 
+                {/* Quick templates button */}
+                <div className="relative shrink-0">
+                  <button
+                    onClick={openTemplates}
+                    className={`p-2 rounded-lg transition-colors ${
+                      showTemplates
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Быстрые шаблоны"
+                  >
+                    <Icon name="Zap" className="w-4 h-4" />
+                  </button>
+                  {showTemplates && (
+                    <div className="absolute bottom-full mb-2 left-0 z-40 w-72 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+                        <Icon name="Zap" className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-foreground flex-1">
+                          Шаблоны ответов
+                        </span>
+                        <button
+                          onClick={() => setShowTemplates(false)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Icon name="X" className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="max-h-72 overflow-y-auto">
+                        {templatesLoading ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            Загрузка...
+                          </div>
+                        ) : templatesList.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            Нет шаблонов
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-border">
+                            {templatesList.map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => insertTemplate(t.content)}
+                                className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors flex items-start gap-2"
+                              >
+                                <Icon
+                                  name={t.icon || "MessageSquare"}
+                                  className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-foreground truncate">
+                                    {t.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                                    {t.content}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Textarea */}
                 <textarea
                   ref={textareaRef}
@@ -1652,6 +1815,37 @@ export default function MessagesView({
                     <div className="text-[11px] text-muted-foreground mt-0.5">
                       {selectedUserIds.size > 0 && <span>{selectedUserIds.size} сотр. </span>}
                       {selectedDriverIds.size > 0 && <span>{selectedDriverIds.size} вод.</span>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-2">
+                      Видимость для ролей
+                    </label>
+                    <div className="flex flex-col gap-1.5">
+                      {[
+                        { key: 'dispatcher', label: 'Диспетчер' },
+                        { key: 'technician', label: 'Технолог' },
+                        { key: 'mechanic', label: 'Механик' },
+                        { key: 'admin', label: 'Администратор' },
+                        { key: 'driver', label: 'Водитель' },
+                      ].map((r) => {
+                        const checked = visibleRoles.has(r.key);
+                        return (
+                          <label
+                            key={r.key}
+                            className="flex items-center gap-2 text-xs text-foreground cursor-pointer px-2 py-1.5 rounded-lg hover:bg-muted/40"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleVisibleRole(r.key)}
+                              className="w-3.5 h-3.5 accent-primary"
+                            />
+                            {r.label}
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -2074,6 +2268,62 @@ export default function MessagesView({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ── REMOVE MEMBER CONFIRM ── */}
+      {removeMemberTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !removingMember && setRemoveMemberTarget(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <Icon name="UserMinus" className="w-4 h-4 text-red-500" />
+              <h3 className="text-sm font-semibold text-foreground flex-1">
+                Удалить участника
+              </h3>
+              <button
+                onClick={() => !removingMember && setRemoveMemberTarget(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm text-foreground">
+                Вы действительно хотите удалить{" "}
+                <span className="font-semibold">{removeMemberTarget.name}</span> из этого чата?
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Участник больше не будет получать сообщения в этом чате.
+              </p>
+            </div>
+            <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
+              <button
+                onClick={() => setRemoveMemberTarget(null)}
+                disabled={removingMember}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleRemoveMember}
+                disabled={removingMember}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {removingMember ? (
+                  <Icon name="Loader2" className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Icon name="UserMinus" className="w-4 h-4" />
+                )}
+                Удалить
+              </button>
+            </div>
           </div>
         </div>
       )}

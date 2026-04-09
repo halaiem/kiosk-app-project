@@ -76,6 +76,19 @@ def handler(event: dict, context) -> dict:
 
     try:
         if method == 'GET':
+            if params.get('action') == 'templates':
+                cur.execute(
+                    "SELECT id, title, content, COALESCE(icon, '') FROM message_templates "
+                    "WHERE target_role = 'driver' AND target_scope = 'tablet' AND is_active = true "
+                    "ORDER BY sort_order, id"
+                )
+                rows = cur.fetchall()
+                templates = [
+                    {'id': r[0], 'title': r[1], 'content': r[2], 'icon': r[3]}
+                    for r in rows
+                ]
+                return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'templates': templates})}
+
             driver_id = params.get('driver_id')
             token = event.get('headers', {}).get('X-Auth-Token') or event.get('headers', {}).get('x-auth-token', '')
             since_id = int(params.get('since_id', 0))
@@ -93,7 +106,8 @@ def handler(event: dict, context) -> dict:
 
             cur.execute("""
                 SELECT cm.id, cm.sender_user_id, cm.sender_driver_id, cm.content,
-                       cm.created_at, cm.is_read, cm.message_type
+                       cm.created_at, cm.is_read, cm.message_type,
+                       (SELECT file_url FROM chat_files WHERE message_id = cm.id AND content_type LIKE 'audio/%%' LIMIT 1) as audio_url
                 FROM chat_messages cm
                 WHERE cm.chat_id = %s AND cm.id > %s
                 ORDER BY cm.created_at ASC
@@ -112,6 +126,7 @@ def handler(event: dict, context) -> dict:
                     'createdAt': str(r[4]),
                     'deliveredAt': str(r[4]),
                     'clientId': None,
+                    'audioUrl': r[7],
                 })
 
             if token and rows:
@@ -173,6 +188,8 @@ def handler(event: dict, context) -> dict:
 
             text = body.get('text', '').strip()
             msg_type = body.get('type', 'normal')
+            audio_url = body.get('audio_url', '').strip()
+            audio_duration = body.get('audio_duration', 0)
 
             if token:
                 driver_id = get_driver_id_from_token(cur, token)
@@ -191,17 +208,26 @@ def handler(event: dict, context) -> dict:
                     drow = cur.fetchone()
                     sender_user_id = drow[0] if drow else None
 
-            if not text:
-                return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Текст обязателен'})}
+            if not text and not audio_url:
+                return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Текст или аудио обязательны'})}
 
             chat_id = get_or_create_driver_chat(cur, int(driver_id))
 
             cur.execute(
                 "INSERT INTO chat_messages (chat_id, sender_user_id, sender_driver_id, content, message_type, status) "
                 "VALUES (%s, %s, %s, %s, %s, 'sent') RETURNING id, created_at",
-                (chat_id, sender_user_id, sender_driver_id, text, msg_type)
+                (chat_id, sender_user_id, sender_driver_id, text or '[Голосовое сообщение]', msg_type)
             )
             msg_id, created_at = cur.fetchone()
+
+            if audio_url:
+                file_name = f"voice_{msg_id}.webm"
+                cur.execute(
+                    "INSERT INTO chat_files (message_id, file_name, file_url, file_size, content_type) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (msg_id, file_name, audio_url, 0, 'audio/webm')
+                )
+
             cur.execute("UPDATE chats SET last_message_at = NOW() WHERE id = %s", (chat_id,))
             conn.commit()
 

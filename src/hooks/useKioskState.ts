@@ -305,7 +305,7 @@ export function useKioskState() {
 
     if (isOnline) {
       try {
-        const result = await apiSendMessage(fullText, 'normal', clientId);
+        const result = await apiSendMessage(fullText, 'normal', clientId, audioUrl, voiceDuration);
         setMessages(prev => prev.map(m =>
           m.clientId === clientId
             ? { ...m, id: String(result.id), deliveryStatus: 'sent' }

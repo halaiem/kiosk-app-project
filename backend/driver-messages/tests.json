@@ -1,6 +1,12 @@
 {
   "tests": [
     {
+      "name": "Get templates for tablet driver",
+      "method": "GET",
+      "path": "/?action=templates",
+      "expectedStatus": 200
+    },
+    {
       "name": "Get messages for driver",
       "method": "GET",
       "path": "/?driver_id=1",

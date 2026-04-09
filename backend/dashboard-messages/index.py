@@ -9,7 +9,7 @@ import boto3
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Token',
 }
 
@@ -121,6 +121,36 @@ def handler(event, context):
             return save_preset(cur, conn, schema, user, event)
         elif method == 'PUT' and action == 'delete_preset':
             return delete_preset(cur, conn, schema, user, event)
+        elif method == 'PUT' and action == 'remove_member':
+            return remove_member(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'visibility':
+            return get_visibility(cur, schema, user)
+        elif method == 'PUT' and action == 'visibility':
+            return update_visibility(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'templates':
+            return get_templates(cur, schema, user, qs)
+        elif method == 'POST' and action == 'template':
+            return create_template(cur, conn, schema, user, event)
+        elif method == 'PUT' and action == 'template':
+            return update_template(cur, conn, schema, user, event)
+        elif method == 'DELETE' and action == 'template':
+            return delete_template(cur, conn, schema, user, qs)
+        elif method == 'GET' and action == 'notif_templates':
+            return get_notif_templates(cur, schema, user, qs)
+        elif method == 'POST' and action == 'notif_template':
+            return create_notif_template(cur, conn, schema, user, event)
+        elif method == 'PUT' and action == 'notif_template':
+            return update_notif_template(cur, conn, schema, user, event)
+        elif method == 'DELETE' and action == 'notif_template':
+            return delete_notif_template(cur, conn, schema, user, qs)
+        elif method == 'GET' and action == 'ratings':
+            return get_ratings(cur, schema, user, qs)
+        elif method == 'POST' and action == 'rate':
+            return create_rating(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'logout_summary':
+            return get_logout_summary(cur, schema, user)
+        elif method == 'GET' and action == 'driver_unread':
+            return get_driver_unread(cur, schema, user)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -167,7 +197,7 @@ def get_drivers(cur, schema):
 
 def get_chats(cur, schema, user):
     cur.execute(
-        f"SELECT c.id, c.title, c.created_at, c.last_message_at, c.default_type, "
+        f"SELECT c.id, c.title, c.created_at, c.last_message_at, c.default_type, c.visible_roles, "
         f"(SELECT content FROM {schema}.chat_messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message, "
         f"(SELECT COALESCE(du.full_name, dr.full_name) FROM {schema}.chat_messages cm2 "
         f"  LEFT JOIN {schema}.dashboard_users du ON du.id = cm2.sender_user_id "
@@ -179,8 +209,9 @@ def get_chats(cur, schema, user):
         f"FROM {schema}.chats c "
         f"JOIN {schema}.chat_members my ON my.chat_id = c.id AND my.user_id = %s "
         f"WHERE c.is_active = true "
+        f"AND (c.visible_roles IS NULL OR %s = ANY(c.visible_roles) OR %s = 'admin') "
         f"ORDER BY c.last_message_at DESC",
-        (user['id'], user['id'])
+        (user['id'], user['id'], user['role'], user['role'])
     )
     chats = cur.fetchall()
 
@@ -307,6 +338,7 @@ def create_chat(cur, conn, schema, user, event):
     member_user_ids = body.get('user_ids', [])
     member_driver_ids = body.get('driver_ids', [])
     default_type = body.get('default_type', 'message')
+    visible_roles = body.get('visible_roles') or None
     if default_type not in ('message', 'notification'):
         default_type = 'message'
 
@@ -315,9 +347,12 @@ def create_chat(cur, conn, schema, user, event):
     if not member_user_ids and not member_driver_ids:
         return resp(400, {'error': 'Добавьте хотя бы одного участника'})
 
+    if visible_roles and user['role'] not in visible_roles:
+        visible_roles.append(user['role'])
+
     cur.execute(
-        f"INSERT INTO {schema}.chats (title, created_by, default_type) VALUES (%s, %s, %s) RETURNING id",
-        (title, user['id'], default_type)
+        f"INSERT INTO {schema}.chats (title, created_by, default_type, visible_roles) VALUES (%s, %s, %s, %s) RETURNING id",
+        (title, user['id'], default_type, visible_roles)
     )
     chat_id = cur.fetchone()['id']
 
@@ -797,3 +832,308 @@ def add_members(cur, conn, schema, user, event):
     # Инвалидируем кеш пользователей — онлайн-список изменился
     cache_del(f'users:{schema}')
     return resp(200, {'added': added})
+
+
+def remove_member(cur, conn, schema, user, event):
+    body = json.loads(event.get('body') or '{}')
+    chat_id = body.get('chat_id')
+    user_id = body.get('user_id')
+    driver_id = body.get('driver_id')
+
+    if not chat_id or (not user_id and not driver_id):
+        return resp(400, {'error': 'chat_id и участник обязательны'})
+
+    cur.execute(
+        f"SELECT created_by FROM {schema}.chats WHERE id = %s", (chat_id,)
+    )
+    chat = cur.fetchone()
+    if not chat:
+        return resp(404, {'error': 'Чат не найден'})
+
+    if user['role'] != 'admin' and chat['created_by'] != user['id']:
+        return resp(403, {'error': 'Только создатель или админ может удалять участников'})
+
+    if user_id:
+        cur.execute(
+            f"DELETE FROM {schema}.chat_members WHERE chat_id = %s AND user_id = %s",
+            (chat_id, int(user_id))
+        )
+    else:
+        cur.execute(
+            f"DELETE FROM {schema}.chat_members WHERE chat_id = %s AND driver_id = %s",
+            (chat_id, int(driver_id))
+        )
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def get_visibility(cur, schema, user):
+    cur.execute(f"SELECT from_role, visible_to_role, is_enabled FROM {schema}.chat_visibility_rules ORDER BY from_role, visible_to_role")
+    return resp(200, {'rules': cur.fetchall()})
+
+
+def update_visibility(cur, conn, schema, user, event):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    rules = body.get('rules', [])
+    for r in rules:
+        cur.execute(
+            f"INSERT INTO {schema}.chat_visibility_rules (from_role, visible_to_role, is_enabled) "
+            f"VALUES (%s, %s, %s) ON CONFLICT (from_role, visible_to_role) "
+            f"DO UPDATE SET is_enabled = %s",
+            (r['from_role'], r['visible_to_role'], r['is_enabled'], r['is_enabled'])
+        )
+    conn.commit()
+    return resp(200, {'updated': len(rules)})
+
+
+def get_templates(cur, schema, user, qs):
+    role = qs.get('role') or user['role']
+    scope = qs.get('scope', 'dashboard')
+    cur.execute(
+        f"SELECT * FROM {schema}.message_templates "
+        f"WHERE target_role = %s AND target_scope = %s AND is_active = true "
+        f"ORDER BY sort_order, id",
+        (role, scope)
+    )
+    return resp(200, {'templates': cur.fetchall()})
+
+
+def create_template(cur, conn, schema, user, event):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    cur.execute(
+        f"INSERT INTO {schema}.message_templates (title, content, target_role, target_scope, category, icon, sort_order) "
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (body.get('title', '').strip(), body.get('content', '').strip(),
+         body.get('target_role', 'driver'), body.get('target_scope', 'dashboard'),
+         body.get('category'), body.get('icon'), body.get('sort_order', 0))
+    )
+    tid = cur.fetchone()['id']
+    conn.commit()
+    return resp(201, {'id': tid})
+
+
+def update_template(cur, conn, schema, user, event):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    tid = body.get('id')
+    if not tid:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(
+        f"UPDATE {schema}.message_templates SET title = %s, content = %s, target_role = %s, "
+        f"target_scope = %s, category = %s, icon = %s, sort_order = %s, is_active = %s, updated_at = NOW() "
+        f"WHERE id = %s",
+        (body.get('title', '').strip(), body.get('content', '').strip(),
+         body.get('target_role'), body.get('target_scope'),
+         body.get('category'), body.get('icon'), body.get('sort_order', 0),
+         body.get('is_active', True), int(tid))
+    )
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def delete_template(cur, conn, schema, user, qs):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    tid = qs.get('id')
+    if not tid:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(f"DELETE FROM {schema}.message_templates WHERE id = %s", (int(tid),))
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def get_notif_templates(cur, schema, user, qs):
+    role = qs.get('role') or user['role']
+    category = qs.get('category')
+    query = f"SELECT * FROM {schema}.notification_templates WHERE is_active = true AND %s = ANY(target_roles)"
+    params = [role]
+    if category:
+        query += " AND category = %s"
+        params.append(category)
+    query += " ORDER BY priority DESC, created_at DESC"
+    cur.execute(query, params)
+    return resp(200, {'templates': cur.fetchall()})
+
+
+def create_notif_template(cur, conn, schema, user, event):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    cur.execute(
+        f"INSERT INTO {schema}.notification_templates "
+        f"(title, content, category, icon, target_roles, geo_lat, geo_lng, geo_radius_km, geo_city, priority) "
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (body.get('title', '').strip(), body.get('content', '').strip(),
+         body.get('category', 'general'), body.get('icon'),
+         body.get('target_roles', []),
+         body.get('geo_lat'), body.get('geo_lng'),
+         body.get('geo_radius_km'), body.get('geo_city'),
+         body.get('priority', 'normal'))
+    )
+    nid = cur.fetchone()['id']
+    conn.commit()
+    return resp(201, {'id': nid})
+
+
+def update_notif_template(cur, conn, schema, user, event):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    body = json.loads(event.get('body') or '{}')
+    nid = body.get('id')
+    if not nid:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(
+        f"UPDATE {schema}.notification_templates SET title = %s, content = %s, category = %s, "
+        f"icon = %s, target_roles = %s, geo_lat = %s, geo_lng = %s, geo_radius_km = %s, "
+        f"geo_city = %s, priority = %s, is_active = %s, updated_at = NOW() WHERE id = %s",
+        (body.get('title', '').strip(), body.get('content', '').strip(),
+         body.get('category'), body.get('icon'), body.get('target_roles', []),
+         body.get('geo_lat'), body.get('geo_lng'), body.get('geo_radius_km'),
+         body.get('geo_city'), body.get('priority', 'normal'),
+         body.get('is_active', True), int(nid))
+    )
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def delete_notif_template(cur, conn, schema, user, qs):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+    nid = qs.get('id')
+    if not nid:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(f"DELETE FROM {schema}.notification_templates WHERE id = %s", (int(nid),))
+    conn.commit()
+    return resp(200, {'ok': True})
+
+
+def get_ratings(cur, schema, user, qs):
+    scope = qs.get('scope', 'me')
+
+    if scope == 'all':
+        if user['role'] != 'admin':
+            return resp(403, {'error': 'Только администратор может видеть все рейтинги'})
+        cur.execute(
+            f"SELECT du.id, du.full_name, du.role, du.rating, du.rating_count "
+            f"FROM {schema}.dashboard_users du WHERE du.is_active = true "
+            f"ORDER BY du.rating DESC NULLS LAST, du.full_name"
+        )
+        users_list = cur.fetchall()
+        cur.execute(
+            f"SELECT d.id, d.full_name, 'driver' as role, d.rating, 0 as rating_count "
+            f"FROM {schema}.drivers d WHERE d.is_active = true "
+            f"ORDER BY d.rating DESC NULLS LAST, d.full_name"
+        )
+        drivers_list = cur.fetchall()
+        return resp(200, {'users': users_list, 'drivers': drivers_list})
+
+    cur.execute(
+        f"SELECT r.*, "
+        f"COALESCE(du1.full_name, dr1.full_name) as rater_name, "
+        f"COALESCE(du2.full_name, dr2.full_name) as target_name "
+        f"FROM {schema}.user_ratings r "
+        f"LEFT JOIN {schema}.dashboard_users du1 ON du1.id = r.rater_user_id "
+        f"LEFT JOIN {schema}.drivers dr1 ON dr1.id = r.rater_driver_id "
+        f"LEFT JOIN {schema}.dashboard_users du2 ON du2.id = r.target_user_id "
+        f"LEFT JOIN {schema}.drivers dr2 ON dr2.id = r.target_driver_id "
+        f"WHERE r.target_user_id = %s "
+        f"ORDER BY r.created_at DESC LIMIT 50", (user['id'],)
+    )
+    return resp(200, {'ratings': cur.fetchall()})
+
+
+def create_rating(cur, conn, schema, user, event):
+    body = json.loads(event.get('body') or '{}')
+    target_user_id = body.get('target_user_id')
+    target_driver_id = body.get('target_driver_id')
+    target_role = body.get('target_role', '')
+    rating = int(body.get('rating', 0))
+    comment = body.get('comment', '').strip() or None
+
+    if rating < 1 or rating > 5:
+        return resp(400, {'error': 'Рейтинг 1-5'})
+    if not target_user_id and not target_driver_id:
+        return resp(400, {'error': 'Нужен target'})
+
+    cur.execute(
+        f"INSERT INTO {schema}.user_ratings "
+        f"(rater_user_id, rater_role, target_user_id, target_driver_id, target_role, rating, comment) "
+        f"VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (user['id'], user['role'], target_user_id, target_driver_id, target_role, rating, comment)
+    )
+    rid = cur.fetchone()['id']
+
+    if target_user_id:
+        cur.execute(
+            f"UPDATE {schema}.dashboard_users SET "
+            f"rating = (SELECT ROUND(AVG(rating)::numeric, 2) FROM {schema}.user_ratings WHERE target_user_id = %s), "
+            f"rating_count = (SELECT COUNT(*) FROM {schema}.user_ratings WHERE target_user_id = %s) "
+            f"WHERE id = %s",
+            (target_user_id, target_user_id, target_user_id)
+        )
+    elif target_driver_id:
+        cur.execute(
+            f"UPDATE {schema}.drivers SET "
+            f"rating = (SELECT ROUND(AVG(rating)::numeric, 2) FROM {schema}.user_ratings WHERE target_driver_id = %s) "
+            f"WHERE id = %s",
+            (target_driver_id, target_driver_id)
+        )
+    conn.commit()
+    return resp(201, {'id': rid})
+
+
+def get_logout_summary(cur, schema, user):
+    cur.execute(
+        f"SELECT rating, rating_count FROM {schema}.dashboard_users WHERE id = %s", (user['id'],)
+    )
+    row = cur.fetchone()
+    rating = float(row['rating']) if row and row['rating'] else 0
+    rating_count = row['rating_count'] if row and row['rating_count'] else 0
+
+    cur.execute(
+        f"SELECT phrase FROM {schema}.motivation_phrases "
+        f"WHERE target_role = %s OR target_role IS NULL "
+        f"ORDER BY RANDOM() LIMIT 1",
+        (user['role'],)
+    )
+    phrase_row = cur.fetchone()
+    phrase = phrase_row['phrase'] if phrase_row else 'Отличная работа!'
+
+    cur.execute(
+        f"SELECT rating, comment, created_at, "
+        f"COALESCE(du.full_name, dr.full_name) as rater_name, r.rater_role "
+        f"FROM {schema}.user_ratings r "
+        f"LEFT JOIN {schema}.dashboard_users du ON du.id = r.rater_user_id "
+        f"LEFT JOIN {schema}.drivers dr ON dr.id = r.rater_driver_id "
+        f"WHERE r.target_user_id = %s ORDER BY r.created_at DESC LIMIT 10",
+        (user['id'],)
+    )
+    recent = cur.fetchall()
+
+    return resp(200, {
+        'rating': rating,
+        'rating_count': rating_count,
+        'phrase': phrase,
+        'recent_ratings': recent,
+        'user_name': user['name'],
+        'role': user['role']
+    })
+
+
+def get_driver_unread(cur, schema, user):
+    if user['role'] not in ('dispatcher', 'admin', 'technician'):
+        return resp(200, {'unread': 0})
+
+    cur.execute(
+        f"SELECT COUNT(*) as cnt FROM {schema}.chat_messages cm "
+        f"JOIN {schema}.chat_members my ON my.chat_id = cm.chat_id AND my.user_id = %s "
+        f"WHERE cm.sender_driver_id IS NOT NULL "
+        f"AND cm.created_at > COALESCE(my.last_read_at, '1970-01-01')",
+        (user['id'],)
+    )
+    return resp(200, {'unread': cur.fetchone()['cnt']})

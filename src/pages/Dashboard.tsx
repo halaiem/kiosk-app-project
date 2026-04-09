@@ -7,11 +7,13 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { fetchUnread } from '@/api/chatApi';
 import DashboardLogin from '@/components/dashboard/DashboardLogin';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
+import LogoutConfirmDialog from '@/components/dashboard/LogoutConfirmDialog';
 import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
 import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
 import AdminPanel from '@/components/dashboard/panels/AdminPanel';
 import MechanicPanel from '@/components/dashboard/panels/MechanicPanel';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
+import MessagesView from '@/components/dashboard/panels/shared/MessagesView';
 import Icon from '@/components/ui/icon';
 import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
 import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab } from '@/types/dashboard';
@@ -31,6 +33,9 @@ export default function Dashboard() {
   const data = useDashboardData(activeUser);
   const { settings, updateSettings } = useAppSettings();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+
+  const isMessengerWindow = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('messenger') === 'true';
 
   useEffect(() => {
     const root = document.documentElement;
@@ -57,7 +62,14 @@ export default function Dashboard() {
     navigate('/dashboard-irida-tools');
   };
 
-  const handleLogout = async () => {
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  const handleLogoutRequest = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setLogoutDialogOpen(false);
     await logout();
     setActiveTab('overview');
   };
@@ -103,6 +115,14 @@ export default function Dashboard() {
     return <DashboardLogin onLogin={handleLogin} onIridaToolsLogin={handleIridaToolsLogin} error={error} />;
   }
 
+  if (isMessengerWindow) {
+    return (
+      <div className="h-screen w-screen bg-background text-foreground overflow-hidden">
+        <MessagesView currentUserId={Number(activeUser.id)} currentUserRole={activeUser.role} />
+      </div>
+    );
+  }
+
   const isLight = settings.dashboardTheme === 'light';
 
   return (
@@ -111,12 +131,19 @@ export default function Dashboard() {
         user={activeUser}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onLogout={handleLogout}
+        onLogout={handleLogoutRequest}
         getRoleName={getRoleName}
         counts={counts}
         isDark={!isLight}
         onToggleTheme={toggleTheme}
         onReload={activeUser.role !== 'irida_tools' ? data.reload : undefined}
+      />
+      <LogoutConfirmDialog
+        open={logoutDialogOpen}
+        onClose={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogoutConfirm}
+        userRole={activeUser.role}
+        userName={activeUser.name}
       />
       <main className="flex-1 overflow-auto p-6 relative">
         {activeUser.role !== 'irida_tools' && (

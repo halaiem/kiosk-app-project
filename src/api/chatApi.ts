@@ -132,12 +132,31 @@ export async function fetchUnread(): Promise<UnreadNotification[]> {
   return d.unread;
 }
 
-export async function createChat(title: string, userIds: number[], driverIds: number[], defaultType: MessageType = 'message'): Promise<number> {
+export async function createChat(title: string, userIds: number[], driverIds: number[], defaultType: MessageType = 'message', visibleRoles?: string[]): Promise<number> {
+  const body: Record<string, unknown> = { title, user_ids: userIds, driver_ids: driverIds, default_type: defaultType };
+  if (visibleRoles && visibleRoles.length > 0) body.visible_roles = visibleRoles;
   const d = await request(`${BASE}?action=create_chat`, {
     method: 'POST',
-    body: JSON.stringify({ title, user_ids: userIds, driver_ids: driverIds, default_type: defaultType }),
+    body: JSON.stringify(body),
   });
   return d.chat_id;
+}
+
+export async function removeMember(chatId: number, opts: { userId?: number; driverId?: number }): Promise<{ ok: boolean }> {
+  return request(`${BASE}?action=remove_member`, {
+    method: 'PUT',
+    body: JSON.stringify({ chat_id: chatId, user_id: opts.userId, driver_id: opts.driverId }),
+  });
+}
+
+export async function fetchDashboardTemplates(role: string, scope: 'dashboard' | 'tablet' = 'dashboard'): Promise<Array<{ id: number; title: string; content: string; icon: string; category: string }>> {
+  const d = await request(`${BASE}?action=templates&role=${role}&scope=${scope}`);
+  return d.templates || [];
+}
+
+export async function fetchDriverUnread(): Promise<number> {
+  const d = await request(`${BASE}?action=driver_unread`);
+  return d.unread || 0;
 }
 
 export async function sendMessage(chatId: number, content: string, subject?: string, messageType: MessageType = 'message') {
