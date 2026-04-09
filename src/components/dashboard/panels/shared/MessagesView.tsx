@@ -564,6 +564,41 @@ export default function MessagesView({
     }
   };
 
+  const [voiceTranscripts, setVoiceTranscripts] = useState<Record<number, string>>({});
+  const [transcribingFile, setTranscribingFile] = useState<number | null>(null);
+
+  const transcribeVoiceFile = async (fileId: number, fileUrl: string, contentType: string) => {
+    if (voiceTranscripts[fileId]) {
+      setVoiceTranscripts((p) => { const c = { ...p }; delete c[fileId]; return c; });
+      return;
+    }
+    setTranscribingFile(fileId);
+    try {
+      const audioRes = await fetch(fileUrl);
+      const blob = await audioRes.blob();
+      const buf = await blob.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const fmt = contentType.includes("webm") ? "webm" : contentType.includes("ogg") ? "ogg" : contentType.includes("wav") ? "wav" : "mp3";
+      const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
+      const res = await fetch(transcribeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio: b64, format: fmt, transcribe: true }),
+      });
+      const data = await res.json();
+      if (data.text) {
+        setVoiceTranscripts((p) => ({ ...p, [fileId]: data.text }));
+      } else {
+        alert("Не удалось распознать речь.");
+      }
+    } catch (e) {
+      console.error("Voice transcribe failed", e);
+      alert("Ошибка транскрибации.");
+    } finally {
+      setTranscribingFile(null);
+    }
+  };
+
   const handleMicMouseDown = () => {
     longPressTriggeredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
@@ -1271,12 +1306,30 @@ export default function MessagesView({
                                     />
                                   </a>
                                 ) : file.content_type.startsWith("audio/") ? (
-                                  <div key={file.id} className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border">
-                                    <Icon name="Mic" className="w-4 h-4 text-primary shrink-0" />
-                                    <audio controls preload="metadata" className="h-8 flex-1 min-w-0" style={{ maxWidth: 240 }}>
-                                      <source src={file.file_url} type={file.content_type} />
-                                    </audio>
-                                    <span className="text-[9px] text-muted-foreground shrink-0">{formatFileSize(file.file_size)}</span>
+                                  <div key={file.id} className="space-y-1">
+                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border">
+                                      <Icon name="Mic" className="w-4 h-4 text-primary shrink-0" />
+                                      <audio controls preload="metadata" className="h-8 flex-1 min-w-0" style={{ maxWidth: 220 }}>
+                                        <source src={file.file_url} type={file.content_type} />
+                                      </audio>
+                                      <button
+                                        onClick={() => transcribeVoiceFile(file.id, file.file_url, file.content_type)}
+                                        disabled={transcribingFile === file.id}
+                                        title={voiceTranscripts[file.id] ? "Скрыть текст" : "Распознать речь"}
+                                        className="p-1 rounded hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
+                                      >
+                                        <Icon
+                                          name={transcribingFile === file.id ? "Loader2" : voiceTranscripts[file.id] ? "EyeOff" : "FileText"}
+                                          className={`w-4 h-4 text-primary ${transcribingFile === file.id ? "animate-spin" : ""}`}
+                                        />
+                                      </button>
+                                      <span className="text-[9px] text-muted-foreground shrink-0">{formatFileSize(file.file_size)}</span>
+                                    </div>
+                                    {voiceTranscripts[file.id] && (
+                                      <div className="text-xs text-foreground/80 italic px-2 py-1 rounded bg-primary/5 border-l-2 border-primary">
+                                        {voiceTranscripts[file.id]}
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   <a

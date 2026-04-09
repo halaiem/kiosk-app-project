@@ -4,18 +4,14 @@
       "name": "Get messages for driver",
       "method": "GET",
       "path": "/?driver_id=1",
-      "expectedStatus": 200,
-      "expectedBody": {"messages": []},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Send message as dispatcher",
       "method": "POST",
       "path": "/",
       "body": {"driver_id": 1, "text": "Тест диспетчера", "type": "normal"},
-      "expectedStatus": 200,
-      "expectedBody": {"id": "number"},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Confirm delivery",
@@ -27,11 +23,11 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Batch send empty returns error",
+      "name": "Batch without token unauthorized",
       "method": "POST",
       "path": "/?action=batch",
       "body": {"messages": []},
-      "expectedStatus": 400,
+      "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
     }

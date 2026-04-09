@@ -31,7 +31,6 @@ interface NavItem {
 const DISPATCHER_NAV: NavItem[] = [
   { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
-  { tab: "messages", icon: "MessageSquare", label: "Водители" },
   { tab: "dash_messages" as DashboardTab, icon: "MessagesSquare", label: "Мессенджер" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },

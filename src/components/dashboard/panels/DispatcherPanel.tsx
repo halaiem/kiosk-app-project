@@ -1,6 +1,5 @@
 import CriticalAlertPopup from "@/components/dashboard/CriticalAlertPopup";
 import { OverviewView } from "./dispatcher/DispatcherOverview";
-import { MessagesView } from "./dispatcher/DispatcherMessages";
 import { NotificationsView, AlertsView } from "./dispatcher/DispatcherAlertsNotif";
 import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
 import DashMessagesView from "./shared/MessagesView";
@@ -79,9 +78,6 @@ export default function DispatcherPanel({
     />
   );
 
-  if (tab === "messages") {
-    return (<>{criticalPopup}<MessagesView messages={messages} drivers={drivers} onSendMessage={onSendMessage} onMarkMessageRead={onMarkMessageRead} /></>);
-  }
   if (tab === "dash_messages") {
     return (<>{criticalPopup}<DashMessagesView currentUserId={currentUserId || 0} /></>);
   }
