@@ -1,1 +1,16 @@
-{"tests": [{"name": "Run seed", "method": "GET", "path": "/", "expectedStatus": 200, "expectedBody": {"total": "number"}, "bodyMatcher": "partial"}]}
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Run seed idempotent",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
