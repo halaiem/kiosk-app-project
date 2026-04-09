@@ -6,6 +6,7 @@ interface VoicePlayerProps {
   bars?: number;
 }
 
+const SPEEDS = [1, 1.5, 2];
 const peaksCache = new Map<string, number[]>();
 
 function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
@@ -15,6 +16,7 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
   const [duration, setDuration] = useState(0);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [speedIdx, setSpeedIdx] = useState(0);
 
   useEffect(() => {
     if (peaks.length > 0) return;
@@ -60,20 +62,24 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
     };
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [url, bars, peaks.length]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = SPEEDS[speedIdx];
+  }, [speedIdx]);
 
   const togglePlay = useCallback(() => {
     const a = audioRef.current;
     if (!a) return;
-    if (a.paused) {
-      a.play().catch((e) => console.warn("play failed", e));
-    } else {
-      a.pause();
-    }
+    if (a.paused) a.play().catch((e) => console.warn("play failed", e));
+    else a.pause();
   }, []);
+
+  const cycleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSpeedIdx((i) => (i + 1) % SPEEDS.length);
+  };
 
   const onBarsClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const a = audioRef.current;
@@ -91,9 +97,10 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
     const s = Math.floor(t % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+  const speed = SPEEDS[speedIdx];
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center gap-2 min-w-0 w-full">
       <audio
         ref={audioRef}
         src={url}
@@ -105,12 +112,14 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
         onLoadedMetadata={(e) => {
           const d = e.currentTarget.duration;
           if (isFinite(d)) setDuration(d);
+          e.currentTarget.playbackRate = SPEEDS[speedIdx];
         }}
         onDurationChange={(e) => {
           const d = e.currentTarget.duration;
           if (isFinite(d)) setDuration(d);
         }}
       />
+
       <button
         onClick={togglePlay}
         className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground hover:opacity-90 flex items-center justify-center transition-opacity"
@@ -122,7 +131,6 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
       <div
         className="flex-1 min-w-0 flex items-center gap-[2px] h-7 cursor-pointer select-none"
         onClick={onBarsClick}
-        style={{ minWidth: 120 }}
       >
         {loading && peaks.length === 0 ? (
           <div className="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
@@ -131,15 +139,14 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
         ) : (
           peaks.map((lvl, i) => {
             const played = i / Math.max(1, peaks.length - 1) <= progress;
-            const h = Math.max(14, Math.round(lvl * 100));
             return (
               <span
                 key={i}
                 className="w-[2px] rounded-full transition-colors"
                 style={{
-                  height: `${h}%`,
-                  backgroundColor: played ? "currentColor" : "currentColor",
-                  opacity: played ? 0.95 : 0.35,
+                  height: `${Math.max(14, Math.round(lvl * 100))}%`,
+                  backgroundColor: "currentColor",
+                  opacity: played ? 0.95 : 0.3,
                 }}
               />
             );
@@ -147,9 +154,17 @@ function VoicePlayer({ url, bars = 36 }: VoicePlayerProps) {
         )}
       </div>
 
-      <span className="text-[9px] font-mono tabular-nums text-muted-foreground shrink-0 w-8 text-right">
+      <span className="text-[9px] font-mono tabular-nums text-muted-foreground shrink-0 w-7 text-right">
         {fmt(duration > 0 ? (playing || current > 0 ? current : duration) : 0)}
       </span>
+
+      <button
+        onClick={cycleSpeed}
+        title="Скорость воспроизведения"
+        className="shrink-0 min-w-[28px] h-5 px-1 rounded text-[10px] font-bold tabular-nums transition-colors bg-muted hover:bg-primary/15 text-muted-foreground hover:text-primary"
+      >
+        {speed === 1 ? "1×" : `${speed}×`}
+      </button>
     </div>
   );
 }
