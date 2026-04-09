@@ -185,6 +185,7 @@ export default function MessagesView({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [sendAsType, setSendAsType] = useState<MessageType>("message");
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
 
   // ── State: new chat modal ──
   const [showNewChat, setShowNewChat] = useState(false);
@@ -1633,18 +1634,48 @@ export default function MessagesView({
 
               {/* Text input row */}
               <div className="flex items-end gap-2">
-                {/* Message type toggle */}
-                <button
-                  onClick={() => setSendAsType((t) => t === "message" ? "notification" : "message")}
-                  className={`p-2 rounded-lg transition-colors shrink-0 ${
-                    sendAsType === "notification"
-                      ? "bg-amber-500/15 text-amber-600"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-                  title={sendAsType === "notification" ? "Режим: Уведомление" : "Режим: Сообщение"}
-                >
-                  <Icon name={sendAsType === "notification" ? "Bell" : "MessageSquare"} className="w-4 h-4" />
-                </button>
+                {/* Message type toggle with popup */}
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setShowTypeMenu((v) => !v)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      sendAsType === "notification"
+                        ? "bg-amber-500/15 text-amber-600"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                    title={sendAsType === "notification" ? "Режим: Уведомление" : "Режим: Сообщение"}
+                  >
+                    <Icon name={sendAsType === "notification" ? "Bell" : "MessageSquare"} className="w-4 h-4" />
+                  </button>
+                  {showTypeMenu && (
+                    <div className="absolute bottom-full mb-2 left-0 z-40 w-56 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border">
+                        <span className="text-xs font-semibold text-foreground">Тип отправки</span>
+                      </div>
+                      <div className="p-1.5 space-y-0.5">
+                        {[
+                          { key: "message" as MessageType, label: "Сообщение", icon: "MessageSquare", desc: "Обычное сообщение" },
+                          { key: "notification" as MessageType, label: "Уведомление", icon: "Bell", desc: "Системное уведомление" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => { setSendAsType(opt.key); setShowTypeMenu(false); }}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                              sendAsType === opt.key ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
+                            }`}
+                          >
+                            <Icon name={opt.icon} className="w-4 h-4 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium">{opt.label}</p>
+                              <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
+                            </div>
+                            {sendAsType === opt.key && <Icon name="Check" className="w-3.5 h-3.5 ml-auto shrink-0 text-primary" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Subject button */}
                 <button

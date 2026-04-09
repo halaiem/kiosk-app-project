@@ -247,12 +247,25 @@ function TabletMessageToastPreview({
       }}
     >
       <div className="flex items-start gap-4">
-        <div
-          className={`${s.iconBox} rounded-2xl flex items-center justify-center flex-shrink-0`}
-          style={{ backgroundColor: style.iconBgColor }}
-        >
-          <Icon name={style.icon} size={s.iconSize} style={{ color: style.iconColor }} />
-        </div>
+        {typeKey === "dispatcher" ? (
+          <div
+            className={`relative ${s.iconBox} rounded-full flex items-center justify-center flex-shrink-0`}
+            style={{ backgroundColor: style.iconBgColor }}
+          >
+            <div
+              className="absolute inset-0 rounded-full animate-ping opacity-40"
+              style={{ backgroundColor: style.iconBgColor }}
+            />
+            <Icon name={style.icon} size={s.iconSize} className="relative z-10" style={{ color: style.iconColor }} />
+          </div>
+        ) : (
+          <div
+            className={`${s.iconBox} rounded-2xl flex items-center justify-center flex-shrink-0`}
+            style={{ backgroundColor: style.iconBgColor }}
+          >
+            <Icon name={style.icon} size={s.iconSize} style={{ color: style.iconColor }} />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div
             className={`${s.titleClass} font-bold uppercase mb-1 opacity-70`}
@@ -338,6 +351,28 @@ function TabletMessageToastPreview({
                 }}
               >
                 Принято
+              </button>
+              <button
+                onClick={previewAlert}
+                className={`flex-[1] ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: "#10b981",
+                  color: "#ffffff",
+                  borderRadius: radius,
+                }}
+              >
+                Да
+              </button>
+              <button
+                onClick={previewAlert}
+                className={`flex-[1] ${s.btnClass} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+                style={{
+                  backgroundColor: "#f43f5e",
+                  color: "#ffffff",
+                  borderRadius: radius,
+                }}
+              >
+                Нет
               </button>
               <button
                 onClick={previewAlert}
@@ -452,6 +487,28 @@ function TabletImportantPreview({
             </button>
             <button
               onClick={previewAlert}
+              className={`flex-[1] ${s.btn} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+              style={{
+                backgroundColor: "#10b981",
+                color: "#ffffff",
+                borderRadius: radius,
+              }}
+            >
+              Да
+            </button>
+            <button
+              onClick={previewAlert}
+              className={`flex-[1] ${s.btn} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
+              style={{
+                backgroundColor: "#f43f5e",
+                color: "#ffffff",
+                borderRadius: radius,
+              }}
+            >
+              Нет
+            </button>
+            <button
+              onClick={previewAlert}
               className={`flex-[2] ${s.btn} font-bold flex items-center justify-center active:scale-[0.98] transition-all`}
               style={{
                 backgroundColor: style.buttonColor,
@@ -477,11 +534,14 @@ function DashboardNotifPreview({
   style,
   def,
   text,
+  typeKey,
 }: {
   style: TypeStyle;
   def: TypeDef;
   text: string;
+  typeKey?: string;
 }) {
+  const isVoice = typeKey === "voice";
   const radius = radiusToCss(style.buttonRadius);
   const sizeMap: Record<NotifSize, { pad: string; iconBox: string; iconSize: number; title: string; body: string; btn: string }> = {
     compact: { pad: "p-3", iconBox: "w-8 h-8", iconSize: 14, title: "text-xs font-semibold", body: "text-[11px]", btn: "px-3 py-1 text-[11px]" },
@@ -509,9 +569,24 @@ function DashboardNotifPreview({
         <p className={s.title} style={{ color: style.textColor }}>
           {def.label}
         </p>
-        <p className={`${s.body} mt-0.5 opacity-80`} style={{ color: style.textColor }}>
-          {text}
-        </p>
+        {isVoice ? (
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={previewAlert}
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: style.buttonColor }}
+            >
+              <Icon name="Play" size={14} style={{ color: style.buttonTextColor }} />
+            </button>
+            <span className={`${s.body} font-semibold tabular-nums`} style={{ color: style.textColor }}>
+              12 сек
+            </span>
+          </div>
+        ) : (
+          <p className={`${s.body} mt-0.5 opacity-80`} style={{ color: style.textColor }}>
+            {text}
+          </p>
+        )}
         {style.showActions && (
           <div className="flex gap-2 mt-2">
             <button
@@ -523,7 +598,7 @@ function DashboardNotifPreview({
                 borderRadius: radius,
               }}
             >
-              Принято
+              {isVoice ? "Прослушать" : "Принято"}
             </button>
             <button
               onClick={previewAlert}
@@ -548,11 +623,14 @@ function DashboardChatBubblePreview({
   style,
   def,
   text,
+  typeKey,
 }: {
   style: TypeStyle;
   def: TypeDef;
   text: string;
+  typeKey?: string;
 }) {
+  const isVoice = typeKey === "voice";
   const radius = radiusToCss(style.buttonRadius);
   const sizeMap: Record<NotifSize, { pad: string; iconBox: string; iconSize: number; title: string; body: string; btn: string }> = {
     compact: { pad: "p-3", iconBox: "w-7 h-7", iconSize: 14, title: "text-[11px] font-semibold", body: "text-xs", btn: "px-2.5 py-1 text-[11px]" },
@@ -586,9 +664,24 @@ function DashboardChatBubblePreview({
               12:34
             </span>
           </div>
-          <p className={`${s.body} mt-1 leading-snug`} style={{ color: style.textColor }}>
-            {text}
-          </p>
+          {isVoice ? (
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={previewAlert}
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: style.buttonColor }}
+              >
+                <Icon name="Play" size={14} style={{ color: style.buttonTextColor }} />
+              </button>
+              <span className={`${s.body} font-semibold tabular-nums`} style={{ color: style.textColor }}>
+                0:12
+              </span>
+            </div>
+          ) : (
+            <p className={`${s.body} mt-1 leading-snug`} style={{ color: style.textColor }}>
+              {text}
+            </p>
+          )}
           {style.showActions && (
             <div className="flex gap-2 mt-3">
               <button
@@ -600,7 +693,7 @@ function DashboardChatBubblePreview({
                   borderRadius: radius,
                 }}
               >
-                Ответить
+                {isVoice ? "Прослушать" : "Ответить"}
               </button>
               <button
                 onClick={previewAlert}
@@ -727,6 +820,7 @@ export default function NotificationDesignSettings() {
           style={currentStyle}
           def={selectedMeta}
           text={selectedMeta.previewText}
+          typeKey={selectedMeta.key}
         />
       );
     }
@@ -735,6 +829,7 @@ export default function NotificationDesignSettings() {
         style={currentStyle}
         def={selectedMeta}
         text={selectedMeta.previewText}
+        typeKey={selectedMeta.key}
       />
     );
   };

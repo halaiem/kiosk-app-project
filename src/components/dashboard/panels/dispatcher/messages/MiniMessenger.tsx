@@ -28,6 +28,7 @@ export function MiniMessenger({
   MsgStatusComponent: typeof MsgStatus;
 }) {
   const [popupThread, setPopupThread] = useState<typeof threads[0] | null>(null);
+  const [sendType, setSendType] = useState<"message" | "urgent">("message");
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
   const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -241,18 +242,35 @@ export function MiniMessenger({
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSendType((t) => t === "message" ? "urgent" : "message")}
+                        className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                          sendType === "urgent"
+                            ? "bg-red-500/15 text-red-500"
+                            : "bg-muted border border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                        title={sendType === "urgent" ? "Срочное" : "Обычное"}
+                      >
+                        <Icon name={sendType === "urgent" ? "AlertTriangle" : "MessageSquare"} className="w-3.5 h-3.5" />
+                      </button>
                       <input
                         type="text"
                         value={miniInput}
                         onChange={(e) => setMiniInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                        placeholder="Ответить..."
-                        className="flex-1 h-8 px-2.5 rounded-lg bg-muted border border-border text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 min-w-0"
+                        placeholder={sendType === "urgent" ? "Срочное сообщение..." : "Ответить..."}
+                        className={`flex-1 h-8 px-2.5 rounded-lg border text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 min-w-0 ${
+                          sendType === "urgent"
+                            ? "bg-red-500/5 border-red-500/30 focus:ring-red-500/40"
+                            : "bg-muted border-border focus:ring-primary/40"
+                        }`}
                       />
                       <button onPointerDown={startRecord} className="h-8 w-8 rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors shrink-0" title="Голосовое">
                         <Icon name="Mic" className="w-3.5 h-3.5 text-muted-foreground" />
                       </button>
-                      <button onClick={handleSend} disabled={!miniInput.trim()} className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 transition-colors shrink-0">
+                      <button onClick={handleSend} disabled={!miniInput.trim()} className={`h-8 w-8 rounded-lg flex items-center justify-center disabled:opacity-40 transition-colors shrink-0 ${
+                        sendType === "urgent" ? "bg-red-500 text-white hover:bg-red-600" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                      }`}>
                         <Icon name="Send" className="w-3.5 h-3.5" />
                       </button>
                     </div>

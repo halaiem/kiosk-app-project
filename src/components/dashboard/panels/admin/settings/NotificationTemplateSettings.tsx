@@ -43,6 +43,36 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((c) => [c.key, c.label])
 );
 
+const NOTIF_TYPE_OPTIONS = [
+  { key: "info", label: "Информационное", icon: "Info", color: "#3b82f6" },
+  { key: "warning", label: "Предупреждение", icon: "AlertTriangle", color: "#f59e0b" },
+  { key: "error", label: "Ошибка", icon: "AlertCircle", color: "#ef4444" },
+  { key: "success", label: "Успешно", icon: "CheckCircle", color: "#22c55e" },
+  { key: "transport", label: "Транспорт", icon: "Bus", color: "#6366f1" },
+  { key: "weather", label: "Погода", icon: "CloudRain", color: "#0ea5e9" },
+  { key: "emergency", label: "Экстренное", icon: "Siren", color: "#dc2626" },
+  { key: "schedule", label: "Расписание", icon: "Clock", color: "#8b5cf6" },
+  { key: "road", label: "Дорожное", icon: "Construction", color: "#f97316" },
+  { key: "message", label: "Сообщение", icon: "MessageSquare", color: "#14b8a6" },
+];
+
+function getNotifDesignStyle(typeKey: string): { bg: string; icon: string; iconColor: string } {
+  try {
+    const raw = localStorage.getItem("notification_design_v2");
+    if (!raw) {
+      const opt = NOTIF_TYPE_OPTIONS.find((o) => o.key === typeKey);
+      return { bg: (opt?.color || "#3b82f6") + "1a", icon: opt?.icon || "Info", iconColor: opt?.color || "#3b82f6" };
+    }
+    const cfg = JSON.parse(raw);
+    const style = cfg?.tablet?.notifications?.[typeKey] || cfg?.dashboard?.notifications?.[typeKey];
+    if (style) return { bg: style.iconBgColor, icon: style.icon, iconColor: style.iconColor };
+  } catch {
+    // ignore
+  }
+  const opt = NOTIF_TYPE_OPTIONS.find((o) => o.key === typeKey);
+  return { bg: (opt?.color || "#3b82f6") + "1a", icon: opt?.icon || "Info", iconColor: opt?.color || "#3b82f6" };
+}
+
 const ROLE_OPTIONS = [
   { key: "dispatcher", label: "Диспетчер" },
   { key: "technician", label: "Технолог" },
@@ -96,6 +126,7 @@ interface NotifTemplate {
   geo_radius_km?: number | null;
   priority: Priority;
   is_active?: boolean;
+  notification_type?: string;
 }
 
 interface EditorState {
@@ -111,6 +142,7 @@ interface EditorState {
   geo_radius_km: string;
   priority: Priority;
   is_active: boolean;
+  notification_type: string;
 }
 
 function emptyEditor(): EditorState {
@@ -126,6 +158,7 @@ function emptyEditor(): EditorState {
     geo_radius_km: "",
     priority: "normal",
     is_active: true,
+    notification_type: "info",
   };
 }
 
@@ -185,6 +218,7 @@ export default function NotificationTemplateSettings() {
       geo_radius_km: t.geo_radius_km != null ? String(t.geo_radius_km) : "",
       priority: t.priority || "normal",
       is_active: t.is_active !== false,
+      notification_type: t.notification_type || "info",
     });
   };
 
@@ -219,6 +253,7 @@ export default function NotificationTemplateSettings() {
           ? Number(editor.geo_radius_km)
           : null,
         priority: editor.priority,
+        notification_type: editor.notification_type,
       };
       if (editor.id) {
         body.id = editor.id;
@@ -320,6 +355,19 @@ export default function NotificationTemplateSettings() {
                       {PRIORITY_OPTIONS.find((p) => p.key === t.priority)
                         ?.label || t.priority}
                     </span>
+                    {t.notification_type && (
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
+                        style={{ backgroundColor: getNotifDesignStyle(t.notification_type).bg }}
+                      >
+                        <Icon
+                          name={getNotifDesignStyle(t.notification_type).icon}
+                          className="w-2.5 h-2.5"
+                          style={{ color: getNotifDesignStyle(t.notification_type).iconColor }}
+                        />
+                        {NOTIF_TYPE_OPTIONS.find((o) => o.key === t.notification_type)?.label || t.notification_type}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                     {t.content}
@@ -421,6 +469,41 @@ export default function NotificationTemplateSettings() {
                   rows={4}
                   className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Тип уведомления
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {NOTIF_TYPE_OPTIONS.map((nt) => {
+                    const ds = getNotifDesignStyle(nt.key);
+                    const active = editor.notification_type === nt.key;
+                    return (
+                      <button
+                        key={nt.key}
+                        type="button"
+                        onClick={() => setEditor({ ...editor, notification_type: nt.key })}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                          active
+                            ? "ring-2 ring-primary/50 border-primary/50"
+                            : "border-border hover:border-primary/30"
+                        }`}
+                        style={{ backgroundColor: active ? ds.bg : undefined }}
+                      >
+                        <div
+                          className="w-5 h-5 rounded flex items-center justify-center"
+                          style={{ backgroundColor: ds.bg }}
+                        >
+                          <Icon name={ds.icon} className="w-3 h-3" style={{ color: ds.iconColor }} />
+                        </div>
+                        <span className={active ? "text-foreground" : "text-muted-foreground"}>
+                          {nt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

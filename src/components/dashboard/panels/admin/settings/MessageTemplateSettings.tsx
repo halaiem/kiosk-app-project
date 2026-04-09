@@ -58,6 +58,31 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((c) => [c.key, c.label])
 );
 
+const MESSAGE_TYPE_OPTIONS = [
+  { key: "normal", label: "Обычное", icon: "MessageSquare", color: "#3b82f6" },
+  { key: "dispatcher", label: "От диспетчера", icon: "Radio", color: "#ec660c" },
+  { key: "important", label: "Важное", icon: "AlertOctagon", color: "#dc2626" },
+  { key: "can_error", label: "Ошибка CAN", icon: "AlertTriangle", color: "#f59e0b" },
+  { key: "voice", label: "Голосовое", icon: "Mic", color: "#22c55e" },
+];
+
+function getDesignStyle(typeKey: string): { bg: string; icon: string; iconColor: string } {
+  try {
+    const raw = localStorage.getItem("notification_design_v2");
+    if (!raw) {
+      const opt = MESSAGE_TYPE_OPTIONS.find((o) => o.key === typeKey);
+      return { bg: (opt?.color || "#3b82f6") + "1a", icon: opt?.icon || "MessageSquare", iconColor: opt?.color || "#3b82f6" };
+    }
+    const cfg = JSON.parse(raw);
+    const style = cfg?.tablet?.messages?.[typeKey] || cfg?.dashboard?.messages?.[typeKey];
+    if (style) return { bg: style.iconBgColor, icon: style.icon, iconColor: style.iconColor };
+  } catch {
+    // ignore
+  }
+  const opt = MESSAGE_TYPE_OPTIONS.find((o) => o.key === typeKey);
+  return { bg: (opt?.color || "#3b82f6") + "1a", icon: opt?.icon || "MessageSquare", iconColor: opt?.color || "#3b82f6" };
+}
+
 interface Template {
   id: number;
   title: string;
@@ -68,6 +93,7 @@ interface Template {
   icon: string;
   sort_order: number;
   is_active?: boolean;
+  message_type?: string;
 }
 
 interface EditorState {
@@ -80,6 +106,7 @@ interface EditorState {
   icon: string;
   sort_order: number;
   is_active: boolean;
+  message_type: string;
 }
 
 function emptyEditor(scope: Scope): EditorState {
@@ -92,6 +119,7 @@ function emptyEditor(scope: Scope): EditorState {
     icon: "MessageSquare",
     sort_order: 0,
     is_active: true,
+    message_type: "normal",
   };
 }
 
@@ -144,6 +172,7 @@ export default function MessageTemplateSettings() {
       icon: t.icon || "MessageSquare",
       sort_order: t.sort_order || 0,
       is_active: t.is_active !== false,
+      message_type: t.message_type || "normal",
     });
   };
 
@@ -165,6 +194,7 @@ export default function MessageTemplateSettings() {
         category: editor.category,
         icon: editor.icon,
         sort_order: editor.sort_order,
+        message_type: editor.message_type,
       };
       if (editor.id) {
         body.id = editor.id;
@@ -285,6 +315,19 @@ export default function MessageTemplateSettings() {
                         {CATEGORY_LABEL[t.category] || t.category}
                       </span>
                     )}
+                    {t.message_type && (
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1"
+                        style={{ backgroundColor: getDesignStyle(t.message_type).bg }}
+                      >
+                        <Icon
+                          name={getDesignStyle(t.message_type).icon}
+                          className="w-2.5 h-2.5"
+                          style={{ color: getDesignStyle(t.message_type).iconColor }}
+                        />
+                        {MESSAGE_TYPE_OPTIONS.find((o) => o.key === t.message_type)?.label || t.message_type}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {t.content}
@@ -380,6 +423,41 @@ export default function MessageTemplateSettings() {
                   placeholder="Текст сообщения..."
                   className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Тип сообщения
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MESSAGE_TYPE_OPTIONS.map((mt) => {
+                    const ds = getDesignStyle(mt.key);
+                    const active = editor.message_type === mt.key;
+                    return (
+                      <button
+                        key={mt.key}
+                        type="button"
+                        onClick={() => setEditor({ ...editor, message_type: mt.key })}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                          active
+                            ? "ring-2 ring-primary/50 border-primary/50"
+                            : "border-border hover:border-primary/30"
+                        }`}
+                        style={{ backgroundColor: active ? ds.bg : undefined }}
+                      >
+                        <div
+                          className="w-5 h-5 rounded flex items-center justify-center"
+                          style={{ backgroundColor: ds.bg }}
+                        >
+                          <Icon name={ds.icon} className="w-3 h-3" style={{ color: ds.iconColor }} />
+                        </div>
+                        <span className={active ? "text-foreground" : "text-muted-foreground"}>
+                          {mt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

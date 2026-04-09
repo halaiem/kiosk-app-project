@@ -9,6 +9,7 @@ import MessageTemplateSettings from "./settings/MessageTemplateSettings";
 import NotificationTemplateSettings from "./settings/NotificationTemplateSettings";
 import RatingsView from "./settings/RatingsView";
 import NotificationDesignSettings from "./settings/NotificationDesignSettings";
+import MessengerSettings from "./settings/MessengerSettings";
 
 const GeoTargetingSettings = lazy(() => import("./settings/GeoTargetingSettings"));
 
@@ -21,6 +22,7 @@ type SettingsTab =
   | 'message_templates'
   | 'notif_templates'
   | 'notif_design'
+  | 'messenger'
   | 'geo_targeting'
   | 'ratings';
 
@@ -40,6 +42,7 @@ export function SettingsView() {
             { key: 'message_templates', label: 'Шаблоны ответов', icon: 'FileText' },
             { key: 'notif_templates', label: 'Шаблоны уведомлений', icon: 'BellRing' },
             { key: 'notif_design', label: 'Дизайн уведомлений', icon: 'Paintbrush' },
+            { key: 'messenger', label: 'Мессенджер', icon: 'MessageSquare' },
             { key: 'geo_targeting', label: 'Гео-таргетинг', icon: 'MapPin' },
             { key: 'ratings', label: 'Рейтинги', icon: 'Star' },
           ] as const).map((t) => (
@@ -67,6 +70,7 @@ export function SettingsView() {
       {settingsTab === 'message_templates' && <MessageTemplateSettings />}
       {settingsTab === 'notif_templates' && <NotificationTemplateSettings />}
       {settingsTab === 'notif_design' && <NotificationDesignSettings />}
+      {settingsTab === 'messenger' && <MessengerSettings />}
       {settingsTab === 'geo_targeting' && (
         <Suspense fallback={<div className="p-8 text-center text-muted-foreground text-sm">Загрузка...</div>}>
           <GeoTargetingSettings />
