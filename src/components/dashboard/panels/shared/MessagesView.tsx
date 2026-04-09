@@ -1568,7 +1568,7 @@ export default function MessagesView({
       {/* ── NEW CHAT MODAL ── */}
       {showNewChat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-card border border-border rounded-2xl w-[620px] max-h-[85vh] flex flex-col shadow-xl">
+          <div className="bg-card border border-border rounded-2xl w-[90vw] max-w-[1400px] max-h-[92vh] flex flex-col shadow-xl">
             {/* Modal header */}
             <div className="px-5 py-4 border-b border-border flex items-center gap-2">
               <Icon name="Plus" className="w-4 h-4 text-primary" />
@@ -1584,104 +1584,111 @@ export default function MessagesView({
             </div>
 
             {/* Modal body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                  Название чата
-                </label>
-                <input
-                  type="text"
-                  value={newChatTitle}
-                  onChange={(e) => setNewChatTitle(e.target.value)}
-                  placeholder="Введите название..."
-                  className="w-full text-xs bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-[320px_1fr] h-full min-h-0">
+                {/* Left column — chat settings */}
+                <div className="border-r border-border px-6 py-5 space-y-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-2">
+                      Название чата
+                    </label>
+                    <input
+                      type="text"
+                      value={newChatTitle}
+                      onChange={(e) => setNewChatTitle(e.target.value)}
+                      placeholder="Введите название..."
+                      className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground mb-2">
-                  Тип чата
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setNewChatType("message")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
-                      newChatType === "message"
-                        ? "bg-primary/15 border-primary/30 text-primary"
-                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon name="MessageSquare" className="w-3.5 h-3.5" />
-                    Сообщения
-                  </button>
-                  <button
-                    onClick={() => setNewChatType("notification")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
-                      newChatType === "notification"
-                        ? "bg-amber-500/15 border-amber-500/30 text-amber-600"
-                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon name="Bell" className="w-3.5 h-3.5" />
-                    Уведомления
-                  </button>
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-2">
+                      Тип чата
+                    </label>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => setNewChatType("message")}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                          newChatType === "message"
+                            ? "bg-primary/15 border-primary/30 text-primary"
+                            : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Icon name="MessageSquare" className="w-4 h-4" />
+                        Сообщения
+                      </button>
+                      <button
+                        onClick={() => setNewChatType("notification")}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+                          newChatType === "notification"
+                            ? "bg-amber-500/15 border-amber-500/30 text-amber-600"
+                            : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Icon name="Bell" className="w-4 h-4" />
+                        Уведомления
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+                    <div className="text-xs font-semibold text-foreground mb-1">Итого участников</div>
+                    <div className="text-2xl font-bold text-primary">{selectedUserIds.size + selectedDriverIds.size}</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {selectedUserIds.size > 0 && <span>{selectedUserIds.size} сотр. </span>}
+                      {selectedDriverIds.size > 0 && <span>{selectedDriverIds.size} вод.</span>}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground mb-2">
-                  Выберите участников
-                </label>
-                <CategoryPicker
-                  users={users}
-                  drivers={driversAll}
-                  selectedUserIds={selectedUserIds}
-                  selectedDriverIds={selectedDriverIds}
-                  onToggleUser={toggleUser}
-                  onToggleDriver={toggleDriver}
-                  onSelectAllUsers={selectAllUsersInRole}
-                  onSelectAllDrivers={selectAllDrivers}
-                  onSelectDriversByIds={selectDriversByIds}
-                  onDeselectDriversByIds={deselectDriversByIds}
-                />
+                {/* Right column — participants picker */}
+                <div className="px-6 py-5">
+                  <label className="block text-xs font-semibold text-foreground mb-3">
+                    Выберите участников
+                  </label>
+                  <CategoryPicker
+                    users={users}
+                    drivers={driversAll}
+                    selectedUserIds={selectedUserIds}
+                    selectedDriverIds={selectedDriverIds}
+                    onToggleUser={toggleUser}
+                    onToggleDriver={toggleDriver}
+                    onSelectAllUsers={selectAllUsersInRole}
+                    onSelectAllDrivers={selectAllDrivers}
+                    onSelectDriversByIds={selectDriversByIds}
+                    onDeselectDriversByIds={deselectDriversByIds}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Modal footer */}
-            <div className="px-5 py-3 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">
-                Выбрано: {selectedUserIds.size + selectedDriverIds.size} уч.
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowNewChat(false)}
-                  className="text-[11px] font-medium px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleCreateChat}
-                  disabled={
-                    creatingChat ||
-                    !newChatTitle.trim() ||
-                    (selectedUserIds.size === 0 &&
-                      selectedDriverIds.size === 0)
-                  }
-                  className="text-[11px] font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {creatingChat ? (
-                    <span className="flex items-center gap-1">
-                      <Icon
-                        name="Loader2"
-                        className="w-3 h-3 animate-spin"
-                      />
-                      Создание...
-                    </span>
-                  ) : (
-                    "Создать чат"
-                  )}
-                </button>
-              </div>
+            <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowNewChat(false)}
+                className="text-sm font-medium px-5 py-2 rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleCreateChat}
+                disabled={
+                  creatingChat ||
+                  !newChatTitle.trim() ||
+                  (selectedUserIds.size === 0 &&
+                    selectedDriverIds.size === 0)
+                }
+                className="text-sm font-medium px-5 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingChat ? (
+                  <span className="flex items-center gap-2">
+                    <Icon name="Loader2" className="w-4 h-4 animate-spin" />
+                    Создание...
+                  </span>
+                ) : (
+                  "Создать чат"
+                )}
+              </button>
             </div>
           </div>
         </div>
