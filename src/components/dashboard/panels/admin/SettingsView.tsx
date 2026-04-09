@@ -3,17 +3,19 @@ import Icon from "@/components/ui/icon";
 import { InterfaceSettingsView } from "./settings/InterfaceSettingsView";
 import { SystemSettingsView } from "./settings/SystemSettingsView";
 import { VehicleIconSettings } from "./settings/VehicleIconSettings";
+import RequestRoutingSettings from "./settings/RequestRoutingSettings";
 
 export function SettingsView() {
-  const [settingsTab, setSettingsTab] = useState<'system' | 'interface' | 'vehicle_icons'>('interface');
+  const [settingsTab, setSettingsTab] = useState<'system' | 'interface' | 'vehicle_icons' | 'request_routing'>('interface');
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {([
           { key: 'interface', label: 'Настройки интерфейса', icon: 'Palette' },
           { key: 'system', label: 'Система и безопасность', icon: 'Shield' },
           { key: 'vehicle_icons', label: 'Иконки транспорта', icon: 'Bus' },
+          { key: 'request_routing', label: 'Маршрутизация заявок', icon: 'Route' },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -33,6 +35,7 @@ export function SettingsView() {
       {settingsTab === 'interface' && <InterfaceSettingsView />}
       {settingsTab === 'system' && <SystemSettingsView />}
       {settingsTab === 'vehicle_icons' && <VehicleIconSettings />}
+      {settingsTab === 'request_routing' && <RequestRoutingSettings />}
     </div>
   );
 }

@@ -70,6 +70,13 @@ const PRIORITY_COLORS: Record<string, string> = {
   critical: "bg-red-500/15 text-red-500",
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Администратор",
+  dispatcher: "Диспетчер",
+  technician: "Технолог",
+  mechanic: "Механик",
+};
+
 const CATEGORIES = [
   { value: "maintenance", label: "Обслуживание" },
   { value: "repair", label: "Ремонт" },
@@ -104,6 +111,7 @@ export default function TechServiceRequestsView({ vehicles = [], onReload }: Tec
   const refreshRef = useRef<ReturnType<typeof setInterval>>();
 
   const [createForm, setCreateForm] = useState({
+    target_role: "",
     vehicle_id: "",
     title: "",
     description: "",
@@ -111,6 +119,7 @@ export default function TechServiceRequestsView({ vehicles = [], onReload }: Tec
     category: "maintenance",
     equipment_info: "",
   });
+  const [allowedTargets, setAllowedTargets] = useState<string[]>([]);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -122,11 +131,21 @@ export default function TechServiceRequestsView({ vehicles = [], onReload }: Tec
     setLoading(false);
   }, []);
 
+  const fetchRouting = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}?action=routing&from_role=technician`, { headers: hdrs() });
+      const data = await res.json();
+      const rules: { from_role: string; to_role: string; is_enabled: boolean }[] = data.routing || [];
+      setAllowedTargets(rules.filter((r) => r.is_enabled).map((r) => r.to_role));
+    } catch { /* skip */ }
+  }, []);
+
   useEffect(() => {
     fetchRequests();
+    fetchRouting();
     refreshRef.current = setInterval(fetchRequests, 30000);
     return () => { if (refreshRef.current) clearInterval(refreshRef.current); };
-  }, [fetchRequests]);
+  }, [fetchRequests, fetchRouting]);
 
   const filtered = useMemo(() => {
     let list = [...requests].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -159,11 +178,12 @@ export default function TechServiceRequestsView({ vehicles = [], onReload }: Tec
           priority: createForm.priority,
           category: createForm.category,
           equipment_info: createForm.equipment_info || null,
+          target_role: createForm.target_role || null,
           source: "technician",
         }),
       });
       setShowCreate(false);
-      setCreateForm({ vehicle_id: "", title: "", description: "", priority: "medium", category: "maintenance", equipment_info: "" });
+      setCreateForm({ target_role: "", vehicle_id: "", title: "", description: "", priority: "medium", category: "maintenance", equipment_info: "" });
       await fetchRequests();
       onReload?.();
     } catch { /* skip */ }
@@ -353,6 +373,21 @@ export default function TechServiceRequestsView({ vehicles = [], onReload }: Tec
               </button>
             </div>
             <div className="p-5 space-y-4">
+              {allowedTargets.length > 0 && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Кому</label>
+                  <select
+                    value={createForm.target_role}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, target_role: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">-- выберите получателя --</option>
+                    {allowedTargets.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-muted-foreground">Транспортное средство</label>
                 <select

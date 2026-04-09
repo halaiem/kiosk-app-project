@@ -74,6 +74,8 @@ def handler(event, context):
             result = handle_stats(cur, user)
         elif action == 'export':
             result = handle_export(qs, cur, user)
+        elif action == 'routing':
+            result = handle_routing(method, event, cur, conn, user)
         else:
             result = resp(400, {'error': 'Неизвестное действие'})
 
@@ -115,9 +117,10 @@ def handle_requests(method, qs, event, cur, conn, user):
             where.append("sr.vehicle_id = %s")
             params.append(vehicle_id)
 
-        if user['role'] == 'mechanic' and not assigned:
-            where.append("(sr.assigned_to_user_id = %s OR sr.assigned_to_user_id IS NULL)")
-            params.append(user['id'])
+        role = user['role']
+        if role in ('mechanic', 'technician', 'dispatcher') and not assigned:
+            where.append("(sr.assigned_to_user_id = %s OR sr.target_role = %s OR sr.created_by_user_id = %s OR sr.assigned_to_user_id IS NULL)")
+            params.extend([user['id'], role, user['id']])
 
         where_clause = ("WHERE " + " AND ".join(where)) if where else ""
 
@@ -153,17 +156,26 @@ def handle_requests(method, qs, event, cur, conn, user):
             if vrow:
                 vehicle_label = vrow['label']
 
-        mechanic_ids = []
-        cur.execute("SELECT id FROM dashboard_users WHERE role = 'mechanic' AND is_active = true ORDER BY id LIMIT 1")
-        mrow = cur.fetchone()
-        assigned_to = body.get('assigned_to') or (mrow['id'] if mrow else None)
+        target_role = body.get('target_role', '')
+        assigned_to = body.get('assigned_to')
+
+        if not assigned_to and target_role:
+            cur.execute("SELECT id FROM dashboard_users WHERE role = %s AND is_active = true ORDER BY id LIMIT 1",
+                        (target_role,))
+            arow = cur.fetchone()
+            if arow:
+                assigned_to = arow['id']
+        elif not assigned_to:
+            cur.execute("SELECT id FROM dashboard_users WHERE role = 'mechanic' AND is_active = true ORDER BY id LIMIT 1")
+            mrow = cur.fetchone()
+            assigned_to = mrow['id'] if mrow else None
 
         cur.execute("""
             INSERT INTO service_requests (
                 request_number, vehicle_id, vehicle_label, source, source_type,
                 created_by_user_id, created_by_role, assigned_to_user_id,
-                title, description, priority, category, equipment_info, diagnostic_code
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                title, description, priority, category, equipment_info, diagnostic_code, target_role
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, request_number
         """, (
             req_number, vehicle_id, vehicle_label,
@@ -175,6 +187,7 @@ def handle_requests(method, qs, event, cur, conn, user):
             body.get('category', ''),
             body.get('equipment_info', ''),
             body.get('diagnostic_code', ''),
+            target_role or None,
         ))
         new = cur.fetchone()
         log_action(cur, new['id'], user, 'created', None, 'new',
@@ -455,3 +468,57 @@ def handle_email(method, event, cur, conn, user):
     else:
         conn.commit()
         return resp(200, {'id': email_id, 'status': 'pending', 'note': 'SMTP не настроен, email сохранён в БД'})
+
+
+# ═══════════════════════════════════════════════════════════════
+# МАРШРУТИЗАЦИЯ ЗАЯВОК (настройки кто кому)
+# ═══════════════════════════════════════════════════════════════
+def handle_routing(method, event, cur, conn, user):
+    if method == 'GET':
+        from_role = None
+        qs = event.get('queryStringParameters') or {}
+        from_role = qs.get('from_role')
+
+        if from_role:
+            cur.execute(
+                "SELECT * FROM service_request_routing WHERE from_role = %s ORDER BY to_role",
+                (from_role,))
+        else:
+            cur.execute("SELECT * FROM service_request_routing ORDER BY from_role, to_role")
+        rows = cur.fetchall()
+        return resp(200, {'routing': [dict(r) for r in rows]})
+
+    if method == 'PUT':
+        if user['role'] != 'admin':
+            return resp(403, {'error': 'Только администратор может менять настройки'})
+        body = json.loads(event.get('body') or '{}')
+        from_role = body.get('from_role', '')
+        to_role = body.get('to_role', '')
+        is_enabled = body.get('is_enabled', True)
+
+        if not from_role or not to_role:
+            return resp(400, {'error': 'Укажите from_role и to_role'})
+
+        cur.execute("""
+            INSERT INTO service_request_routing (from_role, to_role, is_enabled)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (from_role, to_role)
+            DO UPDATE SET is_enabled = %s, updated_at = NOW()
+        """, (from_role, to_role, is_enabled, is_enabled))
+        conn.commit()
+        return resp(200, {'ok': True})
+
+    if method == 'POST' and user['role'] == 'admin':
+        body = json.loads(event.get('body') or '{}')
+        rules = body.get('rules', [])
+        for rule in rules:
+            cur.execute("""
+                INSERT INTO service_request_routing (from_role, to_role, is_enabled)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (from_role, to_role)
+                DO UPDATE SET is_enabled = %s, updated_at = NOW()
+            """, (rule['from_role'], rule['to_role'], rule['is_enabled'], rule['is_enabled']))
+        conn.commit()
+        return resp(200, {'ok': True, 'updated': len(rules)})
+
+    return resp(405, {'error': 'Method not allowed'})

@@ -146,6 +146,7 @@ export default function Dashboard() {
             userName={activeUser.name}
             onOpenMessages={() => setActiveTab('messages')}
             currentUserId={Number(activeUser.id)}
+            vehicles={data.vehicles as unknown as Record<string, unknown>[]}
           />
         )}
         {activeUser.role === 'technician' && (

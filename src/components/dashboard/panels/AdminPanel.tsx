@@ -6,6 +6,7 @@ import { LogsView } from "./admin/LogsView";
 import { DiagnosticApisView } from "./admin/DiagnosticApisView";
 import { AdminVehiclesView } from "./admin/AdminVehiclesView";
 import MessagesView from "./shared/MessagesView";
+import ServiceRequestsPanel from "./shared/ServiceRequestsPanel";
 
 interface AdminPanelProps {
   tab: AdminTab;
@@ -24,5 +25,6 @@ export default function AdminPanel({ tab, servers, logs, drivers = [], onReload,
   if (tab === "diagnostic_apis") return <DiagnosticApisView />;
   if (tab === "admin_vehicles") return <AdminVehiclesView />;
   if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
+  if (tab === "service_requests") return <ServiceRequestsPanel role="admin" canResolve={true} canTakeWork={true} />;
   return null;
 }

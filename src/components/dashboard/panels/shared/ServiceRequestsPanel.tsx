@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import urls from "../../../../../backend/func2url.json";
 
@@ -9,12 +9,19 @@ function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-function headers(): Record<string, string> {
+function hdrs(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   const t = getToken();
   if (t) h["X-Dashboard-Token"] = t;
   return h;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Администратор",
+  dispatcher: "Диспетчер",
+  technician: "Технолог",
+  mechanic: "Механик",
+};
 
 interface ServiceRequest {
   id: number;
@@ -27,6 +34,7 @@ interface ServiceRequest {
   status: string;
   category: string;
   source: string;
+  target_role: string | null;
   creator_id: number;
   creator_name: string;
   assigned_to_id: number | null;
@@ -50,6 +58,12 @@ interface Stats {
   critical: number;
 }
 
+interface RoutingRule {
+  from_role: string;
+  to_role: string;
+  is_enabled: boolean;
+}
+
 type FilterStatus = "all" | "new" | "in_progress" | "resolved" | "closed" | "needs_info";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -71,6 +85,7 @@ const STATUS_COLORS: Record<string, string> = {
 const PRIORITY_LABELS: Record<string, string> = {
   low: "Низкий",
   medium: "Средний",
+  normal: "Обычный",
   high: "Высокий",
   critical: "Критический",
 };
@@ -78,15 +93,9 @@ const PRIORITY_LABELS: Record<string, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   low: "bg-zinc-500/15 text-zinc-400",
   medium: "bg-blue-500/15 text-blue-500",
+  normal: "bg-blue-500/15 text-blue-500",
   high: "bg-orange-500/15 text-orange-500",
   critical: "bg-red-500/15 text-red-500",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Администратор",
-  dispatcher: "Диспетчер",
-  technician: "Технолог",
-  mechanic: "Механик",
 };
 
 function formatDate(d: string): string {
@@ -98,12 +107,24 @@ function formatDate(d: string): string {
   return `${dd}.${mm} ${hh}:${mi}`;
 }
 
-interface ServiceRequestsViewProps {
+interface ServiceRequestsPanelProps {
+  role: string;
   vehicles?: Record<string, unknown>[];
   onReload?: () => void;
+  canResolve?: boolean;
+  canTakeWork?: boolean;
 }
 
-export default function ServiceRequestsView({ vehicles = [], onReload }: ServiceRequestsViewProps) {
+export default function ServiceRequestsPanel({
+  role,
+  vehicles = [],
+  onReload,
+  canResolve,
+  canTakeWork,
+}: ServiceRequestsPanelProps) {
+  const resolveEnabled = canResolve ?? role === "mechanic";
+  const takeWorkEnabled = canTakeWork ?? role === "mechanic";
+
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, new: 0, in_progress: 0, resolved: 0, closed: 0, needs_info: 0, critical: 0 });
   const [loading, setLoading] = useState(true);
@@ -114,34 +135,44 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
   const [resolveData, setResolveData] = useState({ resolved_by_name: "", resolved_by_position: "", resolved_by_employee_id: "", resolution_note: "" });
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ target_role: "", vehicle_label: "", title: "", description: "", priority: "normal", category: "", equipment_info: "" });
   const [allowedTargets, setAllowedTargets] = useState<string[]>([]);
+  const [createForm, setCreateForm] = useState({
+    target_role: "",
+    vehicle_label: "",
+    title: "",
+    description: "",
+    priority: "normal",
+    category: "",
+    equipment_info: "",
+  });
+  const refreshRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchRequests = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}?action=requests`, { headers: headers() });
+      const res = await fetch(`${API_URL}?action=requests`, { headers: hdrs() });
       const data = await res.json();
       if (Array.isArray(data)) setRequests(data);
       else if (data.requests) setRequests(data.requests);
-    } catch { /* skip */ }
+    } catch { void 0; }
   }, []);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}?action=stats`, { headers: headers() });
+      const res = await fetch(`${API_URL}?action=stats`, { headers: hdrs() });
       const data = await res.json();
       if (data) setStats(data);
-    } catch { /* skip */ }
+    } catch { void 0; }
   }, []);
 
   const fetchRouting = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}?action=routing&from_role=mechanic`, { headers: headers() });
+      const res = await fetch(`${API_URL}?action=routing&from_role=${role}`, { headers: hdrs() });
       const data = await res.json();
-      const rules: { from_role: string; to_role: string; is_enabled: boolean }[] = data.routing || [];
-      setAllowedTargets(rules.filter((r) => r.is_enabled).map((r) => r.to_role));
-    } catch { /* skip */ }
-  }, []);
+      const rules: RoutingRule[] = data.routing || [];
+      const enabled = rules.filter((r) => r.is_enabled).map((r) => r.to_role);
+      setAllowedTargets(enabled);
+    } catch { void 0; }
+  }, [role]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -149,7 +180,14 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
     setLoading(false);
   }, [fetchRequests, fetchStats, fetchRouting]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    loadAll();
+    refreshRef.current = setInterval(() => {
+      fetchRequests();
+      fetchStats();
+    }, 30000);
+    return () => { if (refreshRef.current) clearInterval(refreshRef.current); };
+  }, [loadAll, fetchRequests, fetchStats]);
 
   const filtered = useMemo(() => {
     let list = [...requests].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -174,12 +212,12 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
     try {
       await fetch(`${API_URL}?action=requests`, {
         method: "PUT",
-        headers: headers(),
+        headers: hdrs(),
         body: JSON.stringify({ id, status: "in_progress" }),
       });
       await loadAll();
       onReload?.();
-    } catch { /* skip */ }
+    } catch { void 0; }
     setSaving(false);
   };
 
@@ -189,7 +227,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
     try {
       await fetch(`${API_URL}?action=requests`, {
         method: "PUT",
-        headers: headers(),
+        headers: hdrs(),
         body: JSON.stringify({ id: selectedId, status: "resolved", ...resolveData }),
       });
       setShowResolveForm(false);
@@ -197,7 +235,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
       setSelectedId(null);
       await loadAll();
       onReload?.();
-    } catch { /* skip */ }
+    } catch { void 0; }
     setSaving(false);
   };
 
@@ -208,17 +246,17 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
       const veh = vehicles.find((v: Record<string, unknown>) => v.number === createForm.vehicle_label);
       await fetch(`${API_URL}?action=requests`, {
         method: "POST",
-        headers: headers(),
+        headers: hdrs(),
         body: JSON.stringify({
           title: createForm.title,
           description: createForm.description,
-          vehicle_id: veh ? (veh as Record<string, unknown>).id : null,
+          vehicle_id: veh ? veh.id : null,
           vehicle_label: createForm.vehicle_label,
           priority: createForm.priority,
           category: createForm.category,
           equipment_info: createForm.equipment_info || null,
           target_role: createForm.target_role || null,
-          source: "mechanic",
+          source: role,
           source_type: "request",
         }),
       });
@@ -226,7 +264,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
       setCreateForm({ target_role: "", vehicle_label: "", title: "", description: "", priority: "normal", category: "", equipment_info: "" });
       await loadAll();
       onReload?.();
-    } catch { /* skip */ }
+    } catch { void 0; }
     setSaving(false);
   };
 
@@ -319,9 +357,10 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                   <th className="text-left px-4 py-3 font-medium">ТС</th>
                   <th className="text-left px-4 py-3 font-medium">Приоритет</th>
                   <th className="text-left px-4 py-3 font-medium">Статус</th>
+                  <th className="text-left px-4 py-3 font-medium">Кому</th>
                   <th className="text-left px-4 py-3 font-medium">Автор</th>
                   <th className="text-left px-4 py-3 font-medium">Дата</th>
-                  <th className="text-left px-4 py-3 font-medium">Действия</th>
+                  {takeWorkEnabled && <th className="text-left px-4 py-3 font-medium">Действия</th>}
                 </tr>
               </thead>
               <tbody>
@@ -344,19 +383,22 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                         {STATUS_LABELS[r.status] || r.status}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">{r.target_role ? (ROLE_LABELS[r.target_role] || r.target_role) : "---"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.creator_name || "---"}</td>
                     <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(r.created_at)}</td>
-                    <td className="px-4 py-3">
-                      {r.status === "new" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleTakeRequest(r.id); }}
-                          disabled={saving}
-                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        >
-                          Взять в работу
-                        </button>
-                      )}
-                    </td>
+                    {takeWorkEnabled && (
+                      <td className="px-4 py-3">
+                        {r.status === "new" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleTakeRequest(r.id); }}
+                            disabled={saving}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            Взять в работу
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -390,6 +432,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                 <div className="flex justify-between"><span className="text-muted-foreground">ТС:</span><span className="text-foreground">{selected.vehicle_label || "---"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Категория:</span><span className="text-foreground">{selected.category || "---"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Источник:</span><span className="text-foreground">{selected.source || "---"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Кому:</span><span className="text-foreground">{selected.target_role ? (ROLE_LABELS[selected.target_role] || selected.target_role) : "---"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Автор:</span><span className="text-foreground">{selected.creator_name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Создано:</span><span className="text-foreground">{formatDate(selected.created_at)}</span></div>
                 {selected.assigned_to_name && (
@@ -414,7 +457,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
               )}
 
               <div className="flex gap-2 pt-2">
-                {selected.status === "new" && (
+                {takeWorkEnabled && selected.status === "new" && (
                   <button
                     onClick={() => handleTakeRequest(selected.id)}
                     disabled={saving}
@@ -423,7 +466,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                     Взять в работу
                   </button>
                 )}
-                {(selected.status === "in_progress" || selected.status === "new") && !showResolveForm && (
+                {resolveEnabled && (selected.status === "in_progress" || selected.status === "new") && !showResolveForm && (
                   <button
                     onClick={() => setShowResolveForm(true)}
                     className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-600/90 transition-colors"
@@ -517,28 +560,28 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                 </div>
               )}
               <div>
-                <label className="text-xs text-muted-foreground">Заголовок *</label>
-                <input
-                  value={createForm.title}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
-                  placeholder="Опишите неисправность кратко"
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
                 <label className="text-xs text-muted-foreground">ТС (бортовой номер)</label>
                 <select
                   value={createForm.vehicle_label}
                   onChange={(e) => setCreateForm((p) => ({ ...p, vehicle_label: e.target.value }))}
                   className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="">— не указано —</option>
+                  <option value="">-- не указано --</option>
                   {vehicles.map((v: Record<string, unknown>) => (
                     <option key={String(v.id || v.number)} value={String(v.number)}>
                       {String(v.number)} {v.type ? `(${v.type})` : ""}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Заголовок *</label>
+                <input
+                  value={createForm.title}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Краткое описание"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -570,7 +613,7 @@ export default function ServiceRequestsView({ vehicles = [], onReload }: Service
                   value={createForm.description}
                   onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
                   rows={3}
-                  placeholder="Подробное описание неисправности..."
+                  placeholder="Подробное описание..."
                   className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                 />
               </div>

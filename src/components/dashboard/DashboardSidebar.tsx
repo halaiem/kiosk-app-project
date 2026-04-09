@@ -30,6 +30,7 @@ interface NavItem {
 
 const DISPATCHER_NAV: NavItem[] = [
   { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
+  { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
   { tab: "messages", icon: "MessageSquare", label: "Водители" },
   { tab: "dash_messages" as DashboardTab, icon: "MessagesSquare", label: "Мессенджер" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
@@ -52,6 +53,7 @@ const TECHNICIAN_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { tab: "users", icon: "Users", label: "Пользователи" },
   { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
+  { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
