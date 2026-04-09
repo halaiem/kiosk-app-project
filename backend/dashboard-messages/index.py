@@ -93,6 +93,8 @@ def handler(event, context):
             return get_routes_list(cur, schema)
         elif method == 'GET' and action == 'vehicles':
             return get_vehicles_list(cur, schema)
+        elif method == 'POST' and action == 'add_members':
+            return add_members(cur, conn, schema, user, event)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -538,3 +540,46 @@ def get_vehicles_list(cur, schema):
         f"WHERE v.transport_status = 'active' ORDER BY v.board_number"
     )
     return resp(200, {'vehicles': cur.fetchall()})
+
+
+def add_members(cur, conn, schema, user, event):
+    """Добавить участников в существующий чат."""
+    body = json.loads(event.get('body') or '{}')
+    chat_id = body.get('chat_id')
+    user_ids = body.get('user_ids', [])
+    driver_ids = body.get('driver_ids', [])
+
+    if not chat_id:
+        return resp(400, {'error': 'chat_id обязателен'})
+    if not user_ids and not driver_ids:
+        return resp(400, {'error': 'Укажите хотя бы одного участника'})
+
+    cur.execute(
+        f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND user_id = %s",
+        (chat_id, user['id'])
+    )
+    if not cur.fetchone():
+        return resp(403, {'error': 'Нет доступа к чату'})
+
+    added = 0
+    for uid in user_ids:
+        cur.execute(
+            f"INSERT INTO {schema}.chat_members (chat_id, user_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (chat_id, uid)
+        )
+        added += cur.rowcount
+
+    for did in driver_ids:
+        cur.execute(
+            f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND driver_id = %s",
+            (chat_id, did)
+        )
+        if not cur.fetchone():
+            cur.execute(
+                f"INSERT INTO {schema}.chat_members (chat_id, driver_id) VALUES (%s, %s)",
+                (chat_id, did)
+            )
+            added += 1
+
+    conn.commit()
+    return resp(200, {'added': added})

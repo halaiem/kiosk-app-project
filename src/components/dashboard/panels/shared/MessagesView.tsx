@@ -15,8 +15,7 @@ import {
   fetchReaders,
   togglePin,
   fetchPinned,
-  fetchRoutesList,
-  fetchVehiclesList,
+  addMembers,
   type Chat,
   type ChatMessage,
   type ChatUser,
@@ -25,9 +24,8 @@ import {
   type MessageStatus,
   type ReaderEntry,
   type PinnedMessage,
-  type RouteItem,
-  type VehicleItem,
 } from "@/api/chatApi";
+import CategoryPicker from "./CategoryPicker";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,35 +34,6 @@ interface MessagesViewProps {
   onChatOpen?: (chatId: number) => void;
   initialChatId?: number | null;
 }
-
-type RoleFilter =
-  | "admin"
-  | "technician"
-  | "dispatcher"
-  | "personnel"
-  | "driver"
-  | "route"
-  | "vehicle";
-
-const ROLE_FILTER_LABELS: Record<RoleFilter, string> = {
-  admin: "Администраторы",
-  technician: "Техники",
-  dispatcher: "Диспетчеры",
-  personnel: "Персонал",
-  driver: "Водители",
-  route: "Маршруты",
-  vehicle: "Транспорт",
-};
-
-const ROLE_FILTER_ICONS: Record<RoleFilter, string> = {
-  admin: "Shield",
-  technician: "Wrench",
-  dispatcher: "Radio",
-  personnel: "Users",
-  driver: "User",
-  route: "Route",
-  vehicle: "Bus",
-};
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
@@ -221,17 +190,11 @@ export default function MessagesView({
   const [selectedDriverIds, setSelectedDriverIds] = useState<Set<number>>(
     new Set()
   );
-  const [activeRoleFilters, setActiveRoleFilters] = useState<Set<RoleFilter>>(
-    new Set()
-  );
-  const [participantSearch, setParticipantSearch] = useState("");
   const [creatingChat, setCreatingChat] = useState(false);
-
-  // ── State: routes & vehicles for new chat modal ──
-  const [routesList, setRoutesList] = useState<RouteItem[]>([]);
-  const [vehiclesList, setVehiclesList] = useState<VehicleItem[]>([]);
-  const [routesLoaded, setRoutesLoaded] = useState(false);
-  const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [addingMembers, setAddingMembers] = useState(false);
+  const [addMemberUserIds, setAddMemberUserIds] = useState<Set<number>>(new Set());
+  const [addMemberDriverIds, setAddMemberDriverIds] = useState<Set<number>>(new Set());
 
   // ── State: optimistic sending ──
   const [isSendingMsg, setIsSendingMsg] = useState(false);
@@ -636,8 +599,6 @@ export default function MessagesView({
     setNewChatTitle("");
     setSelectedUserIds(new Set());
     setSelectedDriverIds(new Set());
-    setActiveRoleFilters(new Set());
-    setParticipantSearch("");
     try {
       const [u, d] = await Promise.all([fetchUsers(), fetchDrivers()]);
       setUsers(u);
@@ -668,25 +629,6 @@ export default function MessagesView({
     }
   };
 
-  // ── Toggle role filter (accordion) ──
-  const toggleRoleFilter = (role: RoleFilter) => {
-    setActiveRoleFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(role)) {
-        next.delete(role);
-      } else {
-        next.add(role);
-      }
-      return next;
-    });
-    if (role === "route" as RoleFilter && !routesLoaded) {
-      fetchRoutesList().then((r) => { setRoutesList(r); setRoutesLoaded(true); }).catch(() => {});
-    }
-    if (role === "vehicle" as RoleFilter && !vehiclesLoaded) {
-      fetchVehiclesList().then((v) => { setVehiclesList(v); setVehiclesLoaded(true); }).catch(() => {});
-    }
-  };
-
   // ── Toggle user selection ──
   const toggleUser = (id: number) => {
     setSelectedUserIds((prev) => {
@@ -707,6 +649,86 @@ export default function MessagesView({
     });
   };
 
+  // ── Select all in category ──
+  const selectAllUsersInRole = (role: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      users.filter((u) => u.role === role).forEach((u) => next.add(u.id));
+      return next;
+    });
+  };
+  const selectAllDrivers = () => {
+    setSelectedDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+
+  // ── Add members to existing chat ──
+  const toggleAddMemberUser = (id: number) => {
+    setAddMemberUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleAddMemberDriver = (id: number) => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectAllAddUsers = (role: string) => {
+    setAddMemberUserIds((prev) => {
+      const next = new Set(prev);
+      users.filter((u) => u.role === role).forEach((u) => next.add(u.id));
+      return next;
+    });
+  };
+  const selectAllAddDrivers = () => {
+    setAddMemberDriverIds((prev) => {
+      const next = new Set(prev);
+      driversAll.forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
+
+  const handleAddMembers = async () => {
+    if (!activeChatId) return;
+    if (addMemberUserIds.size === 0 && addMemberDriverIds.size === 0) return;
+    setAddingMembers(true);
+    try {
+      await addMembers(activeChatId, Array.from(addMemberUserIds), Array.from(addMemberDriverIds));
+      setShowAddMembers(false);
+      setAddMemberUserIds(new Set());
+      setAddMemberDriverIds(new Set());
+      await loadChats();
+    } catch (e) {
+      console.error("Failed to add members:", e);
+    } finally {
+      setAddingMembers(false);
+    }
+  };
+
+  const openAddMembers = async () => {
+    setShowAddMembers(true);
+    setAddMemberUserIds(new Set());
+    setAddMemberDriverIds(new Set());
+    if (users.length === 0 || driversAll.length === 0) {
+      try {
+        const [u, d] = await Promise.all([fetchUsers(), fetchDrivers()]);
+        setUsers(u);
+        setDriversAll(d);
+      } catch (e) {
+        console.error("Failed to load users/drivers:", e);
+      }
+    }
+  };
+
   // ── Filtered chats ──
   const filteredChats = useMemo(() => {
     if (!chatSearch.trim()) return chats;
@@ -718,66 +740,6 @@ export default function MessagesView({
         (c.last_sender && c.last_sender.toLowerCase().includes(q))
     );
   }, [chats, chatSearch]);
-
-  // ── Filtered users by role & search (for new chat modal) ──
-  const filteredUsersByRole = useMemo(() => {
-    const q = participantSearch.toLowerCase();
-    const roleToFilter: Record<string, RoleFilter> = {
-      admin: "admin",
-      technician: "technician",
-      dispatcher: "dispatcher",
-      personnel: "personnel",
-    };
-    return users.filter((u) => {
-      const userRole = roleToFilter[u.role];
-      if (!userRole) return false;
-      if (!activeRoleFilters.has(userRole)) return false;
-      if (q && !u.full_name.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [users, activeRoleFilters, participantSearch]);
-
-  // ── Filtered drivers (for new chat modal) ──
-  const filteredDriversList = useMemo(() => {
-    if (!activeRoleFilters.has("driver")) return [];
-    const q = participantSearch.toLowerCase();
-    return driversAll.filter((d) => {
-      if (
-        q &&
-        !d.full_name.toLowerCase().includes(q) &&
-        !d.tab_number.toLowerCase().includes(q) &&
-        !(d.board_number && d.board_number.toLowerCase().includes(q))
-      )
-        return false;
-      return true;
-    });
-  }, [driversAll, activeRoleFilters, participantSearch]);
-
-  // ── Select all in category ──
-  const selectAllUsersInRole = (role: RoleFilter) => {
-    if (role === "driver") {
-      setSelectedDriverIds((prev) => {
-        const next = new Set(prev);
-        filteredDriversList.forEach((d) => next.add(d.id));
-        return next;
-      });
-    } else {
-      const roleMap: Record<string, string> = {
-        admin: "admin",
-        technician: "technician",
-        dispatcher: "dispatcher",
-        personnel: "personnel",
-      };
-      const roleVal = roleMap[role];
-      setSelectedUserIds((prev) => {
-        const next = new Set(prev);
-        users
-          .filter((u) => u.role === roleVal)
-          .forEach((u) => next.add(u.id));
-        return next;
-      });
-    }
-  };
 
   // ── Active chat data ──
   const activeChat = chats.find((c) => c.id === activeChatId) ?? null;
@@ -1484,6 +1446,55 @@ export default function MessagesView({
                   )}
                 </button>
               </div>
+
+              {/* Add members toggle */}
+              {activeChatId && (
+                <div className="pt-2 border-t border-border/50">
+                  <button
+                    onClick={() => showAddMembers ? setShowAddMembers(false) : openAddMembers()}
+                    className={`flex items-center gap-1.5 text-[10px] font-medium transition-colors ${showAddMembers ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Icon name={showAddMembers ? "ChevronDown" : "UserPlus"} className="w-3 h-3" />
+                    {showAddMembers ? "Скрыть" : "Добавить участников"}
+                  </button>
+
+                  {showAddMembers && (
+                    <div className="mt-2 space-y-2">
+                      <CategoryPicker
+                        users={users}
+                        drivers={driversAll}
+                        selectedUserIds={addMemberUserIds}
+                        selectedDriverIds={addMemberDriverIds}
+                        onToggleUser={toggleAddMemberUser}
+                        onToggleDriver={toggleAddMemberDriver}
+                        onSelectAllUsers={selectAllAddUsers}
+                        onSelectAllDrivers={selectAllAddDrivers}
+                      />
+                      {(addMemberUserIds.size > 0 || addMemberDriverIds.size > 0) && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] text-muted-foreground">
+                            Выбрано: {addMemberUserIds.size + addMemberDriverIds.size}
+                          </span>
+                          <button
+                            onClick={handleAddMembers}
+                            disabled={addingMembers}
+                            className="text-[10px] font-medium px-3 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            {addingMembers ? (
+                              <span className="flex items-center gap-1">
+                                <Icon name="Loader2" className="w-3 h-3 animate-spin" />
+                                Добавление...
+                              </span>
+                            ) : (
+                              "Добавить в чат"
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1509,7 +1520,6 @@ export default function MessagesView({
 
             {/* Modal body */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {/* Chat name */}
               <div>
                 <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                   Название чата
@@ -1523,122 +1533,20 @@ export default function MessagesView({
                 />
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Icon name="Search" className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={participantSearch}
-                  onChange={(e) => setParticipantSearch(e.target.value)}
-                  placeholder="Поиск участников..."
-                  className="w-full text-xs bg-muted/50 border border-border rounded-lg pl-8 pr-3 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              <div>
+                <label className="block text-[11px] font-medium text-muted-foreground mb-2">
+                  Выберите участников
+                </label>
+                <CategoryPicker
+                  users={users}
+                  drivers={driversAll}
+                  selectedUserIds={selectedUserIds}
+                  selectedDriverIds={selectedDriverIds}
+                  onToggleUser={toggleUser}
+                  onToggleDriver={toggleDriver}
+                  onSelectAllUsers={selectAllUsersInRole}
+                  onSelectAllDrivers={selectAllDrivers}
                 />
-              </div>
-
-              {/* Category accordions */}
-              <div className="space-y-1.5">
-                {(Object.entries(ROLE_FILTER_LABELS) as [RoleFilter, string][]).map(([role, label]) => {
-                  const active = activeRoleFilters.has(role);
-                  const isUserRole = ["admin", "technician", "dispatcher", "personnel"].includes(role);
-                  const isDriver = role === "driver";
-                  const isRoute = role === "route";
-                  const isVehicle = role === "vehicle";
-                  const q = participantSearch.toLowerCase();
-
-                  const roleUsers = isUserRole ? users.filter((u) => u.role === role && (!q || u.full_name.toLowerCase().includes(q))) : [];
-                  const roleDrivers = isDriver ? driversAll.filter((d) => !q || d.full_name.toLowerCase().includes(q) || d.tab_number.toLowerCase().includes(q) || (d.board_number && d.board_number.toLowerCase().includes(q))) : [];
-                  const roleRoutes = isRoute ? routesList.filter((r) => !q || r.route_number.toLowerCase().includes(q) || (r.name && r.name.toLowerCase().includes(q))) : [];
-                  const roleVehicles = isVehicle ? vehiclesList.filter((v) => !q || (v.board_number && v.board_number.toLowerCase().includes(q)) || (v.model && v.model.toLowerCase().includes(q)) || v.label.toLowerCase().includes(q)) : [];
-
-                  const count = isUserRole ? roleUsers.length : isDriver ? roleDrivers.length : isRoute ? roleRoutes.length : roleVehicles.length;
-                  const selectedCount = isUserRole ? roleUsers.filter((u) => selectedUserIds.has(u.id)).length : isDriver ? roleDrivers.filter((d) => selectedDriverIds.has(d.id)).length : 0;
-
-                  return (
-                    <div key={role} className="border border-border rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleRoleFilter(role)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${active ? "bg-primary/8" : "hover:bg-muted/50"}`}
-                      >
-                        <Icon name={ROLE_FILTER_ICONS[role]} className={`w-3.5 h-3.5 shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className={`text-[11px] font-semibold flex-1 ${active ? "text-primary" : "text-foreground"}`}>
-                          {label}
-                        </span>
-                        {selectedCount > 0 && (
-                          <span className="text-[9px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">
-                            {selectedCount}
-                          </span>
-                        )}
-                        <span className="text-[9px] text-muted-foreground">{count}</span>
-                        <Icon name={active ? "ChevronUp" : "ChevronDown"} className="w-3 h-3 text-muted-foreground shrink-0" />
-                      </button>
-
-                      {active && (
-                        <div className="border-t border-border">
-                          {/* Select all for user/driver roles */}
-                          {(isUserRole || isDriver) && count > 0 && (
-                            <div className="px-3 py-1.5 border-b border-border/50 flex justify-end">
-                              <button onClick={() => selectAllUsersInRole(role)} className="text-[10px] text-primary hover:underline">
-                                Выбрать всех
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="max-h-44 overflow-y-auto">
-                            {/* Users */}
-                            {isUserRole && roleUsers.map((user) => (
-                              <label key={user.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 cursor-pointer transition-colors">
-                                <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={() => toggleUser(user.id)} className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0" />
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user.is_online ? "bg-green-500" : "bg-muted-foreground/40"}`} />
-                                <span className="text-xs text-foreground flex-1 truncate">{user.full_name}</span>
-                              </label>
-                            ))}
-
-                            {/* Drivers */}
-                            {isDriver && roleDrivers.map((driver) => (
-                              <label key={driver.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 cursor-pointer transition-colors">
-                                <input type="checkbox" checked={selectedDriverIds.has(driver.id)} onChange={() => toggleDriver(driver.id)} className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-primary/50 shrink-0" />
-                                <span className="text-xs text-foreground truncate flex-1">
-                                  <span className="text-muted-foreground font-mono text-[10px] mr-1">{driver.tab_number}</span>
-                                  {driver.full_name}
-                                </span>
-                                {driver.board_number && <span className="text-[10px] text-muted-foreground shrink-0">Б{driver.board_number}</span>}
-                                {driver.route_number && <span className="text-[10px] text-primary shrink-0">M{driver.route_number}</span>}
-                              </label>
-                            ))}
-
-                            {/* Routes */}
-                            {isRoute && (roleRoutes.length === 0 ? (
-                              <p className="text-[11px] text-muted-foreground text-center py-4">Нет маршрутов</p>
-                            ) : roleRoutes.map((r) => (
-                              <div key={r.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 transition-colors">
-                                <Icon name="Route" className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="text-xs font-medium text-foreground">№{r.route_number}</span>
-                                <span className="text-xs text-muted-foreground truncate flex-1">{r.name}</span>
-                              </div>
-                            )))}
-
-                            {/* Vehicles */}
-                            {isVehicle && (roleVehicles.length === 0 ? (
-                              <p className="text-[11px] text-muted-foreground text-center py-4">Нет транспорта</p>
-                            ) : roleVehicles.map((v) => (
-                              <div key={v.id} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-muted/40 transition-colors">
-                                <Icon name="Bus" className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="text-xs font-medium text-foreground">{v.board_number || v.label}</span>
-                                {v.model && <span className="text-xs text-muted-foreground truncate flex-1">{v.model}</span>}
-                                {v.route_number && <span className="text-[10px] text-primary shrink-0">M{v.route_number}</span>}
-                              </div>
-                            )))}
-
-                            {/* Empty for user/driver */}
-                            {(isUserRole || isDriver) && count === 0 && (
-                              <p className="text-[11px] text-muted-foreground text-center py-4">Не найдено</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </div>
 

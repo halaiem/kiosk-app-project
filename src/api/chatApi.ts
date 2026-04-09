@@ -215,8 +215,15 @@ export async function fetchVehiclesList(): Promise<VehicleItem[]> {
   return d.vehicles;
 }
 
+export async function addMembers(chatId: number, userIds: number[], driverIds: number[]): Promise<{ added: number }> {
+  return request(`${BASE}?action=add_members`, {
+    method: 'POST',
+    body: JSON.stringify({ chat_id: chatId, user_ids: userIds, driver_ids: driverIds }),
+  });
+}
+
 export default {
   fetchUsers, fetchDrivers, fetchChats, fetchMessages,
   fetchUnread, createChat, sendMessage, uploadFile, markRead, pingOnline,
-  fetchReactions, toggleReaction,
+  fetchReactions, toggleReaction, addMembers,
 };
