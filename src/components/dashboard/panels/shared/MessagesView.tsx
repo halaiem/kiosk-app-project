@@ -674,31 +674,17 @@ export default function MessagesView({
       return next;
     });
   };
-  const selectDriversByRoute = (routeNumber: string) => {
+  const selectDriversByIds = (ids: number[]) => {
     setSelectedDriverIds((prev) => {
       const next = new Set(prev);
-      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.add(d.id));
+      ids.forEach((id) => next.add(id));
       return next;
     });
   };
-  const deselectDriversByRoute = (routeNumber: string) => {
+  const deselectDriversByIds = (ids: number[]) => {
     setSelectedDriverIds((prev) => {
       const next = new Set(prev);
-      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.delete(d.id));
-      return next;
-    });
-  };
-  const selectDriversByVehicle = (boardNumber: string) => {
-    setSelectedDriverIds((prev) => {
-      const next = new Set(prev);
-      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.add(d.id));
-      return next;
-    });
-  };
-  const deselectDriversByVehicle = (boardNumber: string) => {
-    setSelectedDriverIds((prev) => {
-      const next = new Set(prev);
-      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.delete(d.id));
+      ids.forEach((id) => next.delete(id));
       return next;
     });
   };
@@ -734,31 +720,17 @@ export default function MessagesView({
       return next;
     });
   };
-  const selectAddDriversByRoute = (routeNumber: string) => {
+  const selectAddDriversByIds = (ids: number[]) => {
     setAddMemberDriverIds((prev) => {
       const next = new Set(prev);
-      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.add(d.id));
+      ids.forEach((id) => next.add(id));
       return next;
     });
   };
-  const deselectAddDriversByRoute = (routeNumber: string) => {
+  const deselectAddDriversByIds = (ids: number[]) => {
     setAddMemberDriverIds((prev) => {
       const next = new Set(prev);
-      driversAll.filter((d) => d.route_number === routeNumber).forEach((d) => next.delete(d.id));
-      return next;
-    });
-  };
-  const selectAddDriversByVehicle = (boardNumber: string) => {
-    setAddMemberDriverIds((prev) => {
-      const next = new Set(prev);
-      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.add(d.id));
-      return next;
-    });
-  };
-  const deselectAddDriversByVehicle = (boardNumber: string) => {
-    setAddMemberDriverIds((prev) => {
-      const next = new Set(prev);
-      driversAll.filter((d) => d.board_number === boardNumber).forEach((d) => next.delete(d.id));
+      ids.forEach((id) => next.delete(id));
       return next;
     });
   };
@@ -1560,10 +1532,8 @@ export default function MessagesView({
                         onToggleDriver={toggleAddMemberDriver}
                         onSelectAllUsers={selectAllAddUsers}
                         onSelectAllDrivers={selectAllAddDrivers}
-                        onSelectDriversByRoute={selectAddDriversByRoute}
-                        onDeselectDriversByRoute={deselectAddDriversByRoute}
-                        onSelectDriversByVehicle={selectAddDriversByVehicle}
-                        onDeselectDriversByVehicle={deselectAddDriversByVehicle}
+                        onSelectDriversByIds={selectAddDriversByIds}
+                        onDeselectDriversByIds={deselectAddDriversByIds}
                       />
                       {(addMemberUserIds.size > 0 || addMemberDriverIds.size > 0) && (
                         <div className="flex items-center justify-between">
@@ -1671,10 +1641,8 @@ export default function MessagesView({
                   onToggleDriver={toggleDriver}
                   onSelectAllUsers={selectAllUsersInRole}
                   onSelectAllDrivers={selectAllDrivers}
-                  onSelectDriversByRoute={selectDriversByRoute}
-                  onDeselectDriversByRoute={deselectDriversByRoute}
-                  onSelectDriversByVehicle={selectDriversByVehicle}
-                  onDeselectDriversByVehicle={deselectDriversByVehicle}
+                  onSelectDriversByIds={selectDriversByIds}
+                  onDeselectDriversByIds={deselectDriversByIds}
                 />
               </div>
             </div>

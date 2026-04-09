@@ -72,7 +72,7 @@ def handler(event, context):
     qs = event.get('queryStringParameters') or {}
     action = qs.get('action', '')
 
-    if action not in ('reactions', 'pinned', 'routes', 'vehicles', 'readers'):
+    if action not in ('reactions', 'pinned', 'routes', 'vehicles', 'filters', 'readers'):
         cur.execute(f"UPDATE {schema}.chat_members SET is_online = true, last_seen_at = NOW() WHERE user_id = %s", (user['id'],))
         conn.commit()
 
@@ -111,6 +111,8 @@ def handler(event, context):
             return get_routes_list(cur, schema)
         elif method == 'GET' and action == 'vehicles':
             return get_vehicles_list(cur, schema)
+        elif method == 'GET' and action == 'filters':
+            return get_filters(cur, schema)
         elif method == 'POST' and action == 'add_members':
             return add_members(cur, conn, schema, user, event)
         else:
@@ -600,6 +602,94 @@ def get_vehicles_list(cur, schema):
         cached = cur.fetchall()
         cache_set(f'vehicles:{schema}', cached, ttl=300)
     return resp(200, {'vehicles': cached})
+
+
+def get_filters(cur, schema):
+    """Все уникальные значения для фильтрации ТС и водителей. TTL 5 мин."""
+    cached = cache_get(f'filters:{schema}')
+    if cached is None:
+        cur.execute(
+            f"SELECT DISTINCT transport_type FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND transport_type IS NOT NULL ORDER BY transport_type"
+        )
+        vehicle_types = [r['transport_type'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT model FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND model IS NOT NULL ORDER BY model"
+        )
+        vehicle_models = [r['model'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT fuel_type FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND fuel_type IS NOT NULL ORDER BY fuel_type"
+        )
+        fuel_types = [r['fuel_type'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT manufacture_year FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND manufacture_year IS NOT NULL ORDER BY manufacture_year DESC"
+        )
+        years = [r['manufacture_year'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT color FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND color IS NOT NULL AND color != '' ORDER BY color"
+        )
+        colors = [r['color'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT manufacturer FROM {schema}.vehicles "
+            f"WHERE transport_status = 'active' AND manufacturer IS NOT NULL AND manufacturer != '' ORDER BY manufacturer"
+        )
+        manufacturers = [r['manufacturer'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT vehicle_type FROM {schema}.drivers "
+            f"WHERE is_active = true AND vehicle_type IS NOT NULL ORDER BY vehicle_type"
+        )
+        driver_vehicle_types = [r['vehicle_type'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT shift_status FROM {schema}.drivers "
+            f"WHERE is_active = true AND shift_status IS NOT NULL ORDER BY shift_status"
+        )
+        shift_statuses = [r['shift_status'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT DISTINCT driver_status FROM {schema}.drivers "
+            f"WHERE is_active = true AND driver_status IS NOT NULL ORDER BY driver_status"
+        )
+        driver_statuses = [r['driver_status'] for r in cur.fetchall()]
+
+        cur.execute(
+            f"SELECT v.transport_type, v.model, v.board_number, v.id::text "
+            f"FROM {schema}.vehicles v "
+            f"WHERE v.transport_status = 'active' ORDER BY v.transport_type, v.model, v.board_number"
+        )
+        vehicle_index = cur.fetchall()
+
+        cur.execute(
+            f"SELECT d.id, d.vehicle_type, d.vehicle_number, d.route_number "
+            f"FROM {schema}.drivers d WHERE d.is_active = true"
+        )
+        driver_index = cur.fetchall()
+
+        cached = {
+            'vehicle_types': vehicle_types,
+            'vehicle_models': vehicle_models,
+            'fuel_types': fuel_types,
+            'years': years,
+            'colors': colors,
+            'manufacturers': manufacturers,
+            'driver_vehicle_types': driver_vehicle_types,
+            'shift_statuses': shift_statuses,
+            'driver_statuses': driver_statuses,
+            'vehicle_index': vehicle_index,
+            'driver_index': driver_index,
+        }
+        cache_set(f'filters:{schema}', cached, ttl=300)
+    return resp(200, cached)
 
 
 def add_members(cur, conn, schema, user, event):

@@ -209,6 +209,23 @@ export async function fetchPinned(chatId: number): Promise<{ pinned: PinnedMessa
 export interface RouteItem { id: string; route_number: string; name: string }
 export interface VehicleItem { id: string; board_number: string | null; model: string | null; label: string; route_number: string | null }
 
+export interface VehicleIndexItem { transport_type: string; model: string | null; board_number: string | null; id: string }
+export interface DriverIndexItem { id: number; vehicle_type: string | null; vehicle_number: string | null; route_number: string | null }
+
+export interface ChatFilters {
+  vehicle_types: string[];
+  vehicle_models: string[];
+  fuel_types: string[];
+  years: number[];
+  colors: string[];
+  manufacturers: string[];
+  driver_vehicle_types: string[];
+  shift_statuses: string[];
+  driver_statuses: string[];
+  vehicle_index: VehicleIndexItem[];
+  driver_index: DriverIndexItem[];
+}
+
 export async function fetchRoutesList(): Promise<RouteItem[]> {
   const d = await request(`${BASE}?action=routes`);
   return d.routes;
@@ -217,6 +234,10 @@ export async function fetchRoutesList(): Promise<RouteItem[]> {
 export async function fetchVehiclesList(): Promise<VehicleItem[]> {
   const d = await request(`${BASE}?action=vehicles`);
   return d.vehicles;
+}
+
+export async function fetchFilters(): Promise<ChatFilters> {
+  return request(`${BASE}?action=filters`);
 }
 
 export async function addMembers(chatId: number, userIds: number[], driverIds: number[]): Promise<{ added: number }> {
