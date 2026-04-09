@@ -114,14 +114,63 @@ export async function logout() {
   clearSession();
 }
 
-export async function sendHeartbeat(lat?: number, lng?: number, speed?: number) {
+export interface GeoZoneAlert {
+  zone_id: number;
+  zone_name: string;
+  event_type: 'entry' | 'exit' | 'nearby';
+  notification_title?: string;
+  notification_content?: string;
+  notification_icon?: string;
+  notification_priority?: string;
+  distance_km?: number;
+}
+
+export async function sendHeartbeat(lat?: number, lng?: number, speed?: number): Promise<GeoZoneAlert[]> {
   const token = getStoredToken();
-  if (!token) return;
-  await fetch(`${URLS.auth}/?action=heartbeat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
-    body: JSON.stringify({ latitude: lat, longitude: lng, speed }),
-  }).catch(() => {});
+  if (!token) return [];
+  try {
+    const res = await fetch(`${URLS.auth}/?action=heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+      body: JSON.stringify({ latitude: lat, longitude: lng, speed }),
+    });
+    const data = await res.json();
+    return data.geo_alerts || [];
+  } catch {
+    return [];
+  }
+}
+
+let _geoWatchId: number | null = null;
+let _lastLat: number | undefined;
+let _lastLng: number | undefined;
+let _lastSpeed: number | undefined;
+
+export function startGeoTracking() {
+  if (_geoWatchId !== null || !navigator.geolocation) return;
+  _geoWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      _lastLat = pos.coords.latitude;
+      _lastLng = pos.coords.longitude;
+      _lastSpeed = pos.coords.speed != null ? Math.round(pos.coords.speed * 3.6) : 0;
+    },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+  );
+}
+
+export function stopGeoTracking() {
+  if (_geoWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(_geoWatchId);
+    _geoWatchId = null;
+  }
+  _lastLat = undefined;
+  _lastLng = undefined;
+  _lastSpeed = undefined;
+}
+
+export function getLastPosition() {
+  return { lat: _lastLat, lng: _lastLng, speed: _lastSpeed };
 }
 
 export async function fetchMessages(sinceId = 0) {

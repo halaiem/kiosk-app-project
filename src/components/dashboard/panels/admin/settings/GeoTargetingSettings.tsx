@@ -50,6 +50,20 @@ interface NotifTemplate {
   title: string;
 }
 
+interface GeoZoneEvent {
+  id: number;
+  driver_id: number;
+  driver_name: string;
+  zone_id: number;
+  zone_name: string;
+  event_type: "entry" | "exit" | "nearby";
+  notification_sent: boolean;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  created_at: string;
+}
+
 type DrawMode = "circle" | "polygon" | "line" | "marker" | null;
 
 /* ── Constants ───────────────────────────────────────────────────── */
@@ -354,6 +368,12 @@ export default function GeoTargetingSettings() {
   const [drawMode, setDrawMode] = useState<DrawMode>(null);
   const [selectedCity, setSelectedCity] = useState(CITIES[0].name);
 
+  /* ── Events tab state ──────────────────────────────────────────── */
+  const [viewTab, setViewTab] = useState<"zones" | "events">("zones");
+  const [events, setEvents] = useState<GeoZoneEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsFilterZone, setEventsFilterZone] = useState<string>("");
+
   /* ── Refs ───────────────────────────────────────────────────────── */
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -407,10 +427,31 @@ export default function GeoTargetingSettings() {
     }
   }, []);
 
+  const loadEvents = useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}?action=geo_zone_events&limit=200`, {
+        headers: hdrs(),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch {
+      setEvents([]);
+    }
+    setEventsLoading(false);
+  }, []);
+
   useEffect(() => {
     loadZones();
     loadTemplates();
   }, [loadZones, loadTemplates]);
+
+  useEffect(() => {
+    if (viewTab === "events") {
+      loadEvents();
+    }
+  }, [viewTab, loadEvents]);
 
   /* ── Map initialization ─────────────────────────────────────────── */
   useEffect(() => {
@@ -898,6 +939,21 @@ export default function GeoTargetingSettings() {
     }
   }, [drawMode]);
 
+  const filteredEvents = useMemo(() => {
+    const sorted = [...events].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    if (!eventsFilterZone) return sorted;
+    return sorted.filter((e) => String(e.zone_id) === eventsFilterZone);
+  }, [events, eventsFilterZone]);
+
+  const formatEventDate = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
     <div className="space-y-4">
@@ -911,12 +967,40 @@ export default function GeoTargetingSettings() {
             Зоны, маршруты и автоматические уведомления по геолокации
           </p>
         </div>
+        {viewTab === "zones" && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Icon name="Plus" className="w-4 h-4" />
+            Добавить зону
+          </button>
+        )}
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl w-fit">
         <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          onClick={() => setViewTab("zones")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            viewTab === "zones"
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Icon name="Plus" className="w-4 h-4" />
-          Добавить зону
+          <Icon name="MapPin" className="w-4 h-4" />
+          Зоны и карта
+        </button>
+        <button
+          onClick={() => setViewTab("events")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            viewTab === "events"
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Icon name="History" className="w-4 h-4" />
+          История событий
         </button>
       </div>
 
@@ -927,7 +1011,8 @@ export default function GeoTargetingSettings() {
         </div>
       )}
 
-      {/* Main layout: left panel + map */}
+      {/* ── Zones + Map view ─────────────────────────────────────── */}
+      {viewTab === "zones" && (
       <div className="flex gap-4 min-h-[600px]" style={{ height: "calc(100vh - 320px)" }}>
         {/* ── Left panel: zone list + editor ────────────────────────── */}
         <div className="w-[360px] shrink-0 flex flex-col gap-4 overflow-hidden">
@@ -1413,6 +1498,158 @@ export default function GeoTargetingSettings() {
           <div ref={mapContainerRef} className="flex-1 min-h-0" />
         </div>
       </div>
+      )}
+
+      {/* ── Events view ──────────────────────────────────────────── */}
+      {viewTab === "events" && (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          {/* Events toolbar */}
+          <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
+            <Icon name="History" className="w-4 h-4 text-primary" />
+            <h4 className="text-sm font-semibold text-foreground">
+              Журнал событий
+            </h4>
+            <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+              {filteredEvents.length}
+            </span>
+
+            <div className="ml-auto flex items-center gap-2">
+              {/* Zone filter */}
+              <select
+                value={eventsFilterZone}
+                onChange={(e) => setEventsFilterZone(e.target.value)}
+                className="h-8 px-3 bg-muted/50 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
+              >
+                <option value="">Все зоны</option>
+                {zones.map((z) => (
+                  <option key={z.id} value={z.id}>
+                    {z.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Refresh */}
+              <button
+                onClick={loadEvents}
+                disabled={eventsLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors disabled:opacity-50"
+              >
+                <Icon
+                  name="RefreshCw"
+                  className={`w-3.5 h-3.5 ${eventsLoading ? "animate-spin" : ""}`}
+                />
+                Обновить
+              </button>
+            </div>
+          </div>
+
+          {/* Events table */}
+          {eventsLoading ? (
+            <div className="p-12 text-center text-muted-foreground text-sm">
+              <Icon name="Loader2" className="w-5 h-5 mx-auto mb-2 animate-spin" />
+              Загрузка событий...
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Icon name="CalendarX2" className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm">Нет событий</p>
+              <p className="text-xs mt-1 opacity-70">
+                События появятся при срабатывании гео-зон
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Дата
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Водитель
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Зона
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Тип события
+                    </th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Расстояние (км)
+                    </th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Уведомление
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredEvents.map((ev) => (
+                    <tr
+                      key={ev.id}
+                      className="hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="px-4 py-2.5 text-xs text-foreground whitespace-nowrap">
+                        {formatEventDate(ev.created_at)}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground">
+                        {ev.driver_name}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground">
+                        {ev.zone_name}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            ev.event_type === "entry"
+                              ? "bg-green-500/10 text-green-600"
+                              : ev.event_type === "exit"
+                                ? "bg-red-500/10 text-red-600"
+                                : "bg-amber-500/10 text-amber-600"
+                          }`}
+                        >
+                          <Icon
+                            name={
+                              ev.event_type === "entry"
+                                ? "LogIn"
+                                : ev.event_type === "exit"
+                                  ? "LogOut"
+                                  : "Radar"
+                            }
+                            className="w-3 h-3"
+                          />
+                          {ev.event_type === "entry"
+                            ? "Вход"
+                            : ev.event_type === "exit"
+                              ? "Выход"
+                              : "Приближение"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground text-right tabular-nums">
+                        {ev.distance_km != null
+                          ? Number(ev.distance_km).toFixed(2)
+                          : "\u2014"}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        {ev.notification_sent ? (
+                          <Icon
+                            name="CheckCircle2"
+                            className="w-4 h-4 text-green-500 mx-auto"
+                          />
+                        ) : (
+                          <Icon
+                            name="MinusCircle"
+                            className="w-4 h-4 text-muted-foreground/40 mx-auto"
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Delete confirmation modal ────────────────────────────── */}
       {confirmDelete !== null && (

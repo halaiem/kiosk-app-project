@@ -1,6 +1,7 @@
 import json
 import os
 import secrets
+import math
 import psycopg2
 
 
@@ -100,7 +101,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'ok': True})}
 
-        # POST ?action=heartbeat — обновление онлайн-статуса и координат
+        # POST ?action=heartbeat — обновление онлайн-статуса, координат и проверка гео-зон
         if method == 'POST' and action == 'heartbeat':
             token = event.get('headers', {}).get('X-Auth-Token', '')
             body = json.loads(event.get('body') or '{}')
@@ -109,11 +110,18 @@ def handler(event: dict, context) -> dict:
             speed = body.get('speed', 0)
 
             cur.execute(
-                "UPDATE driver_sessions SET last_seen = NOW(), is_online = true, latitude = %s, longitude = %s, speed = %s WHERE session_token = %s",
+                "UPDATE driver_sessions SET last_seen = NOW(), is_online = true, latitude = %s, longitude = %s, speed = %s WHERE session_token = %s RETURNING driver_id",
                 (lat, lng, speed, token)
             )
+            row = cur.fetchone()
             conn.commit()
-            return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'ok': True})}
+
+            geo_alerts = []
+            if lat is not None and lng is not None and row:
+                driver_id = row[0]
+                geo_alerts = check_geo_zones(cur, conn, driver_id, float(lat), float(lng))
+
+            return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'ok': True, 'geo_alerts': geo_alerts})}
 
         # GET — список онлайн водителей (для диспетчера)
         if method == 'GET':
@@ -140,3 +148,133 @@ def handler(event: dict, context) -> dict:
     finally:
         cur.close()
         conn.close()
+
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Расстояние между двумя точками на Земле (км)"""
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def point_in_polygon(lat, lng, coords):
+    """Проверка точки внутри полигона (Ray casting)"""
+    n = len(coords)
+    if n < 3:
+        return False
+    inside = False
+    j = n - 1
+    for i in range(n):
+        yi, xi = coords[i]
+        yj, xj = coords[j]
+        if ((yi > lat) != (yj > lat)) and (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def check_geo_zones(cur, conn, driver_id, lat, lng):
+    """Проверка водителя относительно активных гео-зон, генерация событий и уведомлений"""
+    cur.execute("""
+        SELECT gz.id, gz.name, gz.type, gz.coordinates, gz.radius_km, gz.trigger_type,
+               gz.nearby_distance_km, gz.notification_template_id,
+               nt.title as notif_title, nt.content as notif_content,
+               nt.icon as notif_icon, nt.priority as notif_priority
+        FROM geo_zones gz
+        LEFT JOIN notification_templates nt ON nt.id = gz.notification_template_id
+        WHERE gz.is_active = true
+    """)
+    zones = cur.fetchall()
+    if not zones:
+        return []
+
+    cur.execute("SELECT full_name FROM drivers WHERE id = %s", (driver_id,))
+    dr = cur.fetchone()
+    driver_name = dr[0] if dr else ''
+
+    cur.execute("""
+        SELECT zone_id, event_type FROM geo_zone_events
+        WHERE driver_id = %s AND created_at > NOW() - INTERVAL '10 minutes'
+        ORDER BY created_at DESC
+    """, (driver_id,))
+    recent_events = {}
+    for row in cur.fetchall():
+        if row[0] not in recent_events:
+            recent_events[row[0]] = row[1]
+
+    alerts = []
+
+    for z in zones:
+        zone_id, zone_name, zone_type, coordinates, radius_km, trigger_type, nearby_km, notif_tpl_id, notif_title, notif_content, notif_icon, notif_priority = z
+
+        if isinstance(coordinates, str):
+            coordinates = json.loads(coordinates)
+
+        if not coordinates:
+            continue
+
+        is_inside = False
+        distance = None
+
+        if zone_type == 'circle' and len(coordinates) >= 1:
+            center = coordinates[0]
+            center_lat, center_lng = float(center[0]), float(center[1])
+            r = float(radius_km) if radius_km else 1.0
+            distance = haversine_km(lat, lng, center_lat, center_lng)
+            is_inside = distance <= r
+
+        elif zone_type == 'polygon' and len(coordinates) >= 3:
+            poly_coords = [(float(c[0]), float(c[1])) for c in coordinates]
+            is_inside = point_in_polygon(lat, lng, poly_coords)
+            if not is_inside and coordinates:
+                distance = min(haversine_km(lat, lng, float(c[0]), float(c[1])) for c in coordinates)
+
+        elif zone_type == 'marker' and len(coordinates) >= 1:
+            m = coordinates[0]
+            distance = haversine_km(lat, lng, float(m[0]), float(m[1]))
+            is_inside = distance <= 0.1
+
+        elif zone_type == 'line' and len(coordinates) >= 2:
+            distance = min(haversine_km(lat, lng, float(c[0]), float(c[1])) for c in coordinates)
+            is_inside = distance <= 0.2
+
+        last_event = recent_events.get(zone_id)
+        event_type = None
+
+        if trigger_type == 'entry' and is_inside and last_event != 'entry':
+            event_type = 'entry'
+        elif trigger_type == 'exit' and not is_inside and last_event == 'entry':
+            event_type = 'exit'
+        elif trigger_type == 'nearby' and nearby_km and distance is not None:
+            if distance <= float(nearby_km) and last_event != 'nearby':
+                event_type = 'nearby'
+
+        if event_type:
+            cur.execute("""
+                INSERT INTO geo_zone_events
+                (driver_id, driver_name, zone_id, zone_name, event_type, notification_template_id, notification_sent, latitude, longitude, distance_km)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (driver_id, driver_name, zone_id, zone_name, event_type, notif_tpl_id, notif_tpl_id is not None, lat, lng, distance))
+
+            alert = {
+                'zone_id': zone_id,
+                'zone_name': zone_name,
+                'event_type': event_type,
+                'distance_km': round(distance, 2) if distance else None,
+            }
+            if notif_title:
+                alert['notification_title'] = notif_title
+            if notif_content:
+                alert['notification_content'] = notif_content
+            if notif_icon:
+                alert['notification_icon'] = notif_icon
+            if notif_priority:
+                alert['notification_priority'] = notif_priority
+            alerts.append(alert)
+
+    if alerts:
+        conn.commit()
+
+    return alerts

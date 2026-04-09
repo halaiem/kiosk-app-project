@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppScreen, Driver, Message, ConnectionStatus, ThemeMode } from '@/types/kiosk';
-import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver, loginAsMrm, getStoredMrmAdmin, clearMrmAdmin, type MrmAdminInfo } from '@/api/driverApi';
+import { loginByPin, logout as apiLogout, sendHeartbeat, fetchMessages, sendMessage as apiSendMessage, sendBatchMessages, getStoredToken, getStoredDriver, loginAsMrm, getStoredMrmAdmin, clearMrmAdmin, startGeoTracking, stopGeoTracking, getLastPosition, type MrmAdminInfo, type GeoZoneAlert } from '@/api/driverApi';
 import { addToQueue, getPendingMessages, updateQueueItem, removeFromQueue, clearSentMessages, cacheMessages, getCachedMessages, generateClientId } from '@/lib/offlineQueue';
 
 let kioskNotifPermission: NotificationPermission = 'default';
@@ -97,12 +97,47 @@ export function useKioskState() {
     return () => clearInterval(interval);
   }, [screen]);
 
+  const handleGeoAlerts = useCallback((alerts: GeoZoneAlert[]) => {
+    for (const alert of alerts) {
+      const eventLabel = alert.event_type === 'entry' ? 'Вход в зону' : alert.event_type === 'exit' ? 'Выход из зоны' : 'Приближение к зоне';
+      const title = alert.notification_title || `${eventLabel}: ${alert.zone_name}`;
+      const body = alert.notification_content || `Зона «${alert.zone_name}»${alert.distance_km != null ? ` (${alert.distance_km} км)` : ''}`;
+
+      const geoMsg: Message = {
+        id: `geo_${alert.zone_id}_${Date.now()}`,
+        type: alert.notification_priority === 'critical' ? 'important' : 'dispatcher',
+        text: `${title}\n${body}`,
+        timestamp: new Date(),
+        read: false,
+        deliveryStatus: 'delivered',
+      };
+      setMessages(prev => [...prev, geoMsg]);
+
+      if (alert.notification_priority === 'critical') {
+        setPendingImportant(geoMsg);
+      }
+
+      showKioskNotification(body, title);
+    }
+  }, []);
+
   useEffect(() => {
     if (screen !== 'main') return;
-    sendHeartbeat(undefined, undefined, speed);
-    const interval = setInterval(() => sendHeartbeat(undefined, undefined, speed), 60000);
-    return () => clearInterval(interval);
-  }, [screen, speed]);
+    startGeoTracking();
+
+    const doHeartbeat = async () => {
+      const pos = getLastPosition();
+      const alerts = await sendHeartbeat(pos.lat, pos.lng, pos.speed ?? speed);
+      if (alerts.length > 0) handleGeoAlerts(alerts);
+    };
+
+    doHeartbeat();
+    const interval = setInterval(doHeartbeat, 30000);
+    return () => {
+      clearInterval(interval);
+      stopGeoTracking();
+    };
+  }, [screen, speed, handleGeoAlerts]);
 
   useEffect(() => {
     const handleOnline = () => {

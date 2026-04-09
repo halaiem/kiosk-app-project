@@ -157,6 +157,8 @@ def handler(event, context):
             return update_geo_zone(cur, conn, schema, user, event)
         elif method == 'DELETE' and action == 'geo_zone':
             return delete_geo_zone(cur, conn, schema, user, qs)
+        elif method == 'GET' and action == 'geo_zone_events':
+            return get_geo_zone_events(cur, schema, user, qs)
         elif method == 'GET' and action == 'logout_summary':
             return get_logout_summary(cur, schema, user)
         elif method == 'GET' and action == 'driver_unread':
@@ -1216,6 +1218,27 @@ def delete_geo_zone(cur, conn, schema, user, qs):
     cur.execute(f"DELETE FROM {schema}.geo_zones WHERE id = %s", (int(zid),))
     conn.commit()
     return resp(200, {'ok': True})
+
+
+def get_geo_zone_events(cur, schema, user, qs):
+    """История срабатываний гео-зон"""
+    zone_id = qs.get('zone_id')
+    limit = int(qs.get('limit', '100'))
+    where = ""
+    params = []
+    if zone_id:
+        where = "WHERE e.zone_id = %s"
+        params.append(int(zone_id))
+    cur.execute(
+        f"SELECT e.id, e.driver_id, e.driver_name, e.zone_id, e.zone_name, "
+        f"e.event_type, e.notification_sent, e.latitude, e.longitude, "
+        f"e.distance_km, e.created_at "
+        f"FROM {schema}.geo_zone_events e {where} "
+        f"ORDER BY e.created_at DESC LIMIT %s",
+        (*params, limit)
+    )
+    events = cur.fetchall()
+    return resp(200, {'events': events})
 
 
 def get_logout_summary(cur, schema, user):
