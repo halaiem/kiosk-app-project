@@ -38,12 +38,28 @@ def handler(event, context):
 
     params = event.get('queryStringParameters') or {}
     reset = params.get('reset') in ('1', 'true', 'yes')
+    clean_msgs = params.get('clean_messages') in ('1', 'true', 'yes')
 
     conn = psycopg2.connect(DSN)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     results = []
 
     try:
+        if clean_msgs:
+            keep_ids = params.get('keep', '').split(',')
+            keep_ids = [int(x.strip()) for x in keep_ids if x.strip().isdigit()]
+            if keep_ids:
+                placeholders = ','.join(['%s'] * len(keep_ids))
+                cur.execute(f"DELETE FROM chat_messages WHERE id NOT IN ({placeholders})", keep_ids)
+            else:
+                cur.execute("DELETE FROM chat_messages WHERE content LIKE '[архив]%%' OR content LIKE 'E2E%%' OR content LIKE 'Тест%%'")
+            deleted = cur.rowcount
+            cur.execute("DELETE FROM chat_messages WHERE chat_id IN (SELECT id FROM chats WHERE is_active = false)")
+            deleted += cur.rowcount
+            cur.execute("UPDATE chats SET last_message_at = (SELECT MAX(created_at) FROM chat_messages WHERE chat_id = chats.id) WHERE is_active = true")
+            conn.commit()
+            return resp(200, {'deleted': deleted, 'action': 'clean_messages'})
+
         # ── 1. Organization ──────────────────────────────────────────────
         cur.execute("SELECT id FROM organizations LIMIT 1")
         org = cur.fetchone()
