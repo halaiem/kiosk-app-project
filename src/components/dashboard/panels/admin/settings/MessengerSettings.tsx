@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Icon from "@/components/ui/icon";
 
 type Platform = "tablet" | "dashboard";
@@ -58,10 +58,39 @@ const FONT_SIZE_OPTIONS: { key: FontSize; label: string }[] = [
 const MESSAGE_TYPE_OPTIONS = [
   { key: "normal", label: "Обычное", icon: "MessageSquare", color: "#3b82f6" },
   { key: "dispatcher", label: "От диспетчера", icon: "Radio", color: "#ec660c" },
+  { key: "technician", label: "От техника", icon: "Wrench", color: "#8b5cf6" },
+  { key: "admin", label: "От администратора", icon: "ShieldCheck", color: "#6366f1" },
   { key: "important", label: "Важное", icon: "AlertOctagon", color: "#dc2626" },
   { key: "can_error", label: "Ошибка CAN", icon: "AlertTriangle", color: "#f59e0b" },
   { key: "voice", label: "Голосовое", icon: "Mic", color: "#22c55e" },
 ];
+
+const NOTIF_TYPE_OPTIONS = [
+  { key: "info", label: "Информационное", icon: "Info", color: "#3b82f6" },
+  { key: "warning", label: "Предупреждение", icon: "AlertTriangle", color: "#f59e0b" },
+  { key: "error", label: "Ошибка", icon: "AlertCircle", color: "#ef4444" },
+  { key: "success", label: "Успешно", icon: "CheckCircle", color: "#22c55e" },
+  { key: "transport", label: "Транспорт", icon: "Bus", color: "#6366f1" },
+  { key: "weather", label: "Погода", icon: "CloudRain", color: "#0ea5e9" },
+  { key: "emergency", label: "Экстренное", icon: "Siren", color: "#dc2626" },
+  { key: "schedule", label: "Расписание", icon: "Clock", color: "#8b5cf6" },
+  { key: "road", label: "Дорожное", icon: "Construction", color: "#f97316" },
+  { key: "message", label: "Сообщение", icon: "MessageSquare", color: "#14b8a6" },
+];
+
+function loadCustomTypesForMessenger(): { key: string; label: string; icon: string; color: string; category: string }[] {
+  try {
+    const raw = localStorage.getItem("notification_custom_types");
+    if (raw) {
+      return JSON.parse(raw).map((ct: { key: string; label: string; defaultIcon: string; defaultBg: string; category: string }) => ({
+        key: ct.key, label: ct.label, icon: ct.defaultIcon, color: ct.defaultBg, category: ct.category
+      }));
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
 
 function defaultStyle(): MessengerStyle {
   return {
@@ -133,13 +162,15 @@ function getDesignStyle(typeKey: string): { bg: string; icon: string; iconColor:
     const raw = localStorage.getItem("notification_design_v2");
     if (raw) {
       const cfg = JSON.parse(raw);
-      const style = cfg?.tablet?.messages?.[typeKey] || cfg?.dashboard?.messages?.[typeKey];
+      const style = cfg?.tablet?.messages?.[typeKey] || cfg?.dashboard?.messages?.[typeKey]
+        || cfg?.tablet?.notifications?.[typeKey] || cfg?.dashboard?.notifications?.[typeKey];
       if (style) return { bg: style.iconBgColor, icon: style.icon, iconColor: style.iconColor };
     }
   } catch {
     /* ignore */
   }
-  const opt = MESSAGE_TYPE_OPTIONS.find((o) => o.key === typeKey);
+  const allOpts = [...MESSAGE_TYPE_OPTIONS, ...NOTIF_TYPE_OPTIONS];
+  const opt = allOpts.find((o) => o.key === typeKey);
   return {
     bg: (opt?.color || "#3b82f6") + "1a",
     icon: opt?.icon || "MessageSquare",
@@ -386,8 +417,35 @@ function ChatPreview({ style }: { style: MessengerStyle }) {
 export default function MessengerSettings() {
   const [config, setConfig] = useState<MessengerConfig>(loadConfig);
   const [platform, setPlatform] = useState<Platform>("tablet");
-  const [role, setRole] = useState<Role>("dispatcher");
+  const [role, setRole] = useState<Role>("driver");
   const [saved, setSaved] = useState(false);
+
+  const visibleRoles = useMemo(
+    () =>
+      platform === "tablet"
+        ? ROLES.filter((r) => r.key === "driver")
+        : ROLES.filter((r) => r.key !== "driver"),
+    [platform],
+  );
+
+  // When platform changes, auto-select appropriate role
+  useEffect(() => {
+    if (platform === "tablet") {
+      setRole("driver");
+    } else if (role === "driver") {
+      setRole("dispatcher");
+    }
+  }, [platform, role]);
+
+  const customTypes = useMemo(() => loadCustomTypesForMessenger(), []);
+  const allMessageTypes = useMemo(
+    () => [...MESSAGE_TYPE_OPTIONS, ...customTypes.filter((ct) => ct.category === "messages")],
+    [customTypes],
+  );
+  const allNotifTypes = useMemo(
+    () => [...NOTIF_TYPE_OPTIONS, ...customTypes.filter((ct) => ct.category === "notifications")],
+    [customTypes],
+  );
 
   const current = config[platform][role];
 
@@ -482,21 +540,28 @@ export default function MessengerSettings() {
         ))}
       </div>
 
-      <div className="flex gap-1.5 flex-wrap">
-        {ROLES.map((r) => (
-          <button
-            key={r.key}
-            onClick={() => setRole(r.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-              role === r.key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
+      {platform === "tablet" ? (
+        <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-xl w-fit">
+          <Icon name="User" className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">Водитель</span>
+        </div>
+      ) : (
+        <div className="flex gap-1.5 flex-wrap">
+          {visibleRoles.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setRole(r.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                role === r.key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-4">
@@ -567,14 +632,16 @@ export default function MessengerSettings() {
             onReset={() => resetSection(["enabledTypes"])}
           >
             <p className="text-[11px] text-muted-foreground -mt-1 mb-1">
-              Выберите типы сообщений, доступные для роли
-              {" "}
+              Выберите типы, доступные для роли{" "}
               <span className="font-medium text-foreground">
-                {ROLES.find((r) => r.key === role)?.label}
+                {visibleRoles.find((r) => r.key === role)?.label || ROLES.find((r) => r.key === role)?.label}
               </span>
             </p>
-            <div className="space-y-1.5">
-              {MESSAGE_TYPE_OPTIONS.map((mt) => {
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+              Типы сообщений
+            </p>
+            <div className="space-y-1.5 mb-3">
+              {allMessageTypes.map((mt) => {
                 const ds = getDesignStyle(mt.key);
                 const enabled = current.enabledTypes.includes(mt.key);
                 return (
@@ -609,28 +676,95 @@ export default function MessengerSettings() {
                 );
               })}
             </div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+              Типы уведомлений
+            </p>
+            <div className="space-y-1.5">
+              {allNotifTypes.map((nt) => {
+                const ds = getDesignStyle(nt.key);
+                const enabled = current.enabledTypes.includes(nt.key);
+                return (
+                  <button
+                    key={nt.key}
+                    onClick={() => toggleType(nt.key)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                      enabled
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-border hover:border-primary/20 opacity-60"
+                    }`}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: ds.bg }}
+                    >
+                      <Icon name={ds.icon} className="w-4 h-4" style={{ color: ds.iconColor }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{nt.label}</p>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+                        enabled
+                          ? "bg-primary border-primary"
+                          : "border-border bg-background"
+                      }`}
+                    >
+                      {enabled && <Icon name="Check" className="w-3 h-3 text-primary-foreground" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </SectionCard>
 
-          <SectionCard
-            title="Быстрые ответы"
-            icon="Zap"
-            onReset={() => {}}
-          >
-            <p className="text-[11px] text-muted-foreground">
-              Шаблоны быстрых ответов настраиваются в разделе{" "}
-              <span className="font-semibold text-primary">Шаблоны ответов</span>.
+          <SectionCard title="Быстрые ответы" icon="Zap" onReset={() => { /* no-op */ }}>
+            <p className="text-[11px] text-muted-foreground -mt-1 mb-2">
+              Шаблоны быстрых ответов и уведомлений для роли{" "}
+              <span className="font-medium text-foreground">
+                {visibleRoles.find((r) => r.key === role)?.label || ROLES.find((r) => r.key === role)?.label}
+              </span>
             </p>
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border bg-muted/30">
-              <Icon name="FileText" className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground flex-1">
-                Шаблоны для роли{" "}
-                <span className="font-medium text-foreground">
-                  {ROLES.find((r) => r.key === role)?.label}
-                </span>
-              </span>
-              <span className="text-[10px] text-primary font-medium">
-                Настроить шаблоны &rarr;
-              </span>
+
+            {/* Message templates block */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-muted/20">
+                <Icon name="MessageSquare" className="w-4 h-4 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">Шаблоны сообщений</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Быстрые ответы для мессенджера
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("navigate-settings-tab", { detail: "message_templates" }));
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <Icon name="Settings" className="w-3 h-3" />
+                  Настроить
+                </button>
+              </div>
+
+              {/* Notification templates block */}
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-border bg-muted/20">
+                <Icon name="Bell" className="w-4 h-4 text-amber-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground">Шаблоны уведомлений</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Готовые уведомления по типам
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("navigate-settings-tab", { detail: "notif_templates" }));
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500 text-white text-[11px] font-medium hover:bg-amber-600 transition-colors"
+                >
+                  <Icon name="Settings" className="w-3 h-3" />
+                  Настроить
+                </button>
+              </div>
             </div>
           </SectionCard>
 

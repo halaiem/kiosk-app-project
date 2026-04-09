@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import Icon from "@/components/ui/icon";
 import { InterfaceSettingsView } from "./settings/InterfaceSettingsView";
 import { SystemSettingsView } from "./settings/SystemSettingsView";
@@ -28,6 +28,16 @@ type SettingsTab =
 
 export function SettingsView() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('interface');
+
+  const handleNavEvent = useCallback((e: Event) => {
+    const tab = (e as CustomEvent).detail as SettingsTab;
+    if (tab) setSettingsTab(tab);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("navigate-settings-tab", handleNavEvent);
+    return () => window.removeEventListener("navigate-settings-tab", handleNavEvent);
+  }, [handleNavEvent]);
 
   return (
     <div className="space-y-4">

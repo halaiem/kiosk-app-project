@@ -58,12 +58,15 @@ const MESSAGE_TYPES: TypeDef[] = [
   { key: "important", label: "Важное (требует подтверждения)", defaultIcon: "AlertOctagon", defaultBg: "#dc2626", previewText: "Объезд! Перекрыта улица Садовая. Подтвердите получение." },
   { key: "can_error", label: "Ошибка CAN-системы", defaultIcon: "AlertTriangle", defaultBg: "#f59e0b", previewText: "Температура двигателя превышена" },
   { key: "voice", label: "Голосовое сообщение", defaultIcon: "Mic", defaultBg: "#22c55e", previewText: "Голосовое сообщение 12с" },
+  { key: "technician", label: "От техника", defaultIcon: "Wrench", defaultBg: "#8b5cf6", previewText: "Пройдите технический осмотр в парке до 14:00" },
+  { key: "admin", label: "От администратора", defaultIcon: "ShieldCheck", defaultBg: "#6366f1", previewText: "Обновление регламента перевозок. Ознакомьтесь." },
 ];
 
-const TYPES_BY_CATEGORY: Record<Category, TypeDef[]> = {
-  notifications: NOTIF_TYPES,
-  messages: MESSAGE_TYPES,
-};
+function getTypesByCategory(category: Category, customTypes: CustomTypeDef[]): TypeDef[] {
+  const builtIn = category === "notifications" ? NOTIF_TYPES : MESSAGE_TYPES;
+  const custom = customTypes.filter(ct => ct.category === category);
+  return [...builtIn, ...custom];
+}
 
 const RADIUS_OPTIONS: { key: ButtonRadius; label: string; css: string }[] = [
   { key: "none", label: "0", css: "0px" },
@@ -80,6 +83,34 @@ const SIZE_OPTIONS: { key: NotifSize; label: string }[] = [
 ];
 
 const STORAGE_KEY = "notification_design_v2";
+const CUSTOM_TYPES_KEY = "notification_custom_types";
+
+interface CustomTypeDef {
+  key: string;
+  label: string;
+  defaultIcon: string;
+  defaultBg: string;
+  previewText: string;
+  category: Category;
+}
+
+function loadCustomTypes(): CustomTypeDef[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_TYPES_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveCustomTypes(types: CustomTypeDef[]) {
+  try {
+    localStorage.setItem(CUSTOM_TYPES_KEY, JSON.stringify(types));
+  } catch {
+    // ignore
+  }
+}
 
 /* ──────────────────────────────────────────────────────────
    Helpers
@@ -101,36 +132,40 @@ function defaultStyleForType(def: TypeDef): TypeStyle {
   };
 }
 
-function buildDefaults(): DesignConfig {
+function buildDefaults(customTypes: CustomTypeDef[] = []): DesignConfig {
+  const allNotif = [...NOTIF_TYPES, ...customTypes.filter(ct => ct.category === "notifications")];
+  const allMsg = [...MESSAGE_TYPES, ...customTypes.filter(ct => ct.category === "messages")];
   const makeCategory = (types: TypeDef[]): Record<string, TypeStyle> => {
     const obj: Record<string, TypeStyle> = {};
     for (const t of types) obj[t.key] = defaultStyleForType(t);
     return obj;
   };
-  const tabletNotif = makeCategory(NOTIF_TYPES);
-  const tabletMsg = makeCategory(MESSAGE_TYPES);
-  const dashNotif = makeCategory(NOTIF_TYPES);
-  const dashMsg = makeCategory(MESSAGE_TYPES);
   return {
-    tablet: { notifications: tabletNotif, messages: tabletMsg },
-    dashboard: { notifications: dashNotif, messages: dashMsg },
+    tablet: { notifications: makeCategory(allNotif), messages: makeCategory(allMsg) },
+    dashboard: { notifications: makeCategory(allNotif), messages: makeCategory(allMsg) },
   };
 }
 
-function loadConfig(): DesignConfig {
+function loadConfig(customTypes: CustomTypeDef[] = []): DesignConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<DesignConfig>;
-      const defaults = buildDefaults();
+      const defaults = buildDefaults(customTypes);
       for (const p of ["tablet", "dashboard"] as Platform[]) {
         for (const c of ["notifications", "messages"] as Category[]) {
-          const types = TYPES_BY_CATEGORY[c];
+          const types = getTypesByCategory(c, customTypes);
           if (parsed?.[p]?.[c]) {
             for (const t of types) {
               const src = parsed[p]?.[c]?.[t.key];
               if (src) {
                 defaults[p][c][t.key] = { ...defaults[p][c][t.key], ...src };
+              }
+            }
+            // Also load any custom type styles that were saved
+            for (const key of Object.keys(parsed[p]![c]!)) {
+              if (!defaults[p][c][key]) {
+                defaults[p][c][key] = { ...defaultStyleForType({ key, label: key, defaultIcon: "Circle", defaultBg: "#6b7280", previewText: "" }), ...parsed[p]![c]![key] };
               }
             }
           }
@@ -141,7 +176,7 @@ function loadConfig(): DesignConfig {
   } catch {
     // ignore
   }
-  return buildDefaults();
+  return buildDefaults(customTypes);
 }
 
 function saveConfig(config: DesignConfig) {
@@ -720,22 +755,31 @@ function DashboardChatBubblePreview({
    ────────────────────────────────────────────────────────── */
 
 export default function NotificationDesignSettings() {
-  const [config, setConfig] = useState<DesignConfig>(loadConfig);
+  const [customTypes, setCustomTypes] = useState<CustomTypeDef[]>(loadCustomTypes);
+  const [config, setConfig] = useState<DesignConfig>(() => loadConfig(customTypes));
   const [platform, setPlatform] = useState<Platform>("tablet");
   const [category, setCategory] = useState<Category>("notifications");
   const [selectedType, setSelectedType] = useState<string>(NOTIF_TYPES[0].key);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerContext, setIconPickerContext] = useState<"style" | "newType">("style");
   const [saved, setSaved] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newType, setNewType] = useState<{label: string; icon: string; color: string; previewText: string}>({
+    label: "", icon: "Star", color: "#6b7280", previewText: ""
+  });
 
   // When category changes, make sure selectedType exists in that category
   useEffect(() => {
-    const list = TYPES_BY_CATEGORY[category];
+    const list = getTypesByCategory(category, customTypes);
     if (!list.some((t) => t.key === selectedType)) {
       setSelectedType(list[0].key);
     }
-  }, [category, selectedType]);
+  }, [category, selectedType, customTypes]);
 
-  const currentTypes = TYPES_BY_CATEGORY[category];
+  const currentTypes = useMemo(
+    () => getTypesByCategory(category, customTypes),
+    [category, customTypes]
+  );
   const selectedMeta = useMemo(
     () => currentTypes.find((t) => t.key === selectedType) ?? currentTypes[0],
     [currentTypes, selectedType],
@@ -779,10 +823,62 @@ export default function NotificationDesignSettings() {
   }, [platform, category, selectedMeta]);
 
   const resetAll = useCallback(() => {
-    const defaults = buildDefaults();
+    const defaults = buildDefaults(customTypes);
     setConfig(defaults);
     saveConfig(defaults);
-  }, []);
+  }, [customTypes]);
+
+  const handleCreateCustomType = useCallback(() => {
+    if (!newType.label.trim()) return;
+    const key = "custom_" + newType.label.toLowerCase().replace(/[^a-zа-яё0-9]/gi, "_") + "_" + Date.now();
+    const ct: CustomTypeDef = {
+      key,
+      label: newType.label.trim(),
+      defaultIcon: newType.icon,
+      defaultBg: newType.color,
+      previewText: newType.previewText || newType.label,
+      category,
+    };
+    const updated = [...customTypes, ct];
+    setCustomTypes(updated);
+    saveCustomTypes(updated);
+    // Add default style for new type in config
+    const style = defaultStyleForType(ct);
+    setConfig(prev => {
+      const next = { ...prev };
+      for (const p of ["tablet", "dashboard"] as Platform[]) {
+        next[p] = { ...next[p], [category]: { ...next[p][category], [key]: style } };
+      }
+      saveConfig(next);
+      return next;
+    });
+    setSelectedType(key);
+    setShowCreateModal(false);
+    setNewType({ label: "", icon: "Star", color: "#6b7280", previewText: "" });
+  }, [newType, category, customTypes]);
+
+  const handleDeleteCustomType = useCallback((key: string) => {
+    const updated = customTypes.filter(ct => ct.key !== key);
+    setCustomTypes(updated);
+    saveCustomTypes(updated);
+    // Remove from config
+    setConfig(prev => {
+      const next = { ...prev };
+      for (const p of ["tablet", "dashboard"] as Platform[]) {
+        for (const c of ["notifications", "messages"] as Category[]) {
+          const catObj = { ...next[p][c] };
+          delete catObj[key];
+          next[p] = { ...next[p], [c]: catObj };
+        }
+      }
+      saveConfig(next);
+      return next;
+    });
+    if (selectedType === key) {
+      const types = getTypesByCategory(category, updated);
+      setSelectedType(types[0]?.key || "");
+    }
+  }, [customTypes, category, selectedType]);
 
   const flash = () => {
     setSaved(true);
@@ -923,6 +1019,13 @@ export default function NotificationDesignSettings() {
             <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full ml-auto">
               {currentTypes.length}
             </span>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="ml-1 w-6 h-6 rounded-md bg-primary/10 text-primary hover:bg-primary/20 flex items-center justify-center transition-colors"
+              title="Создать новый тип"
+            >
+              <Icon name="Plus" className="w-3.5 h-3.5" />
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {currentTypes.map((t) => {
@@ -972,6 +1075,18 @@ export default function NotificationDesignSettings() {
                   </div>
                   {isSelected && (
                     <Icon name="ChevronRight" className="w-4 h-4 text-primary shrink-0" />
+                  )}
+                  {customTypes.some(ct => ct.key === t.key) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCustomType(t.key);
+                      }}
+                      className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      title="Удалить тип"
+                    >
+                      <Icon name="X" className="w-3 h-3" />
+                    </button>
                   )}
                 </button>
               );
@@ -1036,7 +1151,7 @@ export default function NotificationDesignSettings() {
                   <label className="text-xs text-muted-foreground">Иконка</label>
                   <button
                     type="button"
-                    onClick={() => setIconPickerOpen(true)}
+                    onClick={() => { setIconPickerContext("style"); setIconPickerOpen(true); }}
                     className="flex items-center gap-2 h-7 px-3 rounded-lg border border-border bg-background text-foreground text-xs hover:bg-muted transition-colors"
                   >
                     <Icon name={currentStyle.icon} className="w-4 h-4 text-primary" />
@@ -1163,12 +1278,78 @@ export default function NotificationDesignSettings() {
       <IconPickerModal
         open={iconPickerOpen}
         onClose={() => setIconPickerOpen(false)}
-        selected={currentStyle.icon}
+        selected={iconPickerContext === "newType" ? newType.icon : currentStyle.icon}
         onSelect={(name) => {
-          updateStyle({ icon: name });
+          if (iconPickerContext === "newType") {
+            setNewType(prev => ({ ...prev, icon: name }));
+          } else {
+            updateStyle({ icon: name });
+          }
           setIconPickerOpen(false);
         }}
       />
+
+      {/* Create custom type modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <Icon name="Plus" className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground flex-1">
+                Новый тип {category === "notifications" ? "уведомления" : "сообщения"}
+              </h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground hover:text-foreground">
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Название</label>
+                <input type="text" value={newType.label} onChange={e => setNewType({...newType, label: e.target.value})}
+                  placeholder="Например: От бортового компьютера"
+                  className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Текст примера</label>
+                <input type="text" value={newType.previewText} onChange={e => setNewType({...newType, previewText: e.target.value})}
+                  placeholder="Текст для предпросмотра..."
+                  className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">Иконка</label>
+                  <button type="button" onClick={() => { setIconPickerContext("newType"); setIconPickerOpen(true); }}
+                    className="w-full flex items-center gap-2 text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground hover:bg-muted transition-colors text-left">
+                    <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: newType.color + "22" }}>
+                      <Icon name={newType.icon} className="w-4 h-4" style={{ color: newType.color }} />
+                    </div>
+                    <span className="truncate">{newType.icon}</span>
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">Цвет</label>
+                  <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-1.5">
+                    <input type="color" value={newType.color} onChange={e => setNewType({...newType, color: e.target.value})}
+                      className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0" />
+                    <span className="text-sm text-foreground font-mono">{newType.color}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
+              <button onClick={() => setShowCreateModal(false)}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                Отмена
+              </button>
+              <button onClick={handleCreateCustomType} disabled={!newType.label.trim()}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+                <Icon name="Plus" className="w-4 h-4" />
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

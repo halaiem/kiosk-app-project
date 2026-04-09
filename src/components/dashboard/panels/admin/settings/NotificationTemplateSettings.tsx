@@ -43,7 +43,7 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((c) => [c.key, c.label])
 );
 
-const NOTIF_TYPE_OPTIONS = [
+const NOTIF_TYPE_OPTIONS_BUILTIN = [
   { key: "info", label: "Информационное", icon: "Info", color: "#3b82f6" },
   { key: "warning", label: "Предупреждение", icon: "AlertTriangle", color: "#f59e0b" },
   { key: "error", label: "Ошибка", icon: "AlertCircle", color: "#ef4444" },
@@ -55,6 +55,22 @@ const NOTIF_TYPE_OPTIONS = [
   { key: "road", label: "Дорожное", icon: "Construction", color: "#f97316" },
   { key: "message", label: "Сообщение", icon: "MessageSquare", color: "#14b8a6" },
 ];
+
+function loadCustomNotifTypes(): { key: string; label: string; icon: string; color: string }[] {
+  try {
+    const raw = localStorage.getItem("notification_custom_types");
+    if (raw) {
+      return JSON.parse(raw)
+        .filter((ct: { category: string }) => ct.category === "notifications")
+        .map((ct: { key: string; label: string; defaultIcon: string; defaultBg: string }) => ({
+          key: ct.key, label: ct.label, icon: ct.defaultIcon, color: ct.defaultBg,
+        }));
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+const NOTIF_TYPE_OPTIONS = [...NOTIF_TYPE_OPTIONS_BUILTIN, ...loadCustomNotifTypes()];
 
 function getNotifDesignStyle(typeKey: string): { bg: string; icon: string; iconColor: string } {
   try {

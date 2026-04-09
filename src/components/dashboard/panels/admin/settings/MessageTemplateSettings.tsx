@@ -58,13 +58,31 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIES.map((c) => [c.key, c.label])
 );
 
-const MESSAGE_TYPE_OPTIONS = [
+const MESSAGE_TYPE_OPTIONS_BUILTIN = [
   { key: "normal", label: "Обычное", icon: "MessageSquare", color: "#3b82f6" },
   { key: "dispatcher", label: "От диспетчера", icon: "Radio", color: "#ec660c" },
+  { key: "technician", label: "От техника", icon: "Wrench", color: "#8b5cf6" },
+  { key: "admin", label: "От администратора", icon: "ShieldCheck", color: "#6366f1" },
   { key: "important", label: "Важное", icon: "AlertOctagon", color: "#dc2626" },
   { key: "can_error", label: "Ошибка CAN", icon: "AlertTriangle", color: "#f59e0b" },
   { key: "voice", label: "Голосовое", icon: "Mic", color: "#22c55e" },
 ];
+
+function loadCustomMsgTypes(): { key: string; label: string; icon: string; color: string }[] {
+  try {
+    const raw = localStorage.getItem("notification_custom_types");
+    if (raw) {
+      return JSON.parse(raw)
+        .filter((ct: { category: string }) => ct.category === "messages")
+        .map((ct: { key: string; label: string; defaultIcon: string; defaultBg: string }) => ({
+          key: ct.key, label: ct.label, icon: ct.defaultIcon, color: ct.defaultBg,
+        }));
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+const MESSAGE_TYPE_OPTIONS = [...MESSAGE_TYPE_OPTIONS_BUILTIN, ...loadCustomMsgTypes()];
 
 function getDesignStyle(typeKey: string): { bg: string; icon: string; iconColor: string } {
   try {

@@ -70,6 +70,28 @@ function showBrowserNotification(
   setTimeout(() => notif.close(), 10000);
 }
 
+const TYPE_STYLES: Record<string, { icon: string; iconBg: string; iconColor: string; borderColor: string }> = {
+  notification: { icon: "Bell", iconBg: "rgba(245,158,11,0.15)", iconColor: "#f59e0b", borderColor: "rgba(245,158,11,0.3)" },
+  important: { icon: "AlertOctagon", iconBg: "rgba(220,38,38,0.15)", iconColor: "#dc2626", borderColor: "rgba(220,38,38,0.3)" },
+  dispatcher: { icon: "Radio", iconBg: "rgba(236,102,12,0.15)", iconColor: "#ec660c", borderColor: "rgba(236,102,12,0.3)" },
+  technician: { icon: "Wrench", iconBg: "rgba(139,92,246,0.15)", iconColor: "#8b5cf6", borderColor: "rgba(139,92,246,0.3)" },
+  admin: { icon: "ShieldCheck", iconBg: "rgba(99,102,241,0.15)", iconColor: "#6366f1", borderColor: "rgba(99,102,241,0.3)" },
+  can_error: { icon: "AlertTriangle", iconBg: "rgba(245,158,11,0.15)", iconColor: "#f59e0b", borderColor: "rgba(245,158,11,0.3)" },
+};
+
+function getToastStyle(messageType?: string) {
+  if (messageType && TYPE_STYLES[messageType]) return TYPE_STYLES[messageType];
+  try {
+    const raw = localStorage.getItem("notification_design_v2");
+    if (raw && messageType) {
+      const cfg = JSON.parse(raw);
+      const s = cfg?.dashboard?.messages?.[messageType] || cfg?.dashboard?.notifications?.[messageType];
+      if (s) return { icon: s.icon, iconBg: s.iconBgColor, iconColor: s.iconColor, borderColor: s.borderColor };
+    }
+  } catch { /* ignore */ }
+  return { icon: "MessageSquare", iconBg: "rgba(59,130,246,0.15)", iconColor: "#3b82f6", borderColor: "transparent" };
+}
+
 export default function ChatNotificationToast({ currentUserId, onOpenChat }: ChatNotificationToastProps) {
   const [toasts, setToasts] = useState<UnreadNotification[]>([]);
   const seenIds = useRef<Set<number>>(new Set());
@@ -118,14 +140,17 @@ export default function ChatNotificationToast({ currentUserId, onOpenChat }: Cha
 
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm">
-      {toasts.map((t) => (
+      {toasts.map((t) => {
+        const ts = getToastStyle((t as UnreadNotification & { message_type?: string }).message_type);
+        return (
         <div
           key={t.message_id}
-          className="bg-card border border-border rounded-xl shadow-2xl p-4 animate-in slide-in-from-right-5 fade-in duration-300"
+          className="bg-card border rounded-xl shadow-2xl p-4 animate-in slide-in-from-right-5 fade-in duration-300"
+          style={{ borderColor: ts.borderColor || undefined }}
         >
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
-              <Icon name="MessageSquare" className="w-4 h-4 text-primary" />
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: ts.iconBg }}>
+              <Icon name={ts.icon} className="w-4 h-4" style={{ color: ts.iconColor }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -168,7 +193,8 @@ export default function ChatNotificationToast({ currentUserId, onOpenChat }: Cha
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

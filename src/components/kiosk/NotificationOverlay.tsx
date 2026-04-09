@@ -9,14 +9,18 @@ interface ToastProps {
   onYes?: () => void;
   onNo?: () => void;
   onPlayVoice?: () => void;
+  onForward?: () => void;
 }
 
-export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayVoice }: ToastProps) {
+export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayVoice, onForward }: ToastProps) {
   const isVoice = message.isVoice;
+  const isApiSource = message.type === 'can_error';
 
   const icons: Record<string, string> = {
     normal: 'MessageSquare',
     dispatcher: 'Radio',
+    technician: 'Wrench',
+    admin: 'ShieldCheck',
     can_error: 'AlertTriangle',
     important: 'AlertOctagon',
   };
@@ -24,14 +28,22 @@ export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayV
   const colors: Record<string, string> = {
     normal: 'bg-card border-border',
     dispatcher: 'bg-primary/10 border-primary/30',
+    technician: 'bg-purple-500/10 border-purple-500/30',
+    admin: 'bg-indigo-500/10 border-indigo-500/30',
     can_error: 'bg-warning/10 border-warning/30',
     important: 'bg-destructive/10 border-destructive/30',
   };
 
+  const labels: Record<string, string> = {
+    dispatcher: 'Диспетчер',
+    technician: 'Техник',
+    admin: 'Администратор',
+    can_error: 'CAN-система',
+    important: 'Важное',
+  };
+
   const iconName = isVoice ? 'Mic' : (icons[message.type] || 'Bell');
-  const label = isVoice
-    ? 'Голосовое сообщение'
-    : message.type === 'dispatcher' ? 'Диспетчер' : message.type === 'can_error' ? 'CAN-система' : 'Уведомление';
+  const label = isVoice ? 'Голосовое сообщение' : (labels[message.type] || 'Уведомление');
 
   return (
     <div className={`animate-slide-in-down flex flex-col gap-5 p-6 md:p-10 rounded-3xl border-2 ${isVoice ? 'bg-white border-green-500/30' : (colors[message.type] || colors.normal)} w-full pointer-events-auto`}>
@@ -102,6 +114,15 @@ export function MessageToast({ message, onConfirm, onReply, onYes, onNo, onPlayV
                 className="flex-[1] h-14 md:h-24 rounded-2xl bg-rose-500 text-white font-bold text-base md:text-2xl flex items-center justify-center active:scale-[0.98] transition-all ripple"
               >
                 Нет
+              </button>
+            )}
+            {isApiSource && onForward && (
+              <button
+                onClick={onForward}
+                className="flex-[2] h-14 md:h-24 rounded-2xl bg-amber-500 text-white font-bold text-base md:text-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all ripple"
+              >
+                <Icon name="Forward" size={22} className="md:!w-7 md:!h-7" />
+                Переслать
               </button>
             )}
             <button

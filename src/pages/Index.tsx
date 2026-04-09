@@ -119,6 +119,11 @@ export default function Index() {
     }, 350);
   }, []);
 
+  const handleForwardNotif = useCallback((msgText: string, msgType: string) => {
+    setQueue(prev => prev.slice(1));
+    state.sendMessage(`⤵️ Переслано [${msgType}]: ${msgText}`, undefined, undefined, undefined, msgText);
+  }, [state.sendMessage]);
+
   // Обычные сообщения от диспетчера → в очередь
   useEffect(() => {
     const latest = state.messages[0];
@@ -345,6 +350,7 @@ export default function Index() {
                       onYes={() => { state.markRead(top.message!.id); dismissTopWithAnswer('Да', top.message!.text); }}
                       onNo={() => { state.markRead(top.message!.id); dismissTopWithAnswer('Нет', top.message!.text); }}
                       onPlayVoice={top.message.isVoice ? () => { state.markRead(top.message!.id); handlePlayVoiceInNotif(top.message!.id); } : undefined}
+                      onForward={top.message.type === 'can_error' ? () => { state.markRead(top.message!.id); handleForwardNotif(top.message!.text, top.message!.type); } : undefined}
                     />
                   )}
                 </div>
