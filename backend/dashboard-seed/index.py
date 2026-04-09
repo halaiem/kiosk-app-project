@@ -39,12 +39,26 @@ def handler(event, context):
     params = event.get('queryStringParameters') or {}
     reset = params.get('reset') in ('1', 'true', 'yes')
     clean_msgs = params.get('clean_messages') in ('1', 'true', 'yes')
+    clean_kiosk = params.get('clean_kiosk') in ('1', 'true', 'yes')
 
     conn = psycopg2.connect(DSN)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     results = []
 
     try:
+        if clean_kiosk:
+            cur.execute("DELETE FROM messages WHERE driver_id NOT IN (SELECT id FROM drivers WHERE is_active = true)")
+            deleted_inactive = cur.rowcount
+            cur.execute("DELETE FROM messages WHERE driver_id IN (SELECT id FROM drivers WHERE is_active = true)")
+            deleted_active = cur.rowcount
+            conn.commit()
+            return resp(200, {
+                'action': 'clean_kiosk',
+                'deleted_inactive': deleted_inactive,
+                'deleted_active': deleted_active,
+                'total_deleted': deleted_inactive + deleted_active,
+            })
+
         if clean_msgs:
             keep_ids = params.get('keep', '').split(',')
             keep_ids = [int(x.strip()) for x in keep_ids if x.strip().isdigit()]
