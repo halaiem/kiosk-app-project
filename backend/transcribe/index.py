@@ -43,13 +43,24 @@ def handler(event: dict, context) -> dict:
 
     body = json.loads(event.get('body') or '{}')
     audio_b64 = body.get('audio', '')
+    audio_url_in = body.get('audio_url', '')
     audio_format = body.get('format', 'webm')
     do_transcribe = body.get('transcribe', False)
 
-    if not audio_b64:
-        return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'audio обязателен'})}
+    if not audio_b64 and not audio_url_in:
+        return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'audio или audio_url обязателен'})}
 
-    audio_bytes = base64.b64decode(audio_b64)
+    if audio_b64:
+        audio_bytes = base64.b64decode(audio_b64)
+    else:
+        try:
+            req = urllib.request.Request(audio_url_in, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                audio_bytes = r.read()
+            print(f"[transcribe] downloaded {len(audio_bytes)} bytes from {audio_url_in[:80]}")
+        except Exception as e:
+            print(f"[transcribe] download failed: {e}")
+            return {'statusCode': 500, 'headers': headers, 'body': json.dumps({'error': f'Не удалось скачать аудио: {str(e)[:200]}'})}
 
     real_format = detect_real_format(audio_bytes, audio_format)
     print(f"[transcribe] bytes={len(audio_bytes)}, declared={audio_format}, real={real_format}, transcribe={do_transcribe}")

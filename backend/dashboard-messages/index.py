@@ -412,12 +412,30 @@ def send_message(cur, conn, schema, user, event):
     return resp(201, {'message_id': msg['id'], 'created_at': msg['created_at']})
 
 
+AUDIO_EXT_MIME = {
+    'webm': 'audio/webm',
+    'ogg': 'audio/ogg',
+    'oga': 'audio/ogg',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'm4a': 'audio/mp4',
+    'mp4': 'audio/mp4',
+    'flac': 'audio/flac',
+}
+
+
 def upload_file(cur, conn, schema, user, event):
     body = json.loads(event.get('body') or '{}')
     message_id = body.get('message_id')
     file_name = body.get('file_name', 'file')
     file_data = body.get('file_data')
     content_type = body.get('content_type', 'application/octet-stream')
+
+    lower = (file_name or '').lower()
+    if '.' in lower:
+        ext = lower.rsplit('.', 1)[-1]
+        if ext in AUDIO_EXT_MIME:
+            content_type = AUDIO_EXT_MIME[ext]
 
     if not message_id or not file_data:
         return resp(400, {'error': 'message_id и file_data обязательны'})

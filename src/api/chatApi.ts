@@ -166,16 +166,39 @@ export async function sendMessage(chatId: number, content: string, subject?: str
   });
 }
 
+function fileToBase64(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const idx = result.indexOf(',');
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function guessAudioContentType(name: string, declared: string): string {
+  if (declared && declared !== 'application/octet-stream') return declared;
+  const lower = (name || '').toLowerCase();
+  if (lower.endsWith('.webm')) return 'audio/webm';
+  if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
+  if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) return 'audio/mp4';
+  return declared || 'application/octet-stream';
+}
+
 export async function uploadFile(messageId: number, file: File): Promise<{ file_id: number; file_url: string }> {
-  const buf = await file.arrayBuffer();
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const b64 = await fileToBase64(file);
   return request(`${BASE}?action=upload`, {
     method: 'POST',
     body: JSON.stringify({
       message_id: messageId,
       file_name: file.name,
       file_data: b64,
-      content_type: file.type || 'application/octet-stream',
+      content_type: guessAudioContentType(file.name, file.type),
     }),
   });
 }

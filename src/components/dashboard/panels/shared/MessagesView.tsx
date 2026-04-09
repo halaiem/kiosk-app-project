@@ -507,18 +507,35 @@ export default function MessagesView({
   };
 
   // ── Voice recording ──
+  const pickAudioMime = (): { mime: string; ext: string } => {
+    const candidates = [
+      { mime: "audio/webm;codecs=opus", ext: "webm" },
+      { mime: "audio/ogg;codecs=opus", ext: "ogg" },
+      { mime: "audio/webm", ext: "webm" },
+      { mime: "audio/mp4", ext: "m4a" },
+    ];
+    for (const c of candidates) {
+      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c.mime)) return c;
+    }
+    return { mime: "", ext: "webm" };
+  };
+
   const startRecording = async (forTranscription = false) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       audioChunksRef.current = [];
       setTranscribeMode(forTranscription);
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      const { mime, ext } = pickAudioMime();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 }) : new MediaRecorder(stream);
+      const outMime = mime || mr.mimeType || "audio/webm";
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(audioChunksRef.current, { type: outMime });
         if (blob.size > 5 * 1024 * 1024) {
           alert("Голосовое сообщение превышает 5 МБ");
           return;
@@ -527,7 +544,9 @@ export default function MessagesView({
           transcribeAudio(blob);
         } else {
           const ts = new Date().toLocaleString("ru-RU").replace(/[/:, ]/g, "-");
-          const file = new File([blob], `voice_${ts}.webm`, { type: "audio/webm" });
+          const fileExt = outMime.includes("ogg") ? "ogg" : outMime.includes("mp4") ? "m4a" : ext;
+          const cleanMime = outMime.split(";")[0];
+          const file = new File([blob], `voice_${ts}.${fileExt}`, { type: cleanMime });
           setPendingFile(file);
         }
       };
@@ -553,11 +572,22 @@ export default function MessagesView({
     }
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result as string;
+        const i = r.indexOf(",");
+        resolve(i >= 0 ? r.slice(i + 1) : r);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+
   const transcribeAudio = async (blob: Blob) => {
     setTranscribing(true);
     try {
-      const buf = await blob.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const b64 = await blobToBase64(blob);
       const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
       const res = await fetch(transcribeUrl, {
         method: "POST",
@@ -569,7 +599,7 @@ export default function MessagesView({
         setInputText((prev) => prev ? prev + " " + data.text : data.text);
         textareaRef.current?.focus();
       } else {
-        alert("Не удалось распознать речь. Попробуйте ещё раз.");
+        alert(data.error ? `Не удалось распознать: ${data.error}` : "Не удалось распознать речь. Попробуйте ещё раз.");
       }
     } catch (e) {
       console.error("Transcription failed:", e);
@@ -590,16 +620,12 @@ export default function MessagesView({
     }
     setTranscribingFile(fileId);
     try {
-      const audioRes = await fetch(fileUrl);
-      const blob = await audioRes.blob();
-      const buf = await blob.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
       const fmt = contentType.includes("webm") ? "webm" : contentType.includes("ogg") ? "ogg" : contentType.includes("wav") ? "wav" : "mp3";
       const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
       const res = await fetch(transcribeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audio: b64, format: fmt, transcribe: true }),
+        body: JSON.stringify({ audio_url: fileUrl, format: fmt, transcribe: true }),
       });
       const data = await res.json();
       if (data.text) {
@@ -1403,13 +1429,18 @@ export default function MessagesView({
                                       className="max-w-full max-h-48 rounded-lg border border-border"
                                     />
                                   </a>
-                                ) : file.content_type.startsWith("audio/") ? (
+                                ) : (file.content_type.startsWith("audio/") || /\.(webm|ogg|oga|mp3|wav|m4a|mp4)$/i.test(file.file_name)) ? (
                                   <div key={file.id} className="space-y-1">
                                     <div className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border">
                                       <Icon name="Mic" className="w-4 h-4 text-primary shrink-0" />
-                                      <audio controls preload="metadata" className="h-8 flex-1 min-w-0" style={{ maxWidth: 220 }}>
-                                        <source src={file.file_url} type={file.content_type} />
-                                      </audio>
+                                      <audio
+                                        controls
+                                        preload="auto"
+                                        src={file.file_url}
+                                        className="h-8 flex-1 min-w-0"
+                                        style={{ maxWidth: 220 }}
+                                        onError={(e) => { console.warn('audio error', file.file_url, e); }}
+                                      />
                                       <button
                                         onClick={() => transcribeVoiceFile(file.id, file.file_url, file.content_type)}
                                         disabled={transcribingFile === file.id}
