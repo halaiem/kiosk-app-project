@@ -261,9 +261,14 @@ export default function MessagesView({
   const [recordingTime, setRecordingTime] = useState(0);
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeMode, setTranscribeMode] = useState(false);
+  const [waveLevels, setWaveLevels] = useState<number[]>(Array(28).fill(0));
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const waveRafRef = useRef<number | null>(null);
+  const waveStreamRef = useRef<MediaStream | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggeredRef = useRef(false);
 
@@ -520,6 +525,58 @@ export default function MessagesView({
     return { mime: "", ext: "webm" };
   };
 
+  const startWaveAnalyser = (stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+      waveStreamRef.current = stream;
+
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      const BARS = 28;
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(buf);
+        const chunk = Math.floor(buf.length / BARS);
+        const levels: number[] = [];
+        for (let i = 0; i < BARS; i++) {
+          let sum = 0;
+          for (let j = 0; j < chunk; j++) {
+            const v = (buf[i * chunk + j] - 128) / 128;
+            sum += v * v;
+          }
+          const rms = Math.sqrt(sum / chunk);
+          levels.push(Math.min(1, rms * 2.8));
+        }
+        setWaveLevels(levels);
+        waveRafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {
+      console.warn("Wave analyser failed:", e);
+    }
+  };
+
+  const stopWaveAnalyser = () => {
+    if (waveRafRef.current !== null) {
+      cancelAnimationFrame(waveRafRef.current);
+      waveRafRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    analyserRef.current = null;
+    waveStreamRef.current = null;
+    setWaveLevels(Array(28).fill(0));
+  };
+
   const startRecording = async (forTranscription = false) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -527,6 +584,7 @@ export default function MessagesView({
       });
       audioChunksRef.current = [];
       setTranscribeMode(forTranscription);
+      startWaveAnalyser(stream);
       const { mime, ext } = pickAudioMime();
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 }) : new MediaRecorder(stream);
       const outMime = mime || mr.mimeType || "audio/webm";
@@ -535,6 +593,7 @@ export default function MessagesView({
       };
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        stopWaveAnalyser();
         const blob = new Blob(audioChunksRef.current, { type: outMime });
         if (blob.size > 5 * 1024 * 1024) {
           alert("Голосовое сообщение превышает 5 МБ");
@@ -557,6 +616,7 @@ export default function MessagesView({
       recordingTimerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
     } catch (e) {
       console.error("Microphone access denied:", e);
+      stopWaveAnalyser();
       alert("Нет доступа к микрофону. Проверьте разрешения браузера.");
     }
   };
@@ -1715,11 +1775,20 @@ export default function MessagesView({
                 ) : recording ? (
                   <button
                     onClick={stopRecording}
-                    className={`p-2 rounded-lg transition-colors shrink-0 animate-pulse ${transcribeMode ? "bg-primary/15 text-primary hover:bg-primary/25" : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}
+                    className={`px-2.5 py-2 rounded-lg transition-colors shrink-0 ${transcribeMode ? "bg-primary/15 text-primary hover:bg-primary/25" : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}
                     title={transcribeMode ? "Остановить и распознать" : "Остановить запись"}
                   >
-                    <div className="flex items-center gap-1.5">
-                      <Icon name="Square" className="w-3.5 h-3.5 fill-current" />
+                    <div className="flex items-center gap-2">
+                      <Icon name="Square" className="w-3.5 h-3.5 fill-current animate-pulse" />
+                      <div className="flex items-center gap-[2px] h-5">
+                        {waveLevels.map((lvl, i) => (
+                          <span
+                            key={i}
+                            className="w-[2px] rounded-full bg-current transition-[height] duration-75"
+                            style={{ height: `${Math.max(10, Math.round(lvl * 100))}%`, opacity: 0.55 + lvl * 0.45 }}
+                          />
+                        ))}
+                      </div>
                       <span className="text-[10px] font-mono font-bold tabular-nums">
                         {Math.floor(recordingTime / 60).toString().padStart(2, "0")}:{(recordingTime % 60).toString().padStart(2, "0")}
                       </span>
