@@ -19,7 +19,7 @@ type CategoryKey =
   | "admin"
   | "technician"
   | "dispatcher"
-  | "personnel"
+  | "mechanic"
   | "driver"
   | "route"
   | "vehicle"
@@ -33,7 +33,7 @@ const CATEGORIES: { key: CategoryKey; label: string; icon: string; short: string
   { key: "admin", label: "Администратор", icon: "Shield", short: "Админ" },
   { key: "technician", label: "Технолог", icon: "Wrench", short: "Технол" },
   { key: "dispatcher", label: "Диспетчер", icon: "Radio", short: "Дисп" },
-  { key: "personnel", label: "Персонал", icon: "Users", short: "Перс" },
+  { key: "mechanic", label: "Механик", icon: "Wrench", short: "Мех" },
   { key: "driver", label: "Водитель", icon: "User", short: "Водит" },
   { key: "route", label: "Маршрут", icon: "Route", short: "Маршр" },
   { key: "vehicle", label: "Транспорт", icon: "Bus", short: "Трансп" },
@@ -127,7 +127,7 @@ export default memo(function CategoryPicker({
   const q = search.toLowerCase();
 
   const filteredUsers = useMemo(() => {
-    if (!activeCategory || !["admin", "technician", "dispatcher", "personnel"].includes(activeCategory)) return [];
+    if (!activeCategory || !["admin", "technician", "dispatcher", "mechanic"].includes(activeCategory)) return [];
     return users.filter((u) => u.role === activeCategory && (!q || u.full_name.toLowerCase().includes(q)));
   }, [users, activeCategory, q]);
 

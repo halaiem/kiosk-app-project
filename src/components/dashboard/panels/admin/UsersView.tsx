@@ -37,7 +37,7 @@ const ROLE_STYLES: Record<string, string> = {
   technician:  "bg-green-500/15 text-green-500",
   admin:       "bg-red-500/15 text-red-500",
   irida_tools: "bg-purple-500/15 text-purple-500",
-  personnel:   "bg-teal-500/15 text-teal-500",
+  mechanic:    "bg-orange-500/15 text-orange-500",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -45,7 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
   technician:  "Техник",
   admin:       "Администратор",
   irida_tools: "Irida-Tools",
-  personnel:   "Персонал",
+  mechanic:    "Механик",
 };
 
 type RoleFilter = "all" | UserRole;
@@ -119,7 +119,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     { key: "dispatcher", label: "Диспетчеры" },
     { key: "technician", label: "Техники" },
     { key: "admin", label: "Администраторы" },
-    { key: "personnel" as UserRole, label: "Персонал" },
+    { key: "mechanic" as UserRole, label: "Механики" },
   ];
 
   const startEdit = (entry: ApiUser) => {

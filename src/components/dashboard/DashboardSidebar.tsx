@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab } from "@/types/dashboard";
+import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab } from "@/types/dashboard";
 import { useAppSettings } from '@/context/AppSettingsContext';
 
 function useSidebarLight() {
@@ -38,6 +38,7 @@ const DISPATCHER_NAV: NavItem[] = [
 ];
 
 const TECHNICIAN_NAV: NavItem[] = [
+  { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
   { tab: "routes", icon: "Route", label: "Маршруты" },
   { tab: "documents", icon: "FileText", label: "Документы" },
   { tab: "vehicles", icon: "Bus", label: "Транспорт" },
@@ -73,11 +74,21 @@ const IRIDA_TOOLS_NAV: NavItem[] = [
   { tab: "terminal" as IridaToolsTab, icon: "TerminalSquare", label: "Терминал" },
 ];
 
+const MECHANIC_NAV: NavItem[] = [
+  { tab: "service_requests" as MechanicTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "auto_diagnostics" as MechanicTab, icon: "Activity", label: "Диагностика" },
+  { tab: "service_log" as MechanicTab, icon: "BookOpen", label: "Журнал" },
+  { tab: "ts_docs" as MechanicTab, icon: "FolderOpen", label: "Документация ТС" },
+  { tab: "email" as MechanicTab, icon: "Mail", label: "Email" },
+  { tab: "dash_messages" as MechanicTab, icon: "MessageSquare", label: "Мессенджер" },
+];
+
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   dispatcher: DISPATCHER_NAV,
   technician: TECHNICIAN_NAV,
   admin: ADMIN_NAV,
   irida_tools: IRIDA_TOOLS_NAV,
+  mechanic: MECHANIC_NAV,
 };
 
 const ROLE_BADGE_BG: Record<UserRole, string> = {
@@ -85,6 +96,7 @@ const ROLE_BADGE_BG: Record<UserRole, string> = {
   technician: "bg-black/15",
   admin: "bg-black/15",
   irida_tools: "bg-black/15",
+  mechanic: "bg-black/15",
 };
 
 interface DashboardSidebarProps {

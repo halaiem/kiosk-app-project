@@ -40,7 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
   technician: "Техник",
   dispatcher: "Диспетчер",
-  personnel: "Персонал",
+  mechanic: "Механик",
   irida_tools: "Irida-Tools",
   driver: "Водитель",
 };

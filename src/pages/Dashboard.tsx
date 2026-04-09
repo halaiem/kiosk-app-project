@@ -10,16 +10,18 @@ import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
 import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
 import AdminPanel from '@/components/dashboard/panels/AdminPanel';
+import MechanicPanel from '@/components/dashboard/panels/MechanicPanel';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import Icon from '@/components/ui/icon';
 import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
-import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab } from '@/types/dashboard';
+import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
   dispatcher: 'overview',
   technician: 'routes',
   admin: 'settings',
   irida_tools: 'cities',
+  mechanic: 'service_requests',
 };
 
 export default function Dashboard() {
@@ -167,6 +169,14 @@ export default function Dashboard() {
             drivers={data.drivers}
             onReload={data.reload}
             currentUserId={Number(activeUser.id)}
+          />
+        )}
+        {activeUser.role === 'mechanic' && (
+          <MechanicPanel
+            tab={activeTab as MechanicTab}
+            vehicles={data.vehicles}
+            currentUserId={Number(activeUser.id)}
+            onReload={data.reload}
           />
         )}
         {activeUser.role === 'irida_tools' && (

@@ -4,6 +4,7 @@ import { VehiclesView, DriversView } from "./technician/TechVehiclesDrivers";
 import { ScheduleView } from "./technician/TechSchedule";
 import { TechDiagnosticsView } from "./technician/TechDiagnosticsView";
 import { DailyAssignmentView } from "./technician/TechDailyAssignment";
+import TechServiceRequestsView from "./technician/TechServiceRequestsView";
 import MessagesView from "./shared/MessagesView";
 import type {
   TechnicianTab,
@@ -37,6 +38,7 @@ export default function TechnicianPanel({
   onReload,
   currentUserId,
 }: TechnicianPanelProps) {
+  if (tab === "service_requests") return <TechServiceRequestsView vehicles={vehicles} onReload={onReload} />;
   if (tab === "routes") return <RoutesView routes={routes} onReload={onReload} />;
   if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} onReload={onReload} />;
   if (tab === "vehicles") return <VehiclesView vehicles={vehicles} onReload={onReload} />;
