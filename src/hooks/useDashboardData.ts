@@ -290,7 +290,7 @@ export function useDashboardData(user?: DashboardUser | null) {
   useEffect(() => {
     loadAll();
     if (!user) return;
-    const mainInterval = setInterval(loadAll, 30000);
+    const mainInterval = setInterval(loadAll, 60000);
     return () => clearInterval(mainInterval);
   }, [loadAll, user]);
 

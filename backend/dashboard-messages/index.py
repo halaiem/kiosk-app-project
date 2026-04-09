@@ -51,12 +51,13 @@ def handler(event, context):
         conn.close()
         return resp(401, {'error': 'Сессия недействительна'})
 
-    cur.execute(f"UPDATE {schema}.chat_members SET is_online = true, last_seen_at = NOW() WHERE user_id = %s", (user['id'],))
-    conn.commit()
-
     method = event.get('httpMethod', 'GET')
     qs = event.get('queryStringParameters') or {}
     action = qs.get('action', '')
+
+    if action not in ('reactions', 'pinned', 'routes', 'vehicles', 'readers'):
+        cur.execute(f"UPDATE {schema}.chat_members SET is_online = true, last_seen_at = NOW() WHERE user_id = %s", (user['id'],))
+        conn.commit()
 
     try:
         if method == 'GET' and action == 'users':
@@ -147,17 +148,26 @@ def get_chats(cur, schema, user):
     )
     chats = cur.fetchall()
 
-    for chat in chats:
+    if chats:
+        chat_ids = [c['id'] for c in chats]
         cur.execute(
-            f"SELECT cm.user_id, cm.driver_id, cm.is_online, cm.last_seen_at, "
+            f"SELECT cm.chat_id, cm.user_id, cm.driver_id, cm.is_online, cm.last_seen_at, "
             f"COALESCE(du.full_name, dr.full_name) as name, "
             f"COALESCE(du.role, 'driver') as role "
             f"FROM {schema}.chat_members cm "
             f"LEFT JOIN {schema}.dashboard_users du ON du.id = cm.user_id "
             f"LEFT JOIN {schema}.drivers dr ON dr.id = cm.driver_id "
-            f"WHERE cm.chat_id = %s", (chat['id'],)
+            f"WHERE cm.chat_id IN %s", (tuple(chat_ids),)
         )
-        chat['members'] = cur.fetchall()
+        members_rows = cur.fetchall()
+        members_by_chat = {}
+        for m in members_rows:
+            cid = m['chat_id']
+            if cid not in members_by_chat:
+                members_by_chat[cid] = []
+            members_by_chat[cid].append(m)
+        for chat in chats:
+            chat['members'] = members_by_chat.get(chat['id'], [])
 
     return resp(200, {'chats': chats})
 
@@ -193,11 +203,21 @@ def get_messages(cur, conn, schema, user, qs):
     )
     msgs = cur.fetchall()
 
-    for m in msgs:
+    if msgs:
+        msg_ids = [m['id'] for m in msgs]
         cur.execute(
-            f"SELECT id, file_name, file_url, file_size, content_type FROM {schema}.chat_files WHERE message_id = %s", (m['id'],)
+            f"SELECT id, message_id, file_name, file_url, file_size, content_type "
+            f"FROM {schema}.chat_files WHERE message_id IN %s", (tuple(msg_ids),)
         )
-        m['files'] = cur.fetchall()
+        files_rows = cur.fetchall()
+        files_by_msg = {}
+        for f in files_rows:
+            mid = f['message_id']
+            if mid not in files_by_msg:
+                files_by_msg[mid] = []
+            files_by_msg[mid].append(f)
+        for m in msgs:
+            m['files'] = files_by_msg.get(m['id'], [])
 
     # Обновить last_read_at и пометить как read все delivered-сообщения от других
     cur.execute(
@@ -270,16 +290,15 @@ def create_chat(cur, conn, schema, user, event):
         (chat_id, user['id'])
     )
 
-    for uid in member_user_ids:
-        cur.execute(
-            f"INSERT INTO {schema}.chat_members (chat_id, user_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (chat_id, uid)
+    if member_user_ids:
+        vals = [(chat_id, uid) for uid in member_user_ids]
+        psycopg2.extras.execute_values(
+            cur, f"INSERT INTO {schema}.chat_members (chat_id, user_id) VALUES %s ON CONFLICT DO NOTHING", vals
         )
-
-    for did in member_driver_ids:
-        cur.execute(
-            f"INSERT INTO {schema}.chat_members (chat_id, driver_id) VALUES (%s, %s)",
-            (chat_id, did)
+    if member_driver_ids:
+        vals = [(chat_id, did) for did in member_driver_ids]
+        psycopg2.extras.execute_values(
+            cur, f"INSERT INTO {schema}.chat_members (chat_id, driver_id) VALUES %s", vals
         )
 
     conn.commit()
@@ -463,8 +482,7 @@ def get_readers(cur, schema, user, qs):
 
 def toggle_pin(cur, conn, schema, user, event):
     """Закрепить / открепить сообщение в чате."""
-    import json as _json
-    body = _json.loads(event.get('body') or '{}')
+    body = json.loads(event.get('body') or '{}')
     message_id = body.get('message_id')
     chat_id = body.get('chat_id')
     if not message_id or not chat_id:
@@ -568,24 +586,24 @@ def add_members(cur, conn, schema, user, event):
         return resp(403, {'error': 'Нет доступа к чату'})
 
     added = 0
-    for uid in user_ids:
-        cur.execute(
-            f"INSERT INTO {schema}.chat_members (chat_id, user_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            (chat_id, uid)
+    if user_ids:
+        psycopg2.extras.execute_values(
+            cur, f"INSERT INTO {schema}.chat_members (chat_id, user_id) VALUES %s ON CONFLICT DO NOTHING",
+            [(chat_id, uid) for uid in user_ids]
         )
         added += cur.rowcount
-
-    for did in driver_ids:
-        cur.execute(
-            f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND driver_id = %s",
-            (chat_id, did)
-        )
-        if not cur.fetchone():
+    if driver_ids:
+        for did in driver_ids:
             cur.execute(
-                f"INSERT INTO {schema}.chat_members (chat_id, driver_id) VALUES (%s, %s)",
+                f"SELECT 1 FROM {schema}.chat_members WHERE chat_id = %s AND driver_id = %s",
                 (chat_id, did)
             )
-            added += 1
+            if not cur.fetchone():
+                cur.execute(
+                    f"INSERT INTO {schema}.chat_members (chat_id, driver_id) VALUES (%s, %s)",
+                    (chat_id, did)
+                )
+                added += 1
 
     conn.commit()
     return resp(200, {'added': added})

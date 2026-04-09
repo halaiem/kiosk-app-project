@@ -367,32 +367,34 @@ export default function MessagesView({
     loadChats();
   }, [loadChats]);
 
-  // ── Polling: refresh chats every 10s ──
+  // ── Polling: refresh chats every 30s, messages every 15s ──
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadChats();
-      if (activeChatId) {
-        fetchMessages(activeChatId).then((data) => {
-          setMessages((prev) => {
-            if (data.length !== prev.length) {
-              scrollToBottom();
-              return data;
-            }
-            return prev;
-          });
-        });
-        fetchReactions(activeChatId).then(setReactions).catch(() => {});
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [loadChats, activeChatId, scrollToBottom]);
+    const chatInterval = setInterval(loadChats, 30000);
+    return () => clearInterval(chatInterval);
+  }, [loadChats]);
 
-  // ── Ping online every 60s ──
+  useEffect(() => {
+    if (!activeChatId) return;
+    const msgInterval = setInterval(() => {
+      fetchMessages(activeChatId).then((data) => {
+        setMessages((prev) => {
+          if (data.length !== prev.length) {
+            scrollToBottom();
+            return data;
+          }
+          return prev;
+        });
+      }).catch(() => {});
+    }, 15000);
+    return () => clearInterval(msgInterval);
+  }, [activeChatId, scrollToBottom]);
+
+  // ── Ping online every 120s ──
   useEffect(() => {
     pingOnline().catch(() => {});
     const interval = setInterval(() => {
       pingOnline().catch(() => {});
-    }, 60000);
+    }, 120000);
     return () => clearInterval(interval);
   }, []);
 

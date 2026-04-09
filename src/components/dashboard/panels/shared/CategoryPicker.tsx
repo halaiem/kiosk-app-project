@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import Icon from "@/components/ui/icon";
 import {
   fetchRoutesList,
@@ -39,7 +39,7 @@ interface CategoryPickerProps {
   onSelectAllDrivers: () => void;
 }
 
-export default function CategoryPicker({
+export default memo(function CategoryPicker({
   users,
   drivers,
   selectedUserIds,
@@ -225,4 +225,4 @@ export default function CategoryPicker({
       )}
     </div>
   );
-}
+})

@@ -77,7 +77,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     pollChatUnread();
-    const iv = setInterval(pollChatUnread, 15000);
+    const iv = setInterval(pollChatUnread, 30000);
     return () => clearInterval(iv);
   }, [pollChatUnread]);
 

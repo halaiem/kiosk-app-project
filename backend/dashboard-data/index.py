@@ -86,52 +86,28 @@ def handler(event, context):
         conn.close()
 
 
-def handle_stats(cur, conn, user):
-    cur.execute("SELECT COUNT(*) FROM drivers WHERE is_active = true")
-    total_drivers = cur.fetchone()[0]
-
+def _fetch_stats(cur):
     cur.execute("""
-        SELECT COUNT(DISTINCT d.id) FROM drivers d
-        JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true
-        WHERE d.is_active = true
+        SELECT
+            (SELECT COUNT(*) FROM drivers WHERE is_active = true) as total_drivers,
+            (SELECT COUNT(DISTINCT d.id) FROM drivers d JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true WHERE d.is_active = true) as active_drivers,
+            (SELECT COUNT(*) FROM routes WHERE is_active = true) as active_routes,
+            (SELECT COUNT(*) FROM vehicles WHERE transport_status = 'active') as total_vehicles,
+            (SELECT COUNT(*) FROM messages WHERE message_type = 'urgent' AND is_read = false AND sender = 'driver') as unresolved_alerts
     """)
-    active_drivers = cur.fetchone()[0]
+    r = cur.fetchone()
+    return {
+        'activeDrivers': r[1], 'totalDrivers': r[0], 'activeRoutes': r[2],
+        'unresolvedAlerts': r[4], 'avgDelay': 0, 'onTimePercent': 95, 'totalVehicles': r[3]
+    }
 
-    cur.execute("SELECT COUNT(*) FROM routes WHERE is_active = true")
-    active_routes = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM vehicles WHERE transport_status = 'active'")
-    total_vehicles = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM messages WHERE message_type = 'urgent' AND is_read = false AND sender = 'driver'")
-    unresolved_alerts = cur.fetchone()[0]
-
+def handle_stats(cur, conn, user):
     conn.commit()
-    return resp(200, {
-        'stats': {
-            'activeDrivers': active_drivers,
-            'totalDrivers': total_drivers,
-            'activeRoutes': active_routes,
-            'unresolvedAlerts': unresolved_alerts,
-            'avgDelay': 0,
-            'onTimePercent': 95,
-            'totalVehicles': total_vehicles
-        }
-    })
+    return resp(200, {'stats': _fetch_stats(cur)})
 
 
 def handle_batch(cur, conn, user):
-    cur.execute("SELECT COUNT(*) FROM drivers WHERE is_active = true")
-    total_drivers = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(DISTINCT d.id) FROM drivers d JOIN driver_sessions ds ON ds.driver_id = d.id AND ds.is_online = true WHERE d.is_active = true")
-    active_drivers = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM routes WHERE is_active = true")
-    active_routes = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM vehicles WHERE transport_status = 'active'")
-    total_vehicles = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM messages WHERE message_type = 'urgent' AND is_read = false AND sender = 'driver'")
-    unresolved_alerts = cur.fetchone()[0]
-    stats = {'activeDrivers': active_drivers, 'totalDrivers': total_drivers, 'activeRoutes': active_routes, 'unresolvedAlerts': unresolved_alerts, 'avgDelay': 0, 'onTimePercent': 95, 'totalVehicles': total_vehicles}
+    stats = _fetch_stats(cur)
 
     cur.execute("""
         SELECT d.id, d.full_name, d.employee_id, d.vehicle_type, d.vehicle_number,
