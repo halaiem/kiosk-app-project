@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import SortableTh from "@/components/ui/SortableTh";
 import { useTableSort } from "@/hooks/useTableSort";
@@ -46,6 +46,42 @@ export default function VehiclesTable({
   onDelete,
 }: VehiclesTableProps) {
   const { sort, toggle, sorted } = useTableSort(filtered as unknown as Record<string, unknown>[]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const sortedFiltered = sorted as typeof filtered;
+  const allSelected = sortedFiltered.length > 0 && sortedFiltered.every((v) => selectedIds.has(v.id));
+  const someSelected = sortedFiltered.some((v) => selectedIds.has(v.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) { for (const v of sortedFiltered) next.delete(v.id); }
+      else { for (const v of sortedFiltered) next.add(v.id); }
+      return next;
+    });
+  }, [sortedFiltered, allSelected]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+
+  const exportCsv = useCallback((rows: VehicleInfo[]) => {
+    const header = ["№", "Борт. номер", "VIN", "Тип ТС", "Гос. номер", "Модель", "Производитель", "Год", "Статус"];
+    const lines = rows.map((v, i) => [
+      i + 1, v.boardNumber ?? v.number, v.vinNumber ?? "", VEHICLE_TYPE_LABELS[v.type] ?? v.type,
+      v.govRegNumber ?? "", v.model ?? "", v.manufacturer ?? "", v.year ?? "",
+      VEHICLE_STATUS_LABELS[v.status] ?? v.status,
+    ].join(";"));
+    const blob = new Blob(["\uFEFF" + [header.join(";"), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `vehicles_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExport = useCallback(() => {
+    const rows = selectedIds.size > 0 ? sortedFiltered.filter((v) => selectedIds.has(v.id)) : sortedFiltered;
+    exportCsv(rows);
+  }, [sortedFiltered, selectedIds, exportCsv]);
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -78,6 +114,14 @@ export default function VehiclesTable({
             />
           </div>
           <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors"
+            title={selectedIds.size > 0 ? `Экспорт выбранных (${selectedIds.size})` : "Экспорт CSV"}
+          >
+            <Icon name="Download" className="w-3.5 h-3.5" />
+            CSV
+          </button>
+          <button
             onClick={onAddClick}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
@@ -103,6 +147,9 @@ export default function VehiclesTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                <th className="w-10 px-4 py-2.5">
+                  <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }} onChange={toggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
+                </th>
                 <SortableTh label="Борт. номер" sortKey="boardNumber" sort={sort} onToggle={toggle} className="px-4" />
                 <SortableTh label="VIN-номер" sortKey="vinNumber" sort={sort} onToggle={toggle} className="px-4" />
                 <SortableTh label="Тип ТС" sortKey="type" sort={sort} onToggle={toggle} className="px-4" />
@@ -114,12 +161,15 @@ export default function VehiclesTable({
               </tr>
             </thead>
             <tbody>
-              {(sorted as typeof filtered).map((v) => (
+              {sortedFiltered.map((v) => (
                 <tr
                   key={v.id}
-                  className="border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer"
+                  className={`border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer ${selectedIds.has(v.id) ? "bg-primary/5" : ""}`}
                   onClick={() => onViewClick(v)}
                 >
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(v.id)} onChange={() => toggleRow(v.id)} className="w-4 h-4 accent-primary cursor-pointer" />
+                  </td>
                   <td className="px-4 py-3">
                     <span className="font-semibold text-foreground">
                       #{v.boardNumber ?? v.number}
@@ -186,6 +236,19 @@ export default function VehiclesTable({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
+          <span className="text-sm font-medium text-foreground">Выбрано {selectedIds.size}</span>
+          <button onClick={() => exportCsv(sortedFiltered.filter((v) => selectedIds.has(v.id)))} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <Icon name="Download" className="w-3.5 h-3.5" />
+            Экспорт выбранных
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            Сбросить
+          </button>
         </div>
       )}
     </div>

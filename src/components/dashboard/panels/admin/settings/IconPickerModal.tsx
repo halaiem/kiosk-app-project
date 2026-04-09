@@ -2,15 +2,19 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import * as LucideIcons from "lucide-react";
 import Icon from "@/components/ui/icon";
 
-// Get all icon names - filter for PascalCase component names that are actual icons
-const ALL_ICON_NAMES = Object.keys(LucideIcons).filter(
-  (key) =>
-    /^[A-Z][a-zA-Z0-9]+$/.test(key) &&
-    key !== "Icon" &&
-    key !== "createLucideIcon" &&
-    key !== "default" &&
-    typeof (LucideIcons as Record<string, unknown>)[key] === "function"
-);
+// Get all icon names - filter for PascalCase component names that are actual React components
+const ALL_ICON_NAMES = Object.entries(LucideIcons)
+  .filter(([key, val]) => {
+    if (!/^[A-Z][a-zA-Z0-9]+$/.test(key)) return false;
+    if (key === "Icon" || key === "createLucideIcon") return false;
+    // Check it's a React forwardRef component (lucide icons are forwardRef)
+    if (typeof val !== "object" || val === null) return false;
+    if ((val as Record<string, unknown>).$$typeof) return true;
+    if (typeof val === "function") return true;
+    return false;
+  })
+  .map(([key]) => key)
+  .sort();
 
 const BATCH_SIZE = 300;
 
@@ -104,10 +108,13 @@ export default function IconPickerModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-[10vh] px-4"
+      className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center pt-[10vh] px-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col shadow-xl animate-in fade-in zoom-in-95 duration-200">
+      <div
+        className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col shadow-xl animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-border shrink-0">
           <div className="relative flex-1">

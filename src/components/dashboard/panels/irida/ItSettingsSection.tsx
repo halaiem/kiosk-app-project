@@ -114,6 +114,10 @@ export default function ItSettingsSection() {
             onChange={p => updateFeatures('dispatcher', p)} />
           <FeaturesCard title="Техник" icon="Wrench" features={settings.featuresTechnician}
             onChange={p => updateFeatures('technician', p)} />
+          <FeaturesCard title="Администратор" icon="ShieldCheck" features={settings.featuresAdmin}
+            onChange={p => updateFeatures('admin', p)} />
+          <FeaturesCard title="Механик" icon="Settings" features={settings.featuresMechanic}
+            onChange={p => updateFeatures('mechanic', p)} />
         </div>
       )}
 

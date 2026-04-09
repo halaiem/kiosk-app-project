@@ -98,6 +98,11 @@ const PRIORITY_COLORS: Record<string, string> = {
   critical: "bg-red-500/15 text-red-500",
 };
 
+type SortField = "request_number" | "title" | "vehicle_label" | "priority" | "status" | "target_role" | "creator_name" | "created_at";
+type SortDir = "asc" | "desc";
+
+const PRIORITY_ORDER: Record<string, number> = { low: 1, medium: 2, normal: 2, high: 3, critical: 4 };
+
 function formatDate(d: string): string {
   const dt = new Date(d);
   const dd = String(dt.getDate()).padStart(2, "0");
@@ -145,6 +150,9 @@ export default function ServiceRequestsPanel({
     category: "",
     equipment_info: "",
   });
+  const [sortField, setSortField] = useState<SortField>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const refreshRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchRequests = useCallback(async () => {
@@ -190,7 +198,7 @@ export default function ServiceRequestsPanel({
   }, [loadAll, fetchRequests, fetchStats]);
 
   const filtered = useMemo(() => {
-    let list = [...requests].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    let list = [...requests];
     if (filter !== "all") list = list.filter((r) => r.status === filter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -202,10 +210,93 @@ export default function ServiceRequestsPanel({
           (r.creator_name || "").toLowerCase().includes(q)
       );
     }
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "created_at") {
+        cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortField === "priority") {
+        cmp = (PRIORITY_ORDER[a.priority] ?? 0) - (PRIORITY_ORDER[b.priority] ?? 0);
+      } else {
+        const aVal = (a[sortField] ?? "").toString().toLowerCase();
+        const bVal = (b[sortField] ?? "").toString().toLowerCase();
+        cmp = aVal.localeCompare(bVal);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
     return list;
-  }, [requests, filter, search]);
+  }, [requests, filter, search, sortField, sortDir]);
 
   const selected = useMemo(() => requests.find((r) => r.id === selectedId) || null, [requests, selectedId]);
+
+  const toggleSort = useCallback((field: SortField) => {
+    setSortField((prev) => {
+      if (prev === field) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prev;
+      }
+      setSortDir(field === "created_at" ? "desc" : "asc");
+      return field;
+    });
+  }, []);
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id));
+  const someVisibleSelected = filtered.some((r) => selectedIds.has(r.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const r of filtered) next.delete(r.id);
+      } else {
+        for (const r of filtered) next.add(r.id);
+      }
+      return next;
+    });
+  }, [filtered, allVisibleSelected]);
+
+  const toggleSelectRow = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exportCsv = useCallback((rows: ServiceRequest[]) => {
+    const header = ["№", "Номер", "Заголовок", "ТС", "Приоритет", "Статус", "Кому", "Автор", "Дата"];
+    const csvRows = [header.join(";")];
+    rows.forEach((r, i) => {
+      csvRows.push([
+        String(i + 1),
+        r.request_number,
+        `"${(r.title || "").replace(/"/g, '""')}"`,
+        r.vehicle_label || "",
+        PRIORITY_LABELS[r.priority] || r.priority,
+        STATUS_LABELS[r.status] || r.status,
+        r.target_role ? (ROLE_LABELS[r.target_role] || r.target_role) : "",
+        r.creator_name || "",
+        formatDate(r.created_at),
+      ].join(";"));
+    });
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `service_requests_${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExport = useCallback(() => {
+    if (selectedIds.size > 0) {
+      exportCsv(filtered.filter((r) => selectedIds.has(r.id)));
+    } else {
+      exportCsv(filtered);
+    }
+  }, [filtered, selectedIds, exportCsv]);
 
   const handleTakeRequest = async (id: number) => {
     setSaving(true);
@@ -336,6 +427,14 @@ export default function ServiceRequestsPanel({
               className="pl-8 pr-3 py-1.5 rounded-lg text-sm bg-card border border-border text-foreground placeholder:text-muted-foreground w-48 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-sm"
+            title={selectedIds.size > 0 ? `Экспорт выбранных (${selectedIds.size})` : "Экспорт CSV"}
+          >
+            <Icon name="Download" className="w-4 h-4" />
+            CSV
+          </button>
           <button onClick={loadAll} className="p-1.5 rounded-lg bg-card border border-border hover:bg-muted transition-colors" title="Обновить">
             <Icon name="RefreshCw" className={`w-4 h-4 text-muted-foreground ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -352,14 +451,40 @@ export default function ServiceRequestsPanel({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left px-4 py-3 font-medium">Номер</th>
-                  <th className="text-left px-4 py-3 font-medium">Заголовок</th>
-                  <th className="text-left px-4 py-3 font-medium">ТС</th>
-                  <th className="text-left px-4 py-3 font-medium">Приоритет</th>
-                  <th className="text-left px-4 py-3 font-medium">Статус</th>
-                  <th className="text-left px-4 py-3 font-medium">Кому</th>
-                  <th className="text-left px-4 py-3 font-medium">Автор</th>
-                  <th className="text-left px-4 py-3 font-medium">Дата</th>
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      ref={(el) => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                    />
+                  </th>
+                  {([
+                    { field: "request_number" as SortField, label: "Номер" },
+                    { field: "title" as SortField, label: "Заголовок" },
+                    { field: "vehicle_label" as SortField, label: "ТС" },
+                    { field: "priority" as SortField, label: "Приоритет" },
+                    { field: "status" as SortField, label: "Статус" },
+                    { field: "target_role" as SortField, label: "Кому" },
+                    { field: "creator_name" as SortField, label: "Автор" },
+                    { field: "created_at" as SortField, label: "Дата" },
+                  ]).map((col) => (
+                    <th
+                      key={col.field}
+                      className="text-left px-4 py-3 font-medium cursor-pointer select-none hover:text-foreground transition-colors"
+                      onClick={() => toggleSort(col.field)}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.field ? (
+                          <Icon name={sortDir === "asc" ? "ChevronUp" : "ChevronDown"} className="w-3.5 h-3.5" />
+                        ) : (
+                          <Icon name="ChevronsUpDown" className="w-3.5 h-3.5 opacity-30" />
+                        )}
+                      </span>
+                    </th>
+                  ))}
                   {takeWorkEnabled && <th className="text-left px-4 py-3 font-medium">Действия</th>}
                 </tr>
               </thead>
@@ -368,8 +493,17 @@ export default function ServiceRequestsPanel({
                   <tr
                     key={r.id}
                     onClick={() => setSelectedId(r.id)}
-                    className="border-b border-border/50 hover:bg-muted/50 cursor-pointer transition-colors"
+                    className={`border-b border-border/50 hover:bg-muted/50 cursor-pointer transition-colors ${selectedIds.has(r.id) ? "bg-primary/5" : ""}`}
                   >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelectRow(r.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs">{r.request_number}</td>
                     <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">{r.title}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.vehicle_label || "---"}</td>
@@ -404,6 +538,27 @@ export default function ServiceRequestsPanel({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
+          <span className="text-sm font-medium text-foreground">
+            Выбрано {selectedIds.size}
+          </span>
+          <button
+            onClick={() => exportCsv(filtered.filter((r) => selectedIds.has(r.id)))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Icon name="Download" className="w-3.5 h-3.5" />
+            Экспорт выбранных
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Сбросить
+          </button>
         </div>
       )}
 

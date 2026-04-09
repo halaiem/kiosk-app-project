@@ -43,6 +43,21 @@ const ROLE_LABEL: Record<string, string> = {
   driver: "Водитель",
 };
 
+const CATEGORIES = [
+  { key: "general", label: "Общие" },
+  { key: "transport", label: "Транспорт" },
+  { key: "schedule", label: "Расписание" },
+  { key: "weather", label: "Погода" },
+  { key: "road", label: "Дорога" },
+  { key: "emergency", label: "Экстренное" },
+  { key: "info", label: "Информация" },
+  { key: "custom", label: "Другое" },
+];
+
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.key, c.label])
+);
+
 interface Template {
   id: number;
   title: string;
@@ -73,7 +88,7 @@ function emptyEditor(scope: Scope): EditorState {
     content: "",
     target_role: "dispatcher",
     target_scope: scope,
-    category: "",
+    category: "general",
     icon: "MessageSquare",
     sort_order: 0,
     is_active: true,
@@ -89,6 +104,7 @@ export default function MessageTemplateSettings() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [customCategory, setCustomCategory] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,16 +125,22 @@ export default function MessageTemplateSettings() {
     load();
   }, [load]);
 
-  const openCreate = () => setEditor(emptyEditor(scope));
+  const openCreate = () => {
+    setCustomCategory(false);
+    setEditor(emptyEditor(scope));
+  };
 
   const openEdit = (t: Template) => {
+    const cat = t.category || "";
+    const isKnown = CATEGORIES.some((c) => c.key === cat && c.key !== "custom");
+    setCustomCategory(!isKnown && cat !== "");
     setEditor({
       id: t.id,
       title: t.title,
       content: t.content,
       target_role: t.target_role,
       target_scope: (t.target_scope as Scope) || scope,
-      category: t.category || "",
+      category: cat,
       icon: t.icon || "MessageSquare",
       sort_order: t.sort_order || 0,
       is_active: t.is_active !== false,
@@ -260,7 +282,7 @@ export default function MessageTemplateSettings() {
                     </span>
                     {t.category && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {t.category}
+                        {CATEGORY_LABEL[t.category] || t.category}
                       </span>
                     )}
                   </div>
@@ -365,15 +387,47 @@ export default function MessageTemplateSettings() {
                   <label className="block text-xs font-semibold text-foreground mb-1.5">
                     Категория
                   </label>
-                  <input
-                    type="text"
-                    value={editor.category}
-                    onChange={(e) =>
-                      setEditor({ ...editor, category: e.target.value })
+                  <select
+                    value={
+                      customCategory
+                        ? "custom"
+                        : CATEGORIES.some(
+                              (c) =>
+                                c.key === editor.category &&
+                                c.key !== "custom"
+                            )
+                          ? editor.category
+                          : "general"
                     }
-                    placeholder="Общие"
-                    className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                  />
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "custom") {
+                        setCustomCategory(true);
+                        setEditor({ ...editor, category: "" });
+                      } else {
+                        setCustomCategory(false);
+                        setEditor({ ...editor, category: val });
+                      }
+                    }}
+                    className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  {customCategory && (
+                    <input
+                      type="text"
+                      value={editor.category}
+                      onChange={(e) =>
+                        setEditor({ ...editor, category: e.target.value })
+                      }
+                      placeholder="Введите категорию..."
+                      className="w-full text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 mt-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">

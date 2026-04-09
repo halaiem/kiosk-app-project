@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import SortableTh from "@/components/ui/SortableTh";
@@ -114,6 +114,41 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     filtered as unknown as Record<string, unknown>[]
   );
 
+  const sortedList = sortedUsers as typeof filtered;
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const allSelected = sortedList.length > 0 && sortedList.every((u) => selectedIds.has(u.id));
+  const someSelected = sortedList.some((u) => selectedIds.has(u.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) { for (const u of sortedList) next.delete(u.id); }
+      else { for (const u of sortedList) next.add(u.id); }
+      return next;
+    });
+  }, [sortedList, allSelected]);
+
+  const toggleRow = useCallback((id: number) => {
+    setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+
+  const exportUsersCsv = useCallback((rows: ApiUser[]) => {
+    const header = ["№", "ID", "ФИО", "Роль", "Рейтинг", "Статус"];
+    const lines = rows.map((u, i) => [
+      i + 1, u.employee_id, `"${u.full_name.replace(/"/g, '""')}"`,
+      ROLE_LABELS[u.role] || u.role, u.rating ?? "", u.is_active ? "Активен" : "Заблокирован",
+    ].join(";"));
+    const blob = new Blob(["\uFEFF" + [header.join(";"), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `users_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportUsers = useCallback(() => {
+    const rows = selectedIds.size > 0 ? sortedList.filter((u) => selectedIds.has(u.id)) : sortedList;
+    exportUsersCsv(rows);
+  }, [sortedList, selectedIds, exportUsersCsv]);
+
   const filters: { key: RoleFilter; label: string }[] = [
     { key: "all", label: "Все" },
     { key: "dispatcher", label: "Диспетчеры" },
@@ -226,6 +261,9 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Имя, ID..."
                 className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-36" />
             </div>
+            <button onClick={handleExportUsers} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors" title={selectedIds.size > 0 ? `Экспорт (${selectedIds.size})` : "Экспорт CSV"}>
+              <Icon name="Download" className="w-3.5 h-3.5" />CSV
+            </button>
             <ReportButton filename="users" data={users.map(u => ({ id: u.employee_id, name: u.full_name, role: ROLE_LABELS[u.role] || u.role }))} />
             <button onClick={() => { setShowAddForm(true); cancelEdit(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
@@ -310,6 +348,9 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
+              <th className="w-10 px-5 py-2.5">
+                <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }} onChange={toggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
+              </th>
               <SortableTh label="ID" sortKey="employee_id" sort={usersSort} onToggle={usersToggle} className="px-5 w-24" />
               <SortableTh label="ФИО" sortKey="full_name" sort={usersSort} onToggle={usersToggle} className="px-3" />
               <SortableTh label="Роль" sortKey="role" sort={usersSort} onToggle={usersToggle} className="px-3 w-36" />
@@ -319,13 +360,16 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
             </tr>
           </thead>
           <tbody>
-            {(sortedUsers as typeof filtered).map((entry) => {
+            {sortedList.map((entry) => {
               const isEditing = editingId === entry.id;
               const isConfirmDelete = deleteConfirmId === entry.id;
 
               if (isEditing && editState) {
                 return (
                   <tr key={entry.id} className="border-b border-primary/20 bg-primary/5">
+                    <td className="px-5 py-3">
+                      <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleRow(entry.id)} className="w-4 h-4 accent-primary cursor-pointer" />
+                    </td>
                     {/* ID */}
                     <td className="px-5 py-3">
                       <span className="font-mono text-xs text-muted-foreground">{entry.employee_id}</span>
@@ -409,7 +453,10 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               }
 
               return (
-                <tr key={entry.id} className="border-b border-border transition-colors hover:bg-muted/30">
+                <tr key={entry.id} className={`border-b border-border transition-colors hover:bg-muted/30 ${selectedIds.has(entry.id) ? "bg-primary/5" : ""}`}>
+                  <td className="px-5 py-3">
+                    <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleRow(entry.id)} className="w-4 h-4 accent-primary cursor-pointer" />
+                  </td>
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
                   <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
                   <td className="px-3 py-3">
@@ -467,7 +514,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
+                <td colSpan={7} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
               </tr>
             )}
           </tbody>
@@ -492,6 +539,19 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
           <DriversView drivers={drivers} onReload={onReload} />
         </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
+          <span className="text-sm font-medium text-foreground">Выбрано {selectedIds.size}</span>
+          <button onClick={() => exportUsersCsv(sortedList.filter((u) => selectedIds.has(u.id)))} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <Icon name="Download" className="w-3.5 h-3.5" />
+            Экспорт выбранных
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            Сбросить
+          </button>
+        </div>
+      )}
     </div>
   );
 }

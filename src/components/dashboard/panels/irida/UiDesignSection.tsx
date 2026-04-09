@@ -42,20 +42,21 @@ export default function UiDesignSection() {
   const colors = settings.brandColors;
 
   const applyPreset = (preset: typeof PRESET_THEMES[0]) => {
-    updateSettings({
-      brandColors: {
-        sidebarBg: preset.sidebar,
-        headerBg: preset.header,
-        primaryBtn: preset.primary,
-        textColor: preset.text,
-        sidebarTextColor: preset.sidebarText,
-      }
-    });
+    const patch: BrandColors = {
+      ...colors,
+      sidebarBg: preset.sidebar,
+      headerBg: preset.header,
+      primaryBtn: preset.primary,
+      textColor: preset.text,
+      sidebarTextColor: preset.sidebarText,
+    };
+    updateSettings({ brandColors: patch, brandColorsDashboard: patch });
     flash();
   };
 
   const updateColor = (key: keyof BrandColors, value: string) => {
-    updateSettings({ brandColors: { ...colors, [key]: value } });
+    const updated = { ...colors, [key]: value };
+    updateSettings({ brandColors: updated, brandColorsDashboard: updated });
   };
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };

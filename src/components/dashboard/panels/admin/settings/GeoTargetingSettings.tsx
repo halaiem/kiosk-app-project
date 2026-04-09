@@ -56,9 +56,9 @@ type DrawMode = "circle" | "polygon" | "line" | "marker" | null;
 const CITIES: { name: string; lat: number; lng: number; zoom: number }[] = [
   { name: "Москва", lat: 55.7558, lng: 37.6173, zoom: 11 },
   { name: "Санкт-Петербург", lat: 59.9343, lng: 30.3351, zoom: 11 },
-  { name: "Казань", lat: 55.7887, lng: 49.1221, zoom: 12 },
   { name: "Новосибирск", lat: 55.0084, lng: 82.9357, zoom: 12 },
   { name: "Екатеринбург", lat: 56.8389, lng: 60.6057, zoom: 12 },
+  { name: "Казань", lat: 55.7887, lng: 49.1221, zoom: 12 },
   { name: "Нижний Новгород", lat: 56.2965, lng: 43.9361, zoom: 12 },
   { name: "Челябинск", lat: 55.1644, lng: 61.4368, zoom: 12 },
   { name: "Самара", lat: 53.1959, lng: 50.1002, zoom: 12 },
@@ -69,6 +69,71 @@ const CITIES: { name: string; lat: number; lng: number; zoom: number }[] = [
   { name: "Воронеж", lat: 51.6683, lng: 39.1843, zoom: 12 },
   { name: "Пермь", lat: 58.0105, lng: 56.2502, zoom: 12 },
   { name: "Волгоград", lat: 48.708, lng: 44.5133, zoom: 12 },
+  { name: "Краснодар", lat: 45.0355, lng: 38.9753, zoom: 12 },
+  { name: "Саратов", lat: 51.5336, lng: 46.0344, zoom: 12 },
+  { name: "Тюмень", lat: 57.1522, lng: 65.5272, zoom: 12 },
+  { name: "Тольятти", lat: 53.5078, lng: 49.4204, zoom: 12 },
+  { name: "Ижевск", lat: 56.8527, lng: 53.2114, zoom: 12 },
+  { name: "Барнаул", lat: 53.3548, lng: 83.7698, zoom: 12 },
+  { name: "Ульяновск", lat: 54.3142, lng: 48.4031, zoom: 12 },
+  { name: "Иркутск", lat: 52.2978, lng: 104.296, zoom: 12 },
+  { name: "Хабаровск", lat: 48.4827, lng: 135.084, zoom: 12 },
+  { name: "Ярославль", lat: 57.6299, lng: 39.8737, zoom: 12 },
+  { name: "Владивосток", lat: 43.1155, lng: 131.885, zoom: 12 },
+  { name: "Махачкала", lat: 42.9849, lng: 47.5047, zoom: 12 },
+  { name: "Томск", lat: 56.4884, lng: 84.948, zoom: 12 },
+  { name: "Оренбург", lat: 51.7727, lng: 55.0988, zoom: 12 },
+  { name: "Кемерово", lat: 55.3544, lng: 86.088, zoom: 12 },
+  { name: "Рязань", lat: 54.6296, lng: 39.7416, zoom: 12 },
+  { name: "Набережные Челны", lat: 55.7433, lng: 52.3959, zoom: 12 },
+  { name: "Астрахань", lat: 46.3479, lng: 48.0336, zoom: 12 },
+  { name: "Пенза", lat: 53.1959, lng: 45.0183, zoom: 12 },
+  { name: "Липецк", lat: 52.6031, lng: 39.5708, zoom: 12 },
+  { name: "Тула", lat: 54.1961, lng: 37.6182, zoom: 12 },
+  { name: "Киров", lat: 58.6036, lng: 49.668, zoom: 12 },
+  { name: "Чебоксары", lat: 56.1322, lng: 47.2519, zoom: 12 },
+  { name: "Калининград", lat: 54.7104, lng: 20.4522, zoom: 12 },
+  { name: "Брянск", lat: 53.2434, lng: 34.3637, zoom: 12 },
+  { name: "Курск", lat: 51.7306, lng: 36.1543, zoom: 12 },
+  { name: "Иваново", lat: 57.0004, lng: 40.9737, zoom: 12 },
+  { name: "Магнитогорск", lat: 53.4074, lng: 59.0684, zoom: 12 },
+  { name: "Улан-Удэ", lat: 51.8349, lng: 107.584, zoom: 12 },
+  { name: "Тверь", lat: 56.8684, lng: 35.9006, zoom: 12 },
+  { name: "Ставрополь", lat: 45.0448, lng: 41.9692, zoom: 12 },
+  { name: "Белгород", lat: 50.5977, lng: 36.5858, zoom: 12 },
+  { name: "Сочи", lat: 43.5855, lng: 39.7231, zoom: 12 },
+  { name: "Нижний Тагил", lat: 57.9195, lng: 59.965, zoom: 12 },
+  { name: "Архангельск", lat: 64.5399, lng: 40.5152, zoom: 12 },
+  { name: "Владимир", lat: 56.1366, lng: 40.3966, zoom: 12 },
+  { name: "Калуга", lat: 54.5293, lng: 36.2754, zoom: 12 },
+  { name: "Смоленск", lat: 54.7826, lng: 32.0453, zoom: 12 },
+  { name: "Чита", lat: 52.0515, lng: 113.471, zoom: 12 },
+  { name: "Саранск", lat: 54.1838, lng: 45.1749, zoom: 12 },
+  { name: "Вологда", lat: 59.2181, lng: 39.8914, zoom: 12 },
+  { name: "Орёл", lat: 52.9651, lng: 36.0785, zoom: 12 },
+  { name: "Грозный", lat: 43.3177, lng: 45.6949, zoom: 12 },
+  { name: "Тамбов", lat: 52.7212, lng: 41.4524, zoom: 12 },
+  { name: "Мурманск", lat: 68.9585, lng: 33.0827, zoom: 12 },
+  { name: "Петрозаводск", lat: 61.7849, lng: 34.3469, zoom: 12 },
+  { name: "Кострома", lat: 57.7678, lng: 40.9268, zoom: 12 },
+  { name: "Новокузнецк", lat: 53.7596, lng: 87.1216, zoom: 12 },
+  { name: "Йошкар-Ола", lat: 56.6343, lng: 47.8995, zoom: 12 },
+  { name: "Сургут", lat: 61.25, lng: 73.3964, zoom: 12 },
+  { name: "Нижневартовск", lat: 60.9344, lng: 76.5531, zoom: 12 },
+  { name: "Якутск", lat: 62.0355, lng: 129.675, zoom: 12 },
+  { name: "Псков", lat: 57.8136, lng: 28.3496, zoom: 12 },
+  { name: "Великий Новгород", lat: 58.5228, lng: 31.2694, zoom: 12 },
+  { name: "Комсомольск-на-Амуре", lat: 50.5504, lng: 137.008, zoom: 12 },
+  { name: "Стерлитамак", lat: 53.6305, lng: 55.9308, zoom: 12 },
+  { name: "Дзержинск", lat: 56.2412, lng: 43.4553, zoom: 12 },
+  { name: "Абакан", lat: 53.7211, lng: 91.4425, zoom: 12 },
+  { name: "Благовещенск", lat: 50.2785, lng: 127.54, zoom: 12 },
+  { name: "Сыктывкар", lat: 61.6688, lng: 50.836, zoom: 12 },
+  { name: "Петропавловск-Камчатский", lat: 53.0452, lng: 158.651, zoom: 12 },
+  { name: "Южно-Сахалинск", lat: 46.9641, lng: 142.731, zoom: 12 },
+  { name: "Норильск", lat: 69.3535, lng: 88.1892, zoom: 12 },
+  { name: "Волжский", lat: 48.7856, lng: 44.7719, zoom: 12 },
+  { name: "Подольск", lat: 55.4312, lng: 37.5447, zoom: 12 },
 ];
 
 const PRESET_COLORS = [
@@ -155,6 +220,122 @@ function zoneToEditor(z: GeoZone): EditorState {
     is_active: z.is_active,
     city: z.city || "",
   };
+}
+
+/* ── City search dropdown ─────────────────────────────────────────── */
+function CitySearchDropdown({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (city: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return CITIES;
+    const q = search.trim().toLowerCase();
+    return CITIES.filter((c) => c.name.toLowerCase().includes(q));
+  }, [search]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className={`relative ${className ?? ""}`} ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full h-8 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors flex items-center justify-between gap-2"
+      >
+        <span className="truncate">{value || placeholder || "Выберите город"}</span>
+        <Icon
+          name={open ? "ChevronUp" : "ChevronDown"}
+          className="w-3.5 h-3.5 text-muted-foreground shrink-0"
+        />
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <div className="relative">
+              <Icon
+                name="Search"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск города..."
+                className="w-full h-7 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {placeholder !== undefined && (
+              <button
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                  setSearch("");
+                }}
+                className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                  !value
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {placeholder}
+              </button>
+            )}
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                Не найдено
+              </div>
+            ) : (
+              filtered.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => {
+                    onChange(c.name);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                    value === c.name
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1137,20 +1318,13 @@ export default function GeoTargetingSettings() {
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">
                     Город
                   </label>
-                  <select
+                  <CitySearchDropdown
                     value={editor.city}
-                    onChange={(e) =>
-                      setEditor({ ...editor, city: e.target.value })
+                    onChange={(city) =>
+                      setEditor({ ...editor, city })
                     }
-                    className="w-full h-9 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
-                  >
-                    <option value="">Не указан</option>
-                    {CITIES.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Не указан"
+                  />
                 </div>
 
                 {/* Active toggle */}
@@ -1209,17 +1383,11 @@ export default function GeoTargetingSettings() {
           <div className="px-4 py-3 border-b border-border flex items-center gap-3 shrink-0">
             <Icon name="Map" className="w-4 h-4 text-primary" />
             <h4 className="text-sm font-semibold text-foreground">Карта</h4>
-            <select
+            <CitySearchDropdown
               value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              className="ml-auto h-8 px-3 bg-muted/50 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none pr-8"
-            >
-              {CITIES.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedCity}
+              className="ml-auto w-56"
+            />
           </div>
 
           {/* Draw mode indicator */}

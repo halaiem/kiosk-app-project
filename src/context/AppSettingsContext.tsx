@@ -1,7 +1,21 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
-export type TransportType = 'tram' | 'trolleybus' | 'bus' | 'electrobus' | 'technical';
-export type CityOption = 'spb' | 'moscow' | 'kazan' | 'novosibirsk' | 'ekaterinburg' | 'custom';
+/* ── Transport types ── */
+
+export type TransportType = 'tram' | 'trolleybus' | 'bus' | 'electrobus' | 'technical' | 'custom';
+
+export interface CustomTransportType {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+/* ── City ── */
+
+/** City is now a free string key for extensibility (backward-compat: old union values still work) */
+export type CityOption = string;
+
+/* ── Feature flags ── */
 
 export interface FeatureFlags {
   showMap: boolean;
@@ -10,15 +24,33 @@ export interface FeatureFlags {
   showMessenger: boolean;
   showBreak: boolean;
   showTelemetry: boolean;
+  showServiceRequests: boolean;
+  showSchedule: boolean;
+  showDocuments: boolean;
+  showDiagnostics: boolean;
+  showVehicles: boolean;
+  showDrivers: boolean;
+  showRatings: boolean;
+  showNotifications: boolean;
 }
+
+/* ── Brand colors ── */
 
 export interface BrandColors {
   sidebarBg: string;
   headerBg: string;
   primaryBtn: string;
+  primaryBtnHover: string;
+  primaryBtnDisabled: string;
   textColor: string;
   sidebarTextColor: string;
+  widgetBg: string;
+  widgetBorder: string;
+  cardBg: string;
+  accentColor: string;
 }
+
+/* ── Brand font ── */
 
 export interface BrandFont {
   name: string;       // display name, e.g. "Roboto"
@@ -26,20 +58,56 @@ export interface BrandFont {
   family: string;     // CSS font-family value
 }
 
+/* ── Font size ── */
+
+export type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+/* ── Feature role type ── */
+
+export type FeatureRole = 'tablet' | 'dispatcher' | 'technician' | 'admin' | 'mechanic';
+
+/* ── Main settings interface ── */
+
 export interface AppSettings {
+  /* carrier */
   carrierName: string;
   carrierLogo: string | null;
   carrierDescription: string;
+  carrierSlogan: string;
+  carrierText: string;
+  carrierLogoSize: 'sm' | 'md' | 'lg';
+  carrierLogoColor: string;
+  carrierBadgeIcon: string;
+  carrierBadgeText: string;
+  carrierSubLine1: string;
+  carrierSubLine2: string;
+
+  /* city */
   city: CityOption;
   customCityName: string;
+
+  /* transport */
   transportTypes: TransportType[];
+  customTransportTypes: CustomTransportType[];
+
+  /* features per role */
   featuresTablet: FeatureFlags;
   featuresDispatcher: FeatureFlags;
   featuresTechnician: FeatureFlags;
+  featuresAdmin: FeatureFlags;
+  featuresMechanic: FeatureFlags;
+
+  /* appearance */
   dashboardTheme: 'dark' | 'light';
+  brandColorsDashboard: BrandColors;
+  brandColorsTablet: BrandColors;
+  /** @deprecated use brandColorsDashboard — kept for backward compat */
   brandColors: BrandColors;
   brandFont: BrandFont | null;
+  fontSize: FontSize;
 }
+
+/* ── Defaults ── */
 
 const DEFAULT_FEATURES: FeatureFlags = {
   showMap: true,
@@ -48,41 +116,153 @@ const DEFAULT_FEATURES: FeatureFlags = {
   showMessenger: true,
   showBreak: true,
   showTelemetry: true,
+  showServiceRequests: false,
+  showSchedule: false,
+  showDocuments: false,
+  showDiagnostics: false,
+  showVehicles: false,
+  showDrivers: false,
+  showRatings: false,
+  showNotifications: true,
+};
+
+const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
+  showMap: true,
+  showSpeed: true,
+  showRoute: true,
+  showMessenger: true,
+  showBreak: false,
+  showTelemetry: true,
+  showServiceRequests: true,
+  showSchedule: true,
+  showDocuments: true,
+  showDiagnostics: true,
+  showVehicles: true,
+  showDrivers: true,
+  showRatings: true,
+  showNotifications: true,
+};
+
+const DEFAULT_BRAND_COLORS: BrandColors = {
+  sidebarBg: '#ec660c',
+  headerBg: '#ec660c',
+  primaryBtn: '#ec660c',
+  primaryBtnHover: '#d45a0a',
+  primaryBtnDisabled: '#f3a96e',
+  textColor: '#141414',
+  sidebarTextColor: '#141414',
+  widgetBg: '#ffffff',
+  widgetBorder: '#e5e7eb',
+  cardBg: '#ffffff',
+  accentColor: '#ec660c',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
   carrierName: 'ИРИДА',
   carrierLogo: null,
   carrierDescription: '',
+  carrierSlogan: '',
+  carrierText: '',
+  carrierLogoSize: 'md',
+  carrierLogoColor: '#ec660c',
+  carrierBadgeIcon: '',
+  carrierBadgeText: '',
+  carrierSubLine1: '',
+  carrierSubLine2: '',
+
   city: 'ekaterinburg',
   customCityName: '',
+
   transportTypes: ['tram'],
+  customTransportTypes: [],
+
   featuresTablet: { ...DEFAULT_FEATURES },
   featuresDispatcher: { ...DEFAULT_FEATURES },
   featuresTechnician: { ...DEFAULT_FEATURES },
+  featuresAdmin: { ...DEFAULT_ADMIN_FEATURES },
+  featuresMechanic: { ...DEFAULT_FEATURES, showServiceRequests: true, showDiagnostics: true },
+
   dashboardTheme: 'dark',
-  brandColors: { sidebarBg: '#ec660c', headerBg: '#ec660c', primaryBtn: '#ec660c', textColor: '#141414', sidebarTextColor: '#141414' },
+  brandColorsDashboard: { ...DEFAULT_BRAND_COLORS },
+  brandColorsTablet: { ...DEFAULT_BRAND_COLORS },
+  brandColors: { ...DEFAULT_BRAND_COLORS },
   brandFont: null,
+  fontSize: 'md',
 };
+
+/* ── Deep-merge helper for nested objects (one level) ── */
+
+function mergeFeatures(defaults: FeatureFlags, saved: Partial<FeatureFlags> | undefined): FeatureFlags {
+  if (!saved) return { ...defaults };
+  return { ...defaults, ...saved };
+}
+
+function mergeBrandColors(defaults: BrandColors, saved: Partial<BrandColors> | undefined): BrandColors {
+  if (!saved) return { ...defaults };
+  return { ...defaults, ...saved };
+}
+
+/* ── Load from localStorage with deep merge for backward compat ── */
 
 function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem('app_settings');
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AppSettings> & Record<string, unknown>;
+
+      // Backward compat: old `brandColors` field -> migrate to brandColorsDashboard
+      const legacyBrandColors = parsed.brandColors as Partial<BrandColors> | undefined;
+
+      const result: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+
+        // deep-merge features per role
+        featuresTablet: mergeFeatures(DEFAULT_SETTINGS.featuresTablet, parsed.featuresTablet),
+        featuresDispatcher: mergeFeatures(DEFAULT_SETTINGS.featuresDispatcher, parsed.featuresDispatcher),
+        featuresTechnician: mergeFeatures(DEFAULT_SETTINGS.featuresTechnician, parsed.featuresTechnician),
+        featuresAdmin: mergeFeatures(DEFAULT_SETTINGS.featuresAdmin, parsed.featuresAdmin),
+        featuresMechanic: mergeFeatures(DEFAULT_SETTINGS.featuresMechanic, parsed.featuresMechanic),
+
+        // deep-merge brand colors
+        brandColorsDashboard: mergeBrandColors(
+          DEFAULT_SETTINGS.brandColorsDashboard,
+          parsed.brandColorsDashboard ?? legacyBrandColors,
+        ),
+        brandColorsTablet: mergeBrandColors(
+          DEFAULT_SETTINGS.brandColorsTablet,
+          parsed.brandColorsTablet ?? legacyBrandColors,
+        ),
+        brandColors: mergeBrandColors(
+          DEFAULT_SETTINGS.brandColors,
+          parsed.brandColorsDashboard ?? legacyBrandColors,
+        ),
+
+        // ensure arrays
+        transportTypes: parsed.transportTypes ?? DEFAULT_SETTINGS.transportTypes,
+        customTransportTypes: parsed.customTransportTypes ?? DEFAULT_SETTINGS.customTransportTypes,
+      };
+
+      return result;
+    }
   } catch (_e) {
     // ignore
   }
   return DEFAULT_SETTINGS;
 }
 
+/* ── Context ── */
+
 interface AppSettingsContextValue {
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => void;
-  updateFeatures: (role: 'tablet' | 'dispatcher' | 'technician', patch: Partial<FeatureFlags>) => void;
+  updateFeatures: (role: FeatureRole, patch: Partial<FeatureFlags>) => void;
   resetSettings: () => void;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
+
+/* ── Hex → HSL util ── */
 
 function hexToHsl(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -101,21 +281,37 @@ function hexToHsl(hex: string): string {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/* ── Feature-role → settings key mapping ── */
+
+const FEATURE_KEY_MAP: Record<FeatureRole, keyof AppSettings> = {
+  tablet: 'featuresTablet',
+  dispatcher: 'featuresDispatcher',
+  technician: 'featuresTechnician',
+  admin: 'featuresAdmin',
+  mechanic: 'featuresMechanic',
+};
+
+/* ── Provider ── */
+
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     setSettings(prev => {
       const next = { ...prev, ...patch };
+      // Keep brandColors alias in sync with dashboard colors
+      if (patch.brandColorsDashboard) {
+        next.brandColors = { ...next.brandColorsDashboard };
+      }
       localStorage.setItem('app_settings', JSON.stringify(next));
       return next;
     });
   }, []);
 
-  const updateFeatures = useCallback((role: 'tablet' | 'dispatcher' | 'technician', patch: Partial<FeatureFlags>) => {
+  const updateFeatures = useCallback((role: FeatureRole, patch: Partial<FeatureFlags>) => {
     setSettings(prev => {
-      const key = role === 'tablet' ? 'featuresTablet' : role === 'dispatcher' ? 'featuresDispatcher' : 'featuresTechnician';
-      const next = { ...prev, [key]: { ...prev[key], ...patch } };
+      const key = FEATURE_KEY_MAP[role];
+      const next = { ...prev, [key]: { ...(prev[key] as FeatureFlags), ...patch } };
       localStorage.setItem('app_settings', JSON.stringify(next));
       return next;
     });
@@ -126,10 +322,10 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('app_settings');
   }, []);
 
-  // Apply brand colors to CSS variables (sidebar + header + primary only)
+  // Apply brand colors to CSS variables (uses dashboard colors for the dashboard UI)
   useEffect(() => {
     const root = document.documentElement;
-    const colors = { ...DEFAULT_SETTINGS.brandColors, ...(settings.brandColors ?? {}) };
+    const colors = { ...DEFAULT_SETTINGS.brandColorsDashboard, ...(settings.brandColorsDashboard ?? settings.brandColors ?? {}) };
     const { sidebarBg, headerBg, primaryBtn, sidebarTextColor } = colors;
 
     if (sidebarBg?.startsWith('#') && sidebarBg.length === 7) {
@@ -152,7 +348,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       root.style.setProperty('--primary', hexToHsl(primaryBtn));
     }
     // NOTE: --foreground is NOT overridden here — it comes from the dark/light CSS theme
-  }, [settings.brandColors]);
+  }, [settings.brandColorsDashboard, settings.brandColors]);
 
   // Apply custom font
   useEffect(() => {
@@ -198,30 +394,123 @@ export function useAppSettings() {
   return ctx;
 }
 
-export const CITY_LABELS: Record<CityOption, string> = {
-  spb: 'Санкт-Петербург',
+/* ══════════════════════════════════════════════════════════
+   Label / lookup exports
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Cities (85+ Russian cities) ── */
+
+export const CITY_LABELS: Record<string, string> = {
   moscow: 'Москва',
-  kazan: 'Казань',
+  spb: 'Санкт-Петербург',
   novosibirsk: 'Новосибирск',
   ekaterinburg: 'Екатеринбург',
+  kazan: 'Казань',
+  nizhniy_novgorod: 'Нижний Новгород',
+  chelyabinsk: 'Челябинск',
+  samara: 'Самара',
+  omsk: 'Омск',
+  rostov: 'Ростов-на-Дону',
+  ufa: 'Уфа',
+  krasnoyarsk: 'Красноярск',
+  voronezh: 'Воронеж',
+  perm: 'Пермь',
+  volgograd: 'Волгоград',
+  krasnodar: 'Краснодар',
+  saratov: 'Саратов',
+  tyumen: 'Тюмень',
+  tolyatti: 'Тольятти',
+  izhevsk: 'Ижевск',
+  barnaul: 'Барнаул',
+  ulyanovsk: 'Ульяновск',
+  irkutsk: 'Иркутск',
+  khabarovsk: 'Хабаровск',
+  yaroslavl: 'Ярославль',
+  vladivostok: 'Владивосток',
+  makhachkala: 'Махачкала',
+  tomsk: 'Томск',
+  orenburg: 'Оренбург',
+  kemerovo: 'Кемерово',
+  ryazan: 'Рязань',
+  naberezhnye_chelny: 'Набережные Челны',
+  astrakhan: 'Астрахань',
+  penza: 'Пенза',
+  lipetsk: 'Липецк',
+  tula: 'Тула',
+  kirov: 'Киров',
+  cheboksary: 'Чебоксары',
+  kaliningrad: 'Калининград',
+  bryansk: 'Брянск',
+  kursk: 'Курск',
+  ivanovo: 'Иваново',
+  magnitogorsk: 'Магнитогорск',
+  ulan_ude: 'Улан-Удэ',
+  tver: 'Тверь',
+  stavropol: 'Ставрополь',
+  belgorod: 'Белгород',
+  sochi: 'Сочи',
+  nizhniy_tagil: 'Нижний Тагил',
+  arkhangelsk: 'Архангельск',
+  vladimir: 'Владимир',
+  kaluga: 'Калуга',
+  smolensk: 'Смоленск',
+  chita: 'Чита',
+  saransk: 'Саранск',
+  vologda: 'Вологда',
+  komsomolsk: 'Комсомольск-на-Амуре',
+  orel: 'Орёл',
+  grozny: 'Грозный',
+  tambov: 'Тамбов',
+  murmansk: 'Мурманск',
+  petrozavodsk: 'Петрозаводск',
+  kostroma: 'Кострома',
+  novokuznetsk: 'Новокузнецк',
+  sterlitamak: 'Стерлитамак',
+  yoshkar_ola: 'Йошкар-Ола',
+  surgut: 'Сургут',
+  nizhnevartovsk: 'Нижневартовск',
+  yakutsk: 'Якутск',
+  pskov: 'Псков',
+  velikiy_novgorod: 'Великий Новгород',
+  dzerzhinsk: 'Дзержинск',
+  syktyvkar: 'Сыктывкар',
+  norilsk: 'Норильск',
+  zlatoust: 'Златоуст',
+  orsk: 'Орск',
+  petropavlovsk: 'Петропавловск-Камчатский',
+  severodvinsk: 'Северодвинск',
+  biysk: 'Бийск',
+  prokopyevsk: 'Прокопьевск',
+  balakovo: 'Балаково',
+  rybinsk: 'Рыбинск',
+  yuzhno_sakhalinsk: 'Южно-Сахалинск',
+  armavir: 'Армавир',
+  engels: 'Энгельс',
+  volzhskiy: 'Волжский',
   custom: 'Другой город',
 };
 
-export const TRANSPORT_LABELS: Record<TransportType, string> = {
+/* ── Transport ── */
+
+export const TRANSPORT_LABELS: Record<string, string> = {
   tram: 'Трамвай',
   trolleybus: 'Троллейбус',
   bus: 'Автобус',
   electrobus: 'Электробус',
   technical: 'Технический',
+  custom: 'Другой',
 };
 
-export const TRANSPORT_ICONS: Record<TransportType, string> = {
+export const TRANSPORT_ICONS: Record<string, string> = {
   tram: 'TramFront',
   trolleybus: 'Bus',
   bus: 'Bus',
   electrobus: 'Zap',
   technical: 'Truck',
+  custom: 'Settings',
 };
+
+/* ── Features ── */
 
 export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {
   showMap: 'Карта маршрута',
@@ -230,4 +519,22 @@ export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {
   showMessenger: 'Мессенджер',
   showBreak: 'Кнопка перерыва',
   showTelemetry: 'Телеметрия',
+  showServiceRequests: 'Заявки на обслуживание',
+  showSchedule: 'Расписание',
+  showDocuments: 'Документы',
+  showDiagnostics: 'Диагностика',
+  showVehicles: 'Транспорт',
+  showDrivers: 'Водители',
+  showRatings: 'Рейтинги',
+  showNotifications: 'Уведомления',
+};
+
+/* ── Font sizes ── */
+
+export const FONT_SIZE_LABELS: Record<FontSize, string> = {
+  xs: 'Очень маленький',
+  sm: 'Маленький',
+  md: 'Средний',
+  lg: 'Большой',
+  xl: 'Очень большой',
 };
