@@ -2,6 +2,7 @@ import json
 import os
 import base64
 import uuid
+import time
 import psycopg2
 import psycopg2.extras
 import boto3
@@ -11,6 +12,22 @@ CORS = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Token',
 }
+
+# ── In-memory TTL cache ───────────────────────────────────────────────────────
+_cache: dict = {}
+
+def cache_get(key: str):
+    entry = _cache.get(key)
+    if entry and time.time() < entry['exp']:
+        return entry['val']
+    return None
+
+def cache_set(key: str, val, ttl: int = 300):
+    _cache[key] = {'val': val, 'exp': time.time() + ttl}
+
+def cache_del(key: str):
+    _cache.pop(key, None)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def resp(code, body):
     return {'statusCode': code, 'headers': CORS, 'body': json.dumps(body, default=str)}
@@ -103,30 +120,41 @@ def handler(event, context):
 
 
 def get_users(cur, schema, user):
-    cur.execute(
-        f"SELECT du.id, du.full_name, du.role, du.is_active, "
-        f"COALESCE(cm.is_online, false) as is_online, cm.last_seen_at "
-        f"FROM {schema}.dashboard_users du "
-        f"LEFT JOIN (SELECT DISTINCT ON (user_id) user_id, is_online, last_seen_at "
-        f"  FROM {schema}.chat_members WHERE user_id IS NOT NULL ORDER BY user_id, last_seen_at DESC NULLS LAST) cm "
-        f"ON cm.user_id = du.id "
-        f"WHERE du.is_active = true AND du.id != %s "
-        f"ORDER BY du.full_name", (user['id'],)
-    )
-    return resp(200, {'users': cur.fetchall()})
+    # Онлайн-статусы меняются быстро — TTL 30с; список пользователей — 120с
+    cached = cache_get(f'users:{schema}')
+    if cached is None:
+        cur.execute(
+            f"SELECT du.id, du.full_name, du.role, du.is_active, "
+            f"COALESCE(cm.is_online, false) as is_online, cm.last_seen_at "
+            f"FROM {schema}.dashboard_users du "
+            f"LEFT JOIN (SELECT DISTINCT ON (user_id) user_id, is_online, last_seen_at "
+            f"  FROM {schema}.chat_members WHERE user_id IS NOT NULL ORDER BY user_id, last_seen_at DESC NULLS LAST) cm "
+            f"ON cm.user_id = du.id "
+            f"WHERE du.is_active = true "
+            f"ORDER BY du.full_name"
+        )
+        cached = cur.fetchall()
+        cache_set(f'users:{schema}', cached, ttl=30)
+    # Исключаем текущего пользователя из кешированного списка
+    users = [u for u in cached if u['id'] != user['id']]
+    return resp(200, {'users': users})
 
 
 def get_drivers(cur, schema):
-    cur.execute(
-        f"SELECT d.id, d.full_name, d.tab_number, d.vehicle_id, d.status, "
-        f"v.board_number, r.route_number "
-        f"FROM {schema}.drivers d "
-        f"LEFT JOIN {schema}.vehicles v ON v.id = d.vehicle_id "
-        f"LEFT JOIN {schema}.routes r ON r.id = d.route_id "
-        f"WHERE d.is_active = true "
-        f"ORDER BY d.full_name"
-    )
-    return resp(200, {'drivers': cur.fetchall()})
+    cached = cache_get(f'drivers:{schema}')
+    if cached is None:
+        cur.execute(
+            f"SELECT d.id, d.full_name, d.tab_number, d.vehicle_id, d.status, "
+            f"v.board_number, r.route_number "
+            f"FROM {schema}.drivers d "
+            f"LEFT JOIN {schema}.vehicles v ON v.id = d.vehicle_id "
+            f"LEFT JOIN {schema}.routes r ON r.id = d.route_id "
+            f"WHERE d.is_active = true "
+            f"ORDER BY d.full_name"
+        )
+        cached = cur.fetchall()
+        cache_set(f'drivers:{schema}', cached, ttl=120)
+    return resp(200, {'drivers': cached})
 
 
 def get_chats(cur, schema, user):
@@ -546,24 +574,32 @@ def get_pinned(cur, schema, user, qs):
 
 
 def get_routes_list(cur, schema):
-    """Список маршрутов."""
-    cur.execute(
-        f"SELECT id, route_number, name FROM {schema}.routes "
-        f"WHERE is_active = TRUE ORDER BY route_number"
-    )
-    return resp(200, {'routes': cur.fetchall()})
+    """Список маршрутов. TTL 5 минут — данные меняются редко."""
+    cached = cache_get(f'routes:{schema}')
+    if cached is None:
+        cur.execute(
+            f"SELECT id, route_number, name FROM {schema}.routes "
+            f"WHERE is_active = TRUE ORDER BY route_number"
+        )
+        cached = cur.fetchall()
+        cache_set(f'routes:{schema}', cached, ttl=300)
+    return resp(200, {'routes': cached})
 
 
 def get_vehicles_list(cur, schema):
-    """Список транспорта."""
-    cur.execute(
-        f"SELECT v.id, v.board_number, v.model, v.label, "
-        f"r.route_number "
-        f"FROM {schema}.vehicles v "
-        f"LEFT JOIN {schema}.routes r ON r.id = v.assigned_route_id "
-        f"WHERE v.transport_status = 'active' ORDER BY v.board_number"
-    )
-    return resp(200, {'vehicles': cur.fetchall()})
+    """Список транспорта. TTL 5 минут — данные меняются редко."""
+    cached = cache_get(f'vehicles:{schema}')
+    if cached is None:
+        cur.execute(
+            f"SELECT v.id, v.board_number, v.model, v.label, "
+            f"r.route_number "
+            f"FROM {schema}.vehicles v "
+            f"LEFT JOIN {schema}.routes r ON r.id = v.assigned_route_id "
+            f"WHERE v.transport_status = 'active' ORDER BY v.board_number"
+        )
+        cached = cur.fetchall()
+        cache_set(f'vehicles:{schema}', cached, ttl=300)
+    return resp(200, {'vehicles': cached})
 
 
 def add_members(cur, conn, schema, user, event):
@@ -606,4 +642,6 @@ def add_members(cur, conn, schema, user, event):
                 added += 1
 
     conn.commit()
+    # Инвалидируем кеш пользователей — онлайн-список изменился
+    cache_del(f'users:{schema}')
     return resp(200, {'added': added})

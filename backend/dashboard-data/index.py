@@ -1,9 +1,27 @@
 """CRUD для dashboard: маршруты, транспорт, расписание, документы, водители, алерты, статистика (v2)"""
 import json
 import os
+import time
 import psycopg2
 
 DSN = os.environ.get('DATABASE_URL', '')
+
+# ── In-memory TTL cache ───────────────────────────────────────────────────────
+_cache: dict = {}
+
+def _cache_get(key: str):
+    entry = _cache.get(key)
+    if entry and time.time() < entry['exp']:
+        return entry['val']
+    return None
+
+def _cache_set(key: str, val, ttl: int):
+    _cache[key] = {'val': val, 'exp': time.time() + ttl}
+
+def _cache_del(*keys):
+    for k in keys:
+        _cache.pop(k, None)
+# ─────────────────────────────────────────────────────────────────────────────
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -87,6 +105,9 @@ def handler(event, context):
 
 
 def _fetch_stats(cur):
+    cached = _cache_get('stats')
+    if cached:
+        return cached
     cur.execute("""
         SELECT
             (SELECT COUNT(*) FROM drivers WHERE is_active = true) as total_drivers,
@@ -96,10 +117,12 @@ def _fetch_stats(cur):
             (SELECT COUNT(*) FROM messages WHERE message_type = 'urgent' AND is_read = false AND sender = 'driver') as unresolved_alerts
     """)
     r = cur.fetchone()
-    return {
+    result = {
         'activeDrivers': r[1], 'totalDrivers': r[0], 'activeRoutes': r[2],
         'unresolvedAlerts': r[4], 'avgDelay': 0, 'onTimePercent': 95, 'totalVehicles': r[3]
     }
+    _cache_set('stats', result, ttl=30)
+    return result
 
 def handle_stats(cur, conn, user):
     conn.commit()
@@ -315,6 +338,10 @@ def handle_drivers(method, qs, event, cur, conn, user):
 
 def handle_routes(method, qs, event, cur, conn, user):
     if method == 'GET':
+        cached = _cache_get('routes')
+        if cached:
+            return resp(200, {'routes': cached})
+
         cur.execute("""
             SELECT id, route_number, name, transport_type, color, is_active,
                    distance_km, avg_time_min, route_status, created_at
@@ -337,6 +364,7 @@ def handle_routes(method, qs, event, cur, conn, user):
                 'assignedVehicles': 0,
                 'createdAt': r[9]
             })
+        _cache_set('routes', routes, ttl=300)
         conn.commit()
         return resp(200, {'routes': routes})
 
@@ -365,6 +393,7 @@ def handle_routes(method, qs, event, cur, conn, user):
         rid = cur.fetchone()[0]
         log_action(cur, user, 'create_route', f'М{number}', name)
         conn.commit()
+        _cache_del('routes', 'stats')
         return resp(201, {'id': str(rid)})
 
     if method == 'PUT':
@@ -394,6 +423,7 @@ def handle_routes(method, qs, event, cur, conn, user):
             cur.execute(f"UPDATE routes SET {', '.join(updates)} WHERE id = %s", params)
             log_action(cur, user, 'update_route', str(rid), json.dumps(body, ensure_ascii=False))
             conn.commit()
+            _cache_del('routes', 'stats')
         return resp(200, {'ok': True})
 
     return resp(405, {'error': 'Method not allowed'})
@@ -401,6 +431,10 @@ def handle_routes(method, qs, event, cur, conn, user):
 
 def handle_vehicles(method, qs, event, cur, conn, user):
     if method == 'GET':
+        cached = _cache_get('vehicles')
+        if cached:
+            return resp(200, {'vehicles': cached})
+
         cur.execute("""
             SELECT v.id, v.label, v.transport_type, v.license_plate, v.model,
                    v.capacity, v.manufacture_year, v.transport_status,
@@ -431,6 +465,7 @@ def handle_vehicles(method, qs, event, cur, conn, user):
                 'isAccessible': r[22], 'insuranceNumber': r[23],
                 'insuranceExpiry': r[24], 'techInspectionExpiry': r[25]
             })
+        _cache_set('vehicles', vehicles, ttl=300)
         conn.commit()
         return resp(200, {'vehicles': vehicles})
 
@@ -477,6 +512,7 @@ def handle_vehicles(method, qs, event, cur, conn, user):
         vid = cur.fetchone()[0]
         log_action(cur, user, 'create_vehicle', label, f'VIN: {vin or "—"}, Тип: {body.get("type", "bus")}')
         conn.commit()
+        _cache_del('vehicles', 'stats')
         return resp(201, {'id': str(vid)})
 
     if method == 'PUT':
@@ -525,11 +561,12 @@ def handle_vehicles(method, qs, event, cur, conn, user):
         cur.execute(f"UPDATE vehicles SET {', '.join(updates)} WHERE id = %s::uuid", params)
         log_action(cur, user, 'update_vehicle', str(vid), json.dumps(body, ensure_ascii=False))
         conn.commit()
+        _cache_del('vehicles', 'stats')
         return resp(200, {'ok': True})
 
     if method == 'DELETE':
         if user['role'] != 'admin':
-            return resp(403, {'error': 'Удаление доступно только администратору'})
+            return resp(403, {'error': 'Удаление доступно только администратором'})
 
         vid = qs.get('id')
         if not vid:
@@ -537,6 +574,7 @@ def handle_vehicles(method, qs, event, cur, conn, user):
         cur.execute("UPDATE vehicles SET transport_status = 'decommissioned', updated_at = now() WHERE id = %s::uuid", (vid,))
         log_action(cur, user, 'decommission_vehicle', vid, 'Списан')
         conn.commit()
+        _cache_del('vehicles', 'stats')
         return resp(200, {'ok': True})
 
     return resp(405, {'error': 'Method not allowed'})
