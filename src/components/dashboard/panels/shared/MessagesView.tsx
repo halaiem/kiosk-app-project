@@ -29,6 +29,7 @@ import {
   type MessageType,
 } from "@/api/chatApi";
 import CategoryPicker from "./CategoryPicker";
+import VoicePlayer from "./VoicePlayer";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1491,16 +1492,8 @@ export default function MessagesView({
                                   </a>
                                 ) : (file.content_type.startsWith("audio/") || /\.(webm|ogg|oga|mp3|wav|m4a|mp4)$/i.test(file.file_name)) ? (
                                   <div key={file.id} className="space-y-1">
-                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border">
-                                      <Icon name="Mic" className="w-4 h-4 text-primary shrink-0" />
-                                      <audio
-                                        controls
-                                        preload="auto"
-                                        src={file.file_url}
-                                        className="h-8 flex-1 min-w-0"
-                                        style={{ maxWidth: 220 }}
-                                        onError={(e) => { console.warn('audio error', file.file_url, e); }}
-                                      />
+                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-background/50 border border-border text-primary" style={{ minWidth: 240, maxWidth: 280 }}>
+                                      <VoicePlayer url={file.file_url} />
                                       <button
                                         onClick={() => transcribeVoiceFile(file.id, file.file_url, file.content_type)}
                                         disabled={transcribingFile === file.id}
