@@ -5,6 +5,7 @@ export const VEHICLE_TYPE_ICONS: Record<VehicleInfo["type"], string> = {
   trolleybus: "Zap",
   bus: "Bus",
   electrobus: "Zap",
+  technical: "Truck",
 };
 
 export const VEHICLE_TYPE_LABELS: Record<VehicleInfo["type"], string> = {
@@ -12,6 +13,7 @@ export const VEHICLE_TYPE_LABELS: Record<VehicleInfo["type"], string> = {
   trolleybus: "Троллейбус",
   bus: "Автобус",
   electrobus: "Электробус",
+  technical: "Технический",
 };
 
 export const VEHICLE_STATUS_STYLES: Record<VehicleStatus, string> = {

@@ -240,6 +240,32 @@ export async function fetchFilters(): Promise<ChatFilters> {
   return request(`${BASE}?action=filters`);
 }
 
+export interface FilterPreset {
+  id: number;
+  name: string;
+  filters: Record<string, string[]>;
+  created_at: string;
+}
+
+export async function fetchPresets(): Promise<FilterPreset[]> {
+  const d = await request(`${BASE}?action=presets`);
+  return (d.presets || []).filter((p: FilterPreset) => p.name !== '__deleted__');
+}
+
+export async function savePreset(name: string, filters: Record<string, string[]>, id?: number): Promise<{ id: number }> {
+  return request(`${BASE}?action=save_preset`, {
+    method: 'POST',
+    body: JSON.stringify({ name, filters, id }),
+  });
+}
+
+export async function deletePreset(id: number): Promise<{ ok: boolean }> {
+  return request(`${BASE}?action=delete_preset`, {
+    method: 'PUT',
+    body: JSON.stringify({ id }),
+  });
+}
+
 export async function addMembers(chatId: number, userIds: number[], driverIds: number[]): Promise<{ added: number }> {
   return request(`${BASE}?action=add_members`, {
     method: 'POST',

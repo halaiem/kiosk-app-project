@@ -7,13 +7,14 @@ import {
   type IconSettings,
 } from "@/lib/vehicleIconConfig";
 
-type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus";
+type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus" | "technical";
 
 const VEHICLE_TYPES: { key: VehicleType; label: string; icon: string }[] = [
   { key: "tram", label: "Трамвай", icon: "TramFront" },
   { key: "trolleybus", label: "Троллейбус", icon: "Zap" },
   { key: "bus", label: "Автобус", icon: "Bus" },
   { key: "electrobus", label: "Электробус", icon: "Zap" },
+  { key: "technical", label: "Технический", icon: "Truck" },
 ];
 
 const DEFAULT_CONFIG: IconConfig = { color: "#f97316", size: 32, iconSize: 20 };
@@ -24,6 +25,7 @@ function getDefaults(): IconSettings {
     trolleybus: { ...DEFAULT_CONFIG },
     bus: { ...DEFAULT_CONFIG },
     electrobus: { ...DEFAULT_CONFIG },
+    technical: { ...DEFAULT_CONFIG },
   };
 }
 
@@ -59,6 +61,12 @@ function vehicleTypeSvgPath(type: VehicleType, color: string): string {
         <polygon points="19,3 16,9 19,9 17,14 22,7 19,7" fill="white"/>
         <circle cx="12" cy="26" r="2" fill="white" opacity="0.7"/>
         <circle cx="24" cy="26" r="2" fill="white" opacity="0.7"/>`;
+    case "technical":
+      return `<rect x="6" y="12" width="14" height="12" rx="2" fill="white"/>
+        <rect x="20" y="8" width="10" height="16" rx="2" fill="white"/>
+        <rect x="22" y="10" width="6" height="5" rx="1" fill="${windowColor}" opacity="0.5"/>
+        <circle cx="11" cy="26" r="2" fill="white" opacity="0.7"/>
+        <circle cx="25" cy="26" r="2" fill="white" opacity="0.7"/>`;
     default:
       return `<rect x="8" y="8" width="20" height="16" rx="3" fill="white"/>`;
   }

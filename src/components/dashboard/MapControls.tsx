@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { MapVehicleInfo } from "@/components/dashboard/MapVehicleCard";
 
-type VehicleType = "all" | "tram" | "trolleybus" | "bus" | "electrobus";
+type VehicleType = "all" | "tram" | "trolleybus" | "bus" | "electrobus" | "technical";
 type VehicleStatus = "all" | "ok" | "warning" | "critical";
 
 interface Props {
@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<VehicleType, string> = {
   trolleybus: "Троллейбус",
   bus: "Автобус",
   electrobus: "Электробус",
+  technical: "Технический",
 };
 
 const STATUS_LABELS: Record<VehicleStatus, string> = {

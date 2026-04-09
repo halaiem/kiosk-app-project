@@ -115,6 +115,12 @@ def handler(event, context):
             return get_filters(cur, schema)
         elif method == 'POST' and action == 'add_members':
             return add_members(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'presets':
+            return get_presets(cur, schema, user)
+        elif method == 'POST' and action == 'save_preset':
+            return save_preset(cur, conn, schema, user, event)
+        elif method == 'PUT' and action == 'delete_preset':
+            return delete_preset(cur, conn, schema, user, event)
         else:
             return resp(400, {'error': 'Неизвестное действие'})
     finally:
@@ -690,6 +696,62 @@ def get_filters(cur, schema):
         }
         cache_set(f'filters:{schema}', cached, ttl=300)
     return resp(200, cached)
+
+
+def get_presets(cur, schema, user):
+    """Получить пресеты фильтров пользователя."""
+    cur.execute(
+        f"SELECT id, name, filters, created_at FROM {schema}.filter_presets "
+        f"WHERE user_id = %s ORDER BY created_at DESC",
+        (user['id'],)
+    )
+    return resp(200, {'presets': cur.fetchall()})
+
+
+def save_preset(cur, conn, schema, user, event):
+    """Сохранить пресет фильтров."""
+    body = json.loads(event.get('body') or '{}')
+    name = (body.get('name') or '').strip()
+    filters_data = body.get('filters', {})
+    preset_id = body.get('id')
+
+    if not name:
+        return resp(400, {'error': 'Название обязательно'})
+
+    if preset_id:
+        cur.execute(
+            f"UPDATE {schema}.filter_presets SET name = %s, filters = %s, updated_at = NOW() "
+            f"WHERE id = %s AND user_id = %s RETURNING id",
+            (name, json.dumps(filters_data), preset_id, user['id'])
+        )
+        row = cur.fetchone()
+        if not row:
+            return resp(404, {'error': 'Пресет не найден'})
+        conn.commit()
+        return resp(200, {'id': row['id']})
+    else:
+        cur.execute(
+            f"INSERT INTO {schema}.filter_presets (user_id, name, filters) VALUES (%s, %s, %s) RETURNING id",
+            (user['id'], name, json.dumps(filters_data))
+        )
+        new_id = cur.fetchone()['id']
+        conn.commit()
+        return resp(201, {'id': new_id})
+
+
+def delete_preset(cur, conn, schema, user, event):
+    """Удалить пресет фильтров (мягкое — через обнуление)."""
+    body = json.loads(event.get('body') or '{}')
+    preset_id = body.get('id')
+    if not preset_id:
+        return resp(400, {'error': 'id обязателен'})
+    cur.execute(
+        f"UPDATE {schema}.filter_presets SET name = '__deleted__', filters = '{{}}', updated_at = NOW() "
+        f"WHERE id = %s AND user_id = %s",
+        (preset_id, user['id'])
+    )
+    conn.commit()
+    return resp(200, {'ok': True})
 
 
 def add_members(cur, conn, schema, user, event):

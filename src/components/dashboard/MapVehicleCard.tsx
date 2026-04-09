@@ -21,11 +21,15 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   tram: "Трамвай",
   trolleybus: "Троллейбус",
   bus: "Автобус",
+  electrobus: "Электробус",
+  technical: "Технический",
 };
 const VEHICLE_TYPE_ICONS: Record<string, string> = {
   tram: "TramFront",
   trolleybus: "Zap",
   bus: "Bus",
+  electrobus: "Zap",
+  technical: "Truck",
 };
 
 function seededRandom(seed: number) {

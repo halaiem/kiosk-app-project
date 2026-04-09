@@ -181,6 +181,7 @@ export default function VehicleFormModal({
               <option value="tram">Трамвай</option>
               <option value="trolleybus">Троллейбус</option>
               <option value="electrobus">Электробус</option>
+              <option value="technical">Технический</option>
             </select>
           </div>
           {/* Board number */}

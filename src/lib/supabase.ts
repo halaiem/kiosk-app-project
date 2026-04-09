@@ -20,7 +20,7 @@ export type AlertLevel = 'info' | 'warning' | 'critical'
 export type AlertType = 'sos' | 'breakdown' | 'delay' | 'deviation' | 'speeding'
 export type MessageType = 'normal' | 'urgent' | 'system'
 export type MessageDirection = 'incoming' | 'outgoing'
-export type VehicleType = 'tram' | 'trolleybus' | 'bus'
+export type VehicleType = 'tram' | 'trolleybus' | 'bus' | 'electrobus' | 'technical'
 
 // Пользователи дашборда (диспетчеры, техники, администраторы)
 export interface DashboardUser {

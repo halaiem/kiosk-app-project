@@ -86,6 +86,8 @@ export default function VehicleEditModal({ vehicle, onClose, onReload }: Vehicle
               <option value="tram">Трамвай</option>
               <option value="trolleybus">Троллейбус</option>
               <option value="bus">Автобус</option>
+              <option value="electrobus">Электробус</option>
+              <option value="technical">Технический</option>
             </select>
           </div>
           <div>

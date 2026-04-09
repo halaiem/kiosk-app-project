@@ -1,4 +1,4 @@
-type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus";
+type VehicleType = "tram" | "trolleybus" | "bus" | "electrobus" | "technical";
 
 export interface IconConfig {
   color: string;
@@ -19,6 +19,7 @@ function getDefaults(): IconSettings {
     trolleybus: { ...DEFAULT_CONFIG },
     bus: { ...DEFAULT_CONFIG },
     electrobus: { ...DEFAULT_CONFIG },
+    technical: { ...DEFAULT_CONFIG },
   };
 }
 

@@ -9,6 +9,7 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   tram: "Трамвай",
   trolleybus: "Троллейбус",
   electrobus: "Электробус",
+  technical: "Технический",
 };
 
 const API_TYPE_LABELS: Record<string, string> = {

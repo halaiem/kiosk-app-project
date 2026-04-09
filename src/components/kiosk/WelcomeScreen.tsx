@@ -17,8 +17,10 @@ export default function WelcomeScreen({ driver, onStart }: Props) {
     return () => clearInterval(t);
   }, []);
 
-  const vehicleIcon = driver.vehicleType === 'tram' ? 'Tram' : 'Bus';
-  const vehicleLabel = driver.vehicleType === 'tram' ? 'Трамвай' : 'Троллейбус';
+  const vehicleIcons: Record<string, string> = { tram: 'Tram', trolleybus: 'Bus', bus: 'Bus', electrobus: 'Zap', technical: 'Truck' };
+  const vehicleLabels: Record<string, string> = { tram: 'Трамвай', trolleybus: 'Троллейбус', bus: 'Автобус', electrobus: 'Электробус', technical: 'Технический' };
+  const vehicleIcon = vehicleIcons[driver.vehicleType] || 'Bus';
+  const vehicleLabel = vehicleLabels[driver.vehicleType] || driver.vehicleType;
   const timeStr = time.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const dateStr = time.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
