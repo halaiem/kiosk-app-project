@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import type { ServerInfo, ServerStatus } from "@/types/dashboard";
+import { loadStoredServers, saveStoredServers, SERVERS_UPDATED_EVENT, type StoredServer } from "@/utils/serversStorage";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,23 +43,21 @@ const SERVER_TYPE_ICONS: Record<string, string> = {
   backup: "Archive", telemetry: "Activity", api: "Plug", other: "Server",
 };
 
-// ── custom server interface (extends ServerInfo with config) ──────────────────
+// ── CustomServer maps StoredServer → runtime type (lastCheck as Date) ─────────
 
-interface CustomServer extends ServerInfo {
-  address?: string;
-  port?: string;
-  serverType?: string;
-  isCustom?: boolean;
+type CustomServer = Omit<StoredServer, "lastCheck"> & { lastCheck: Date };
+
+function fromStored(s: StoredServer): CustomServer {
+  return { ...s, lastCheck: new Date(s.lastCheck) };
 }
-
-const LS_KEY = "admin_custom_servers";
-
+function toStored(s: CustomServer): StoredServer {
+  return { ...s, lastCheck: s.lastCheck.toISOString() };
+}
 function loadCustomServers(): CustomServer[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
-  catch { return []; }
+  return loadStoredServers().map(fromStored);
 }
 function saveCustomServers(list: CustomServer[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(list));
+  saveStoredServers(list.map(toStored));
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -173,6 +172,13 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Синхронизация при добавлении API из раздела API
+  useEffect(() => {
+    const onUpdate = () => setCustomServers(loadCustomServers());
+    window.addEventListener(SERVERS_UPDATED_EVENT, onUpdate);
+    return () => window.removeEventListener(SERVERS_UPDATED_EVENT, onUpdate);
+  }, []);
+
   const allServers: CustomServer[] = useMemo(() => [
     ...propServers.map(s => ({ ...s, isCustom: false })),
     ...customServers,
@@ -285,7 +291,8 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground truncate">{srv.name}</span>
-                      {srv.isCustom && <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">настроен</span>}
+                      {srv.apiId && <span className="text-[9px] text-purple-500 bg-purple-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Icon name="Plug" className="w-2.5 h-2.5" />из API</span>}
+                      {srv.isCustom && !srv.apiId && <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">настроен</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       {srv.address && <span className="text-[11px] text-muted-foreground font-mono">{srv.address}{srv.port ? `:${srv.port}` : ""}</span>}

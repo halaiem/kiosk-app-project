@@ -11,6 +11,7 @@ import { fetchVehicles } from "@/api/dashboardApi";
 import SummaryCards from "./diagnostic-apis/SummaryCards";
 import AddApiForm from "./diagnostic-apis/AddApiForm";
 import ApiTable from "./diagnostic-apis/ApiTable";
+import { addServerFromApi } from "@/utils/serversStorage";
 
 interface VehicleOption {
   id: string;
@@ -115,16 +116,24 @@ export function DiagnosticApisView() {
     if (!data.vehicleId || !data.apiName.trim() || !data.apiUrl.trim()) return;
     setSaving(true);
     try {
-      await createDiagnosticApi({
+      const created = await createDiagnosticApi({
         vehicleId: data.vehicleId,
         apiName: data.apiName.trim(),
         apiType: data.apiType,
         apiUrl: data.apiUrl.trim(),
         apiKey: data.apiKey.trim() || undefined,
         pollInterval: Number(data.pollInterval) || 60,
+      }) as { id?: string } | undefined;
+
+      const apiId = (created as { id?: string } | undefined)?.id ?? `local_${Date.now()}`;
+      addServerFromApi({
+        apiId,
+        apiName: data.apiName.trim(),
+        apiUrl: data.apiUrl.trim(),
       });
+
       setShowAddForm(false);
-      showToast("API конфигурация создана");
+      showToast("API добавлен — новый сервер появился в разделе Серверы");
       await loadData();
     } catch (e) {
       console.error("Create API:", e);
