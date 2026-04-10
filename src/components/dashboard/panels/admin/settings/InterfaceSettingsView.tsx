@@ -1055,27 +1055,105 @@ function getAllUniqueSections(): SectionItem[] {
   return result;
 }
 
-function SectionList({ items, onRemove }: { items: SectionItem[]; onRemove?: (tab: string) => void }) {
+function SectionList({
+  items,
+  onHide,
+  onRemove,
+  onMove,
+  targetRoles,
+  hiddenTabs,
+}: {
+  items: SectionItem[];
+  onHide?: (tab: string) => void;
+  onRemove?: (tab: string) => void;
+  onMove?: (item: SectionItem, targetRole: string) => void;
+  targetRoles?: { key: string; label: string }[];
+  hiddenTabs?: Set<string>;
+}) {
+  const [moveOpenTab, setMoveOpenTab] = useState<string | null>(null);
+  const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+
+  const openMove = (tab: string) => {
+    const el = btnRefs.current[tab];
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left });
+    }
+    setMoveOpenTab(tab);
+  };
+
+  useEffect(() => {
+    if (!moveOpenTab) return;
+    const close = () => setMoveOpenTab(null);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [moveOpenTab]);
+
   return (
     <div className="space-y-1">
-      {items.map((item) => (
-        <div
-          key={item.tab}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 border border-border/50"
-        >
-          <Icon name={item.icon} className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-foreground flex-1">{item.label}</span>
-          <span className="text-[10px] text-muted-foreground font-mono">{item.tab}</span>
-          {onRemove && (
-            <button
-              onClick={() => onRemove(item.tab)}
-              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
-            >
-              <Icon name="X" className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-      ))}
+      {items.map((item) => {
+        const isHidden = hiddenTabs?.has(item.tab);
+        return (
+          <div
+            key={item.tab}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isHidden ? "opacity-40 bg-muted/10 border-border/30" : "bg-muted/30 border-border/50"}`}
+          >
+            <Icon name={item.icon} className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className={`text-xs flex-1 ${isHidden ? "line-through text-muted-foreground" : "text-foreground"}`}>{item.label}</span>
+            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">{item.tab}</span>
+            {onHide && (
+              <button
+                onClick={() => onHide(item.tab)}
+                title={isHidden ? "Показать" : "Скрыть"}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Icon name={isHidden ? "Eye" : "EyeOff"} className="w-3 h-3" />
+              </button>
+            )}
+            {onMove && targetRoles && targetRoles.length > 0 && (
+              <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  ref={(el) => { btnRefs.current[item.tab] = el; }}
+                  onClick={() => moveOpenTab === item.tab ? setMoveOpenTab(null) : openMove(item.tab)}
+                  title="Переместить"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Icon name="MoveRight" className="w-3 h-3" />
+                </button>
+                {moveOpenTab === item.tab && dropPos && (
+                  <div
+                    className="fixed z-[9999] rounded-xl border border-border bg-popover shadow-xl py-1 min-w-[180px]"
+                    style={{ top: dropPos.top, left: dropPos.left }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Переместить в:</div>
+                    {targetRoles.map((r) => (
+                      <button
+                        key={r.key}
+                        onClick={() => { onMove(item, r.key); setMoveOpenTab(null); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-xs text-popover-foreground hover:bg-muted transition-colors"
+                      >
+                        <Icon name={ROLE_META[r.key]?.icon || "User"} className="w-3.5 h-3.5 text-muted-foreground" />
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {onRemove && (
+              <button
+                onClick={() => onRemove(item.tab)}
+                title="Удалить"
+                className="text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Icon name="X" className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1088,9 +1166,27 @@ function AddSectionDropdown({
   onAdd: (item: SectionItem) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+
   const available = useMemo(() => {
     return getAllUniqueSections().filter((s) => !currentTabs.has(s.tab));
   }, [currentTabs]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left });
+    }
+    setOpen((p) => !p);
+  };
 
   if (available.length === 0) {
     return (
@@ -1105,23 +1201,25 @@ function AddSectionDropdown({
   }
 
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={() => setOpen((p) => !p)}
+        ref={btnRef}
+        onClick={handleOpen}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted transition-colors"
       >
         <Icon name="Plus" className="w-3.5 h-3.5" />
         Добавить раздел или виджет
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-border bg-popover shadow-lg py-1 min-w-[220px] max-h-60 overflow-y-auto">
+      {open && dropPos && (
+        <div
+          className="fixed z-[9999] rounded-xl border border-border bg-popover shadow-xl py-1 min-w-[240px] max-h-64 overflow-y-auto"
+          style={{ top: dropPos.top, left: dropPos.left }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {available.map((s) => (
             <button
               key={s.tab}
-              onClick={() => {
-                onAdd(s);
-                setOpen(false);
-              }}
+              onClick={() => { onAdd(s); setOpen(false); }}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
             >
               <Icon name={s.icon} className="w-4 h-4 text-muted-foreground" />
@@ -1131,80 +1229,11 @@ function AddSectionDropdown({
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function MoveSectionDropdown({
-  sections,
-  targetRoles,
-  onMove,
-}: {
-  sections: SectionItem[];
-  targetRoles: { key: string; label: string }[];
-  onMove: (section: SectionItem, targetRole: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<SectionItem | null>(null);
 
-  if (sections.length === 0) return null;
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => {
-          setOpen((p) => !p);
-          setSelected(null);
-        }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted transition-colors"
-      >
-        <Icon name="MoveRight" className="w-3.5 h-3.5" />
-        Переместить раздел
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-border bg-popover shadow-lg py-1 min-w-[220px] max-h-60 overflow-y-auto">
-          {!selected ? (
-            <>
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Выберите раздел
-              </div>
-              {sections.map((s) => (
-                <button
-                  key={s.tab}
-                  onClick={() => setSelected(s)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                >
-                  <Icon name={s.icon} className="w-4 h-4 text-muted-foreground" />
-                  {s.label}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Переместить &laquo;{selected.label}&raquo; в:
-              </div>
-              {targetRoles.map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => {
-                    onMove(selected, r.key);
-                    setOpen(false);
-                    setSelected(null);
-                  }}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                >
-                  <Icon name={ROLE_META[r.key]?.icon || "User"} className="w-4 h-4 text-muted-foreground" />
-                  {r.label}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function RoleCard({
   roleKey,
@@ -1231,6 +1260,23 @@ function RoleCard({
   onMoveSection: (section: SectionItem, targetRole: string) => void;
   allRoleKeys: { key: string; label: string }[];
 }) {
+  const [hiddenTabs, setHiddenTabs] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`hidden_sections_${roleKey}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleHidden = useCallback((tab: string) => {
+    setHiddenTabs((prev) => {
+      const next = new Set(prev);
+      if (next.has(tab)) next.delete(tab);
+      else next.add(tab);
+      localStorage.setItem(`hidden_sections_${roleKey}`, JSON.stringify([...next]));
+      return next;
+    });
+  }, [roleKey]);
+
   const allSections = [...builtInSections, ...customSections];
   const currentTabs = useMemo(() => new Set(allSections.map((s) => s.tab)), [allSections]);
   const targetRoles = allRoleKeys.filter((r) => r.key !== roleKey);
@@ -1238,7 +1284,7 @@ function RoleCard({
   const totalCount = Object.values(features).length;
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl">
       <div className="px-5 py-3 border-b border-border flex items-center gap-2">
         <Icon name={roleIcon} className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">{roleLabel}</h3>
@@ -1253,32 +1299,24 @@ function RoleCard({
             <span className="text-xs font-medium text-foreground">Разделы sidebar</span>
             <span className="text-[10px] text-muted-foreground ml-auto">{allSections.length}</span>
           </div>
-          <SectionList items={builtInSections} />
+          <SectionList
+            items={builtInSections}
+            onHide={toggleHidden}
+            onMove={onMoveSection}
+            targetRoles={targetRoles}
+            hiddenTabs={hiddenTabs}
+          />
           {customSections.length > 0 && (
-            <div className="mt-2">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">
-                Добавленные
-              </span>
-              <div className="mt-1 space-y-1">
-                {customSections.map((item) => (
-                  <div
-                    key={item.tab}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20"
-                  >
-                    <Icon name={item.icon} className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs text-foreground flex-1">{item.label}</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                      custom
-                    </span>
-                    <button
-                      onClick={() => onRemoveCustomSection(item.tab)}
-                      className="text-muted-foreground hover:text-destructive transition-colors ml-1"
-                    >
-                      <Icon name="X" className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+            <div className="mt-2 space-y-1">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">Добавленные</span>
+              <SectionList
+                items={customSections}
+                onHide={toggleHidden}
+                onRemove={onRemoveCustomSection}
+                onMove={onMoveSection}
+                targetRoles={targetRoles}
+                hiddenTabs={hiddenTabs}
+              />
             </div>
           )}
         </div>
@@ -1293,11 +1331,6 @@ function RoleCard({
 
         <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
           <AddSectionDropdown currentTabs={currentTabs} onAdd={onAddCustomSection} />
-          <MoveSectionDropdown
-            sections={customSections}
-            targetRoles={targetRoles}
-            onMove={onMoveSection}
-          />
         </div>
       </div>
     </div>
@@ -1317,13 +1350,30 @@ function TabletCard({
   onAddCustomSection: (item: SectionItem) => void;
   onRemoveCustomSection: (tab: string) => void;
 }) {
+  const [hiddenTabs, setHiddenTabs] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("hidden_sections_tablet");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleHidden = useCallback((tab: string) => {
+    setHiddenTabs((prev) => {
+      const next = new Set(prev);
+      if (next.has(tab)) next.delete(tab);
+      else next.add(tab);
+      localStorage.setItem("hidden_sections_tablet", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
   const allItems = [...TABLET_SCREENS, ...TABLET_WIDGETS, ...customSections];
   const currentTabs = useMemo(() => new Set(allItems.map((s) => s.tab)), [allItems]);
   const enabledCount = Object.values(features).filter(Boolean).length;
   const totalCount = Object.values(features).length;
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl">
       <div className="px-5 py-3 border-b border-border flex items-center gap-2">
         <Icon name="Tablet" className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">Планшет водителя</h3>
@@ -1338,7 +1388,7 @@ function TabletCard({
             <span className="text-xs font-medium text-foreground">Экраны планшета</span>
             <span className="text-[10px] text-muted-foreground ml-auto">{TABLET_SCREENS.length}</span>
           </div>
-          <SectionList items={TABLET_SCREENS} />
+          <SectionList items={TABLET_SCREENS} onHide={toggleHidden} hiddenTabs={hiddenTabs} />
         </div>
 
         <div>
@@ -1347,7 +1397,7 @@ function TabletCard({
             <span className="text-xs font-medium text-foreground">Виджеты планшета</span>
             <span className="text-[10px] text-muted-foreground ml-auto">{TABLET_WIDGETS.length}</span>
           </div>
-          <SectionList items={TABLET_WIDGETS} />
+          <SectionList items={TABLET_WIDGETS} onHide={toggleHidden} hiddenTabs={hiddenTabs} />
         </div>
 
         {customSections.length > 0 && (
@@ -1356,26 +1406,12 @@ function TabletCard({
               <Icon name="Puzzle" className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-medium text-foreground">Добавленные</span>
             </div>
-            <div className="space-y-1">
-              {customSections.map((item) => (
-                <div
-                  key={item.tab}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20"
-                >
-                  <Icon name={item.icon} className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs text-foreground flex-1">{item.label}</span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                    custom
-                  </span>
-                  <button
-                    onClick={() => onRemoveCustomSection(item.tab)}
-                    className="text-muted-foreground hover:text-destructive transition-colors ml-1"
-                  >
-                    <Icon name="X" className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <SectionList
+              items={customSections}
+              onHide={toggleHidden}
+              onRemove={onRemoveCustomSection}
+              hiddenTabs={hiddenTabs}
+            />
           </div>
         )}
 
