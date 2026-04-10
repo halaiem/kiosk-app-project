@@ -171,6 +171,7 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const [editServer, setEditServer] = useState<CustomServer | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [viewServer, setViewServer] = useState<CustomServer | null>(null);
 
   // Синхронизация при добавлении API из раздела API
   useEffect(() => {
@@ -326,41 +327,36 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
                       title="Подробнее">
                       <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} className="w-3.5 h-3.5" />
                     </button>
-                    {srv.isCustom ? (
+                    <button onClick={() => setViewServer(srv)}
+                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                      title="Просмотр">
+                      <Icon name="Eye" className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => {
+                      const target: CustomServer = srv.isCustom ? srv : { ...srv, isCustom: true };
+                      setEditServer(target);
+                    }}
+                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                      title="Редактировать">
+                      <Icon name="Pencil" className="w-3.5 h-3.5" />
+                    </button>
+                    {deleteConfirmId === srv.id ? (
                       <>
-                        <button onClick={() => setEditServer(srv)}
-                          className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-                          title="Настроить">
-                          <Icon name="Settings" className="w-3.5 h-3.5" />
+                        <span className="text-xs text-destructive">Удалить?</span>
+                        <button onClick={() => handleDelete(srv.id)}
+                          className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors">
+                          <Icon name="Check" className="w-3.5 h-3.5" />
                         </button>
-                        {deleteConfirmId === srv.id ? (
-                          <>
-                            <span className="text-xs text-destructive">Удалить?</span>
-                            <button onClick={() => handleDelete(srv.id)}
-                              className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors">
-                              <Icon name="Check" className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setDeleteConfirmId(null)}
-                              className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
-                              <Icon name="X" className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        ) : (
-                          <button onClick={() => setDeleteConfirmId(srv.id)}
-                            className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
-                            title="Удалить">
-                            <Icon name="Trash2" className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button onClick={() => setDeleteConfirmId(null)}
+                          className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
+                          <Icon name="X" className="w-3.5 h-3.5" />
+                        </button>
                       </>
                     ) : (
-                      <button onClick={() => {
-                        const editableVersion: CustomServer = { ...srv, isCustom: true };
-                        setEditServer(editableVersion);
-                      }}
-                        className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-                        title="Настроить">
-                        <Icon name="Settings" className="w-3.5 h-3.5" />
+                      <button onClick={() => setDeleteConfirmId(srv.id)}
+                        className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
+                        title="Удалить">
+                        <Icon name="Trash2" className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -416,6 +412,63 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
           onSave={handleEditServer}
           onClose={() => setEditServer(null)}
         />
+      )}
+
+      {/* View server popup */}
+      {viewServer && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={() => setViewServer(null)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <Icon name={typeIcon(viewServer.serverType)} className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-foreground truncate">{viewServer.name}</h2>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${SERVER_STATUS_BADGE[viewServer.status]}`}>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${SERVER_STATUS_DOT[viewServer.status]}`} />
+                  {SERVER_STATUS_LABELS[viewServer.status]}
+                </span>
+              </div>
+              <button onClick={() => setViewServer(null)}
+                className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-2.5">
+              {[
+                { label: "Адрес", value: viewServer.address ? `${viewServer.address}${viewServer.port ? `:${viewServer.port}` : ""}` : "—" },
+                { label: "Тип", value: typeLabel(viewServer.serverType) },
+                { label: "Uptime", value: viewServer.uptime || "—" },
+                { label: "Последняя проверка", value: formatDateTime(viewServer.lastCheck) },
+                { label: "CPU", value: `${viewServer.cpu}%` },
+                { label: "RAM", value: `${viewServer.memory}%` },
+                { label: "Диск", value: `${viewServer.disk}%` },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{row.label}</span>
+                  <span className="font-medium text-foreground">{row.value}</span>
+                </div>
+              ))}
+              {viewServer.apiId && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <span className="text-[11px] text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Icon name="Plug" className="w-3 h-3" />Подключён через API
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
+              <button onClick={() => { setViewServer(null); setEditServer(viewServer.isCustom ? viewServer : { ...viewServer, isCustom: true }); }}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                <Icon name="Pencil" className="w-3.5 h-3.5" />Редактировать
+              </button>
+              <button onClick={() => setViewServer(null)}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
