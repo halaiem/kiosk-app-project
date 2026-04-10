@@ -174,6 +174,7 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const [viewServer, setViewServer] = useState<CustomServer | null>(null);
   const [filterStatus, setFilterStatus] = useState<ServerStatus | "all">("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
   // Синхронизация при добавлении API из раздела API
   useEffect(() => {
@@ -236,11 +237,20 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const typeLabel = (t?: string) => SERVER_TYPES.find(x => x.value === t)?.label || t || "—";
   const typeIcon = (t?: string) => SERVER_TYPE_ICONS[t || "other"] || "Server";
 
-  const filteredServers = useMemo(() => allServers.filter(s => {
-    if (filterStatus !== "all" && s.status !== filterStatus) return false;
-    if (filterType !== "all" && s.serverType !== filterType) return false;
-    return true;
-  }), [allServers, filterStatus, filterType]);
+  const filteredServers = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return allServers.filter(s => {
+      if (filterStatus !== "all" && s.status !== filterStatus) return false;
+      if (filterType !== "all" && s.serverType !== filterType) return false;
+      if (q) {
+        const inName = s.name?.toLowerCase().includes(q);
+        const inAddr = s.address?.toLowerCase().includes(q);
+        const inType = typeLabel(s.serverType).toLowerCase().includes(q);
+        if (!inName && !inAddr && !inType) return false;
+      }
+      return true;
+    });
+  }, [allServers, filterStatus, filterType, search]);
 
   const usedTypes = useMemo(() => {
     const types = new Set(allServers.map(s => s.serverType).filter(Boolean));
@@ -279,10 +289,26 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             {filteredServers.length}{filteredServers.length !== allServers.length ? ` из ${allServers.length}` : ""}
           </span>
-          <button onClick={() => setShowAddModal(true)}
-            className="ml-auto flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-            <Icon name="Plus" className="w-3.5 h-3.5" />Добавить сервер
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative">
+              <Icon name="Search" className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Поиск по названию, адресу..."
+                className="h-8 pl-8 pr-3 w-52 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="X" className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <button onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Icon name="Plus" className="w-3.5 h-3.5" />Добавить сервер
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -319,8 +345,8 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
               </div>
             </>
           )}
-          {(filterStatus !== "all" || filterType !== "all") && (
-            <button onClick={() => { setFilterStatus("all"); setFilterType("all"); }}
+          {(filterStatus !== "all" || filterType !== "all" || search) && (
+            <button onClick={() => { setFilterStatus("all"); setFilterType("all"); setSearch(""); }}
               className="ml-auto h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-foreground bg-muted flex items-center gap-1 transition-colors">
               <Icon name="X" className="w-3 h-3" />Сбросить
             </button>
