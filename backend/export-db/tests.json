@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Get export info",
+      "method": "GET",
+      "path": "/?action=info",
+      "expectedStatus": 200,
+      "expectedBody": {"total_tables": "number"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Full export returns SQL text",
+      "method": "GET",
+      "path": "/?action=full",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Export single table",
+      "method": "GET",
+      "path": "/?action=table&table=organizations",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Table export without param",
+      "method": "GET",
+      "path": "/?action=table",
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

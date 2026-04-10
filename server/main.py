@@ -50,6 +50,7 @@ FUNCTION_NAMES = [
     "service-requests",
     "transcribe",
     "vehicle-diagnostics",
+    "export-db",
 ]
 
 loaded_modules: dict = {}
