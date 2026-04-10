@@ -1,4 +1,4 @@
-import urls from '../../backend/func2url.json';
+import urls from './config';
 
 const DIAG_URL = urls['vehicle-diagnostics'];
 
