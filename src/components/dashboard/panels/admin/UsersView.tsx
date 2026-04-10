@@ -26,7 +26,7 @@ interface ApiUser {
 interface EditState {
   employee_id: string;
   full_name: string;
-  role: UserRole;
+  role: string;
   password: string;
   is_active: boolean;
   rating: number;
@@ -48,12 +48,120 @@ const ROLE_LABELS: Record<string, string> = {
   mechanic:    "Механик",
 };
 
-type RoleFilter = "all" | UserRole;
+// ── Custom roles helpers ──────────────────────────────────────────────────────
+
+interface CustomRole {
+  key: string;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+function loadCustomRoles(): CustomRole[] {
+  try {
+    const raw = localStorage.getItem("custom_roles");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch { return []; }
+}
+
+function saveCustomRoles(roles: CustomRole[]) {
+  localStorage.setItem("custom_roles", JSON.stringify(roles));
+}
+
+// ── Built-in roles list ───────────────────────────────────────────────────────
+
+const BUILTIN_ROLES: { key: string; label: string; icon: string; color: string }[] = [
+  { key: "dispatcher",  label: "Диспетчер",      icon: "Radio",       color: "bg-blue-500/15 text-blue-500" },
+  { key: "technician",  label: "Техник",          icon: "Wrench",      color: "bg-green-500/15 text-green-500" },
+  { key: "admin",       label: "Администратор",   icon: "ShieldCheck", color: "bg-red-500/15 text-red-500" },
+  { key: "mechanic",    label: "Механик",         icon: "Settings",    color: "bg-orange-500/15 text-orange-500" },
+];
+
+// ── Icon and color options for custom roles ───────────────────────────────────
+
+const ROLE_ICON_OPTIONS = [
+  "User", "Users", "UserCheck", "Briefcase", "Star", "Building2",
+  "Car", "Truck", "Bus", "Wrench", "Settings", "Radio", "ShieldCheck",
+  "ClipboardList", "FileText", "BarChart2", "Headphones", "Phone",
+  "Monitor", "Cpu", "Database", "Globe", "MapPin", "Zap",
+];
+
+const ROLE_COLOR_OPTIONS = [
+  { label: "Синий",      value: "bg-blue-500/15 text-blue-500" },
+  { label: "Зелёный",    value: "bg-green-500/15 text-green-500" },
+  { label: "Красный",    value: "bg-red-500/15 text-red-500" },
+  { label: "Оранжевый",  value: "bg-orange-500/15 text-orange-500" },
+  { label: "Фиолетовый", value: "bg-purple-500/15 text-purple-500" },
+  { label: "Бирюзовый",  value: "bg-teal-500/15 text-teal-500" },
+  { label: "Розовый",    value: "bg-pink-500/15 text-pink-500" },
+  { label: "Жёлтый",    value: "bg-yellow-500/15 text-yellow-600" },
+  { label: "Серый",      value: "bg-slate-500/15 text-slate-500" },
+  { label: "Индиго",     value: "bg-indigo-500/15 text-indigo-500" },
+];
+
+// ── EditCustomRoleRow ─────────────────────────────────────────────────────────
+
+function EditCustomRoleRow({
+  role,
+  allKeys,
+  onSave,
+  onCancel,
+}: {
+  role: CustomRole;
+  allKeys: string[];
+  onSave: (updated: CustomRole) => void;
+  onCancel: () => void;
+}) {
+  const [label, setLabel] = useState(role.label);
+  const [icon, setIcon] = useState(role.icon);
+  const [color, setColor] = useState(role.color);
+  const [err, setErr] = useState("");
+
+  // allKeys is used for future duplicate-key validation if key editing is added
+  void allKeys;
+
+  return (
+    <>
+      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${color.split(" ")[0]}`}>
+        <Icon name={icon} className={`w-4 h-4 ${color.split(" ")[1]}`} />
+      </div>
+      <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
+        <input value={label} onChange={(e) => { setLabel(e.target.value); setErr(""); }}
+          className="h-7 px-2.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" placeholder="Название" />
+        <select value={icon} onChange={(e) => setIcon(e.target.value)}
+          className="h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+          {ROLE_ICON_OPTIONS.map(ico => <option key={ico} value={ico}>{ico}</option>)}
+        </select>
+        <select value={color} onChange={(e) => setColor(e.target.value)}
+          className="h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+          {ROLE_COLOR_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+        {err && <span className="text-xs text-destructive">{err}</span>}
+      </div>
+      <button onClick={() => {
+        if (!label.trim()) { setErr("Введите название"); return; }
+        onSave({ ...role, label, icon, color });
+      }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+        <Icon name="Check" className="w-3 h-3" /> Сохранить
+      </button>
+      <button onClick={onCancel} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+        <Icon name="X" className="w-3 h-3" /> Отмена
+      </button>
+    </>
+  );
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type RoleFilter = string;
 
 interface UsersViewProps {
   drivers?: DriverInfo[];
   onReload?: () => void;
 }
+
+// ── UsersView ─────────────────────────────────────────────────────────────────
 
 export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const generatePassword = () => {
@@ -75,10 +183,39 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
 
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
-  const [newRole, setNewRole] = useState<UserRole>("dispatcher");
+  const [newRole, setNewRole] = useState<string>("dispatcher");
   const [newPassword, setNewPassword] = useState("");
   const [newRating, setNewRating] = useState<number>(5);
   const [createError, setCreateError] = useState("");
+
+  // Custom roles state
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>(() => loadCustomRoles());
+  const [showRolesManager, setShowRolesManager] = useState(false);
+  const [newRoleKey, setNewRoleKey] = useState("");
+  const [newRoleLabel, setNewRoleLabel] = useState("");
+  const [newRoleIcon, setNewRoleIcon] = useState("User");
+  const [newRoleColor, setNewRoleColor] = useState("bg-blue-500/15 text-blue-500");
+  const [editingRoleKey, setEditingRoleKey] = useState<string | null>(null);
+  const [roleKeyError, setRoleKeyError] = useState("");
+
+  // All roles combined
+  const allRoles = useMemo(() => [
+    ...BUILTIN_ROLES,
+    ...customRoles,
+  ], [customRoles]);
+
+  // Dynamic role style/label maps
+  const roleStylesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of allRoles) map[r.key] = r.color;
+    return map;
+  }, [allRoles]);
+
+  const roleLabelsMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of allRoles) map[r.key] = r.label;
+    return map;
+  }, [allRoles]);
 
   const loadUsers = async () => {
     try {
@@ -149,13 +286,14 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     exportUsersCsv(rows);
   }, [sortedList, selectedIds, exportUsersCsv]);
 
-  const filters: { key: RoleFilter; label: string }[] = [
+  const filters: { key: RoleFilter; label: string }[] = useMemo(() => [
     { key: "all", label: "Все" },
     { key: "dispatcher", label: "Диспетчеры" },
     { key: "technician", label: "Техники" },
     { key: "admin", label: "Администраторы" },
-    { key: "mechanic" as UserRole, label: "Механики" },
-  ];
+    { key: "mechanic", label: "Механики" },
+    ...customRoles.map(cr => ({ key: cr.key as RoleFilter, label: cr.label + "ы" })),
+  ], [customRoles]);
 
   const startEdit = (entry: ApiUser) => {
     setEditingId(entry.id);
@@ -182,7 +320,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
       const payload: Parameters<typeof updateDashboardUser>[0] = {
         id: userId,
         full_name: editState.full_name,
-        role: editState.role,
+        role: editState.role as UserRole,
         is_active: editState.is_active,
       };
       if (editState.password.trim()) payload.password = editState.password;
@@ -201,7 +339,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setSaving(true);
     setCreateError("");
     try {
-      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
+      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
       resetAddForm();
       await loadUsers();
     } catch (e) {
@@ -285,12 +423,11 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
               <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="ФИО"
                 className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <select value={newRole} onChange={(e) => setNewRole(e.target.value as UserRole)}
+              <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
                 className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="dispatcher">Диспетчер</option>
-                <option value="technician">Техник</option>
-                <option value="admin">Администратор</option>
-                <option value="personnel">Персонал</option>
+                {allRoles.map(r => (
+                  <option key={r.key} value={r.key}>{r.label}</option>
+                ))}
               </select>
             </div>
             <div className="mt-3">
@@ -388,13 +525,12 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                     <td className="px-3 py-3">
                       <select
                         value={editState.role}
-                        onChange={(e) => setEditState({ ...editState, role: e.target.value as UserRole })}
+                        onChange={(e) => setEditState({ ...editState, role: e.target.value })}
                         className={`${inputCls} w-full`}
                       >
-                        <option value="dispatcher">Диспетчер</option>
-                        <option value="technician">Техник</option>
-                        <option value="admin">Администратор</option>
-                        <option value="personnel">Персонал</option>
+                        {allRoles.map(r => (
+                          <option key={r.key} value={r.key}>{r.label}</option>
+                        ))}
                       </select>
                     </td>
                     {/* Рейтинг */}
@@ -460,8 +596,8 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
                   <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
                   <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground"}`}>
-                      {ROLE_LABELS[entry.role] || entry.role}
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${roleStylesMap[entry.role] || ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground"}`}>
+                      {roleLabelsMap[entry.role] || ROLE_LABELS[entry.role] || entry.role}
                     </span>
                   </td>
                   <td className="px-3 py-3">
@@ -521,10 +657,194 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         </table>
       </div>
 
+      {/* ── Блок: Управление ролями ── */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center">
+            <Icon name="Tag" className="w-4 h-4 text-purple-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Роли</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{allRoles.length}</span>
+          <button
+            onClick={() => setShowRolesManager(v => !v)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Icon name="Plus" className="w-3.5 h-3.5" />
+            Создать роль
+          </button>
+        </div>
+
+        {/* Create role form */}
+        {showRolesManager && (
+          <div className="px-5 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="Tag" className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Новая роль</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Ключ роли (латиница, без пробелов)</label>
+                <input
+                  value={newRoleKey}
+                  onChange={(e) => {
+                    const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                    setNewRoleKey(v);
+                    setRoleKeyError("");
+                  }}
+                  placeholder="например: supervisor"
+                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Название роли</label>
+                <input
+                  value={newRoleLabel}
+                  onChange={(e) => setNewRoleLabel(e.target.value)}
+                  placeholder="например: Супервизор"
+                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full"
+                />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Иконка</label>
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-lg border border-border bg-background flex items-center justify-center shrink-0">
+                    <Icon name={newRoleIcon} className="w-4 h-4 text-foreground" />
+                  </div>
+                  <select
+                    value={newRoleIcon}
+                    onChange={(e) => setNewRoleIcon(e.target.value)}
+                    className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring flex-1"
+                  >
+                    {ROLE_ICON_OPTIONS.map(ico => (
+                      <option key={ico} value={ico}>{ico}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Цвет</label>
+                <select
+                  value={newRoleColor}
+                  onChange={(e) => setNewRoleColor(e.target.value)}
+                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full"
+                >
+                  {ROLE_COLOR_OPTIONS.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {roleKeyError && (
+              <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs">
+                <Icon name="AlertCircle" className="w-3.5 h-3.5 shrink-0" />
+                {roleKeyError}
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                onClick={() => { setShowRolesManager(false); setNewRoleKey(""); setNewRoleLabel(""); setRoleKeyError(""); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  if (!newRoleKey.trim()) { setRoleKeyError("Введите ключ роли"); return; }
+                  if (!newRoleLabel.trim()) { setRoleKeyError("Введите название роли"); return; }
+                  const allKeys = [...BUILTIN_ROLES.map(r => r.key), ...customRoles.map(r => r.key)];
+                  if (allKeys.includes(newRoleKey)) { setRoleKeyError("Роль с таким ключом уже существует"); return; }
+                  const created: CustomRole = { key: newRoleKey, label: newRoleLabel, icon: newRoleIcon, color: newRoleColor };
+                  const updated = [...customRoles, created];
+                  setCustomRoles(updated);
+                  saveCustomRoles(updated);
+                  setShowRolesManager(false);
+                  setNewRoleKey(""); setNewRoleLabel(""); setNewRoleIcon("User"); setNewRoleColor("bg-blue-500/15 text-blue-500"); setRoleKeyError("");
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Создать роль
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Roles table */}
+        <div className="divide-y divide-border">
+          {/* Built-in roles */}
+          {BUILTIN_ROLES.map(r => (
+            <div key={r.key} className="flex items-center gap-3 px-5 py-3">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${r.color.split(" ")[0]}`}>
+                <Icon name={r.icon} className={`w-4 h-4 ${r.color.split(" ")[1]}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-foreground">{r.label}</span>
+                <span className="text-xs text-muted-foreground font-mono ml-2">{r.key}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-muted">встроенная</span>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
+            </div>
+          ))}
+          {/* Custom roles */}
+          {customRoles.map(r => (
+            <div key={r.key} className={`flex items-center gap-3 px-5 py-3 ${editingRoleKey === r.key ? "bg-primary/5" : ""}`}>
+              {editingRoleKey === r.key ? (
+                /* Inline edit for custom role */
+                <EditCustomRoleRow
+                  role={r}
+                  allKeys={[...BUILTIN_ROLES.map(b => b.key), ...customRoles.map(c => c.key).filter(k => k !== r.key)]}
+                  onSave={(updated) => {
+                    const list = customRoles.map(c => c.key === r.key ? updated : c);
+                    setCustomRoles(list);
+                    saveCustomRoles(list);
+                    setEditingRoleKey(null);
+                  }}
+                  onCancel={() => setEditingRoleKey(null)}
+                />
+              ) : (
+                <>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${r.color.split(" ")[0]}`}>
+                    <Icon name={r.icon} className={`w-4 h-4 ${r.color.split(" ")[1]}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground">{r.label}</span>
+                    <span className="text-xs text-muted-foreground font-mono ml-2">{r.key}</span>
+                  </div>
+                  <span className="text-[10px] text-primary px-2 py-0.5 rounded-full bg-primary/10">пользовательская</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
+                  <button
+                    onClick={() => setEditingRoleKey(r.key)}
+                    className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                    title="Редактировать"
+                  >
+                    <Icon name="Pencil" className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const updated = customRoles.filter(c => c.key !== r.key);
+                      setCustomRoles(updated);
+                      saveCustomRoles(updated);
+                    }}
+                    className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
+                    title="Удалить роль"
+                  >
+                    <Icon name="Trash2" className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+          {customRoles.length === 0 && !showRolesManager && (
+            <div className="px-5 py-4 text-center text-xs text-muted-foreground">
+              Нажмите «Создать роль» чтобы добавить пользовательскую роль
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Блок: Администратор МРМ ── */}
       <MrmAdminsBlock />
-
-
 
       {/* ── Блок: Водители (1:1 из панели Техника) ── */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
