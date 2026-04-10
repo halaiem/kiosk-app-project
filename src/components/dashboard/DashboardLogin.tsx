@@ -144,6 +144,7 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
             </button>
           </form>
 
+          {/* DEMO CREDENTIALS BLOCK — скрыт, раскомментировать при необходимости
           <div className="mt-6 pt-5 border-t border-border">
             <button
               type="button"
@@ -175,6 +176,7 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
               </div>
             )}
           </div>
+          */}
         </div>
       </div>
 
