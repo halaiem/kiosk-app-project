@@ -149,6 +149,10 @@ def handler(event, context):
             return get_rating_details(cur, schema, user, qs)
         elif method == 'POST' and action == 'rate':
             return create_rating(cur, conn, schema, user, event)
+        elif method == 'GET' and action == 'voting_list':
+            return get_voting_list(cur, schema, user)
+        elif method == 'POST' and action == 'vote':
+            return submit_vote(cur, conn, schema, user, event)
         elif method == 'GET' and action == 'geo_zones':
             return get_geo_zones(cur, schema, user)
         elif method == 'POST' and action == 'geo_zone':
@@ -1291,3 +1295,111 @@ def get_driver_unread(cur, schema, user):
         (user['id'],)
     )
     return resp(200, {'unread': cur.fetchone()['cnt']})
+
+
+def get_voting_list(cur, schema, user):
+    """Список всех сотрудников и водителей для голосования с текущим средним рейтингом"""
+    cur.execute(
+        f"SELECT du.id, du.full_name, du.role, "
+        f"COALESCE(du.rating, 0) as avg_rating, "
+        f"COALESCE(du.rating_count, 0) as vote_count "
+        f"FROM {schema}.dashboard_users du WHERE du.is_active = true "
+        f"ORDER BY du.full_name"
+    )
+    users_rows = cur.fetchall()
+
+    cur.execute(
+        f"SELECT d.id, d.full_name, 'driver' as role, "
+        f"COALESCE(d.rating, 0) as avg_rating, "
+        f"0 as vote_count "
+        f"FROM {schema}.drivers d WHERE d.is_active = true "
+        f"ORDER BY d.full_name"
+    )
+    driver_rows = cur.fetchall()
+
+    cur.execute(
+        f"SELECT target_user_id, target_driver_id, rating "
+        f"FROM {schema}.user_ratings "
+        f"WHERE rater_user_id = %s "
+        f"ORDER BY created_at DESC",
+        (user['id'],)
+    )
+    my_votes_raw = cur.fetchall()
+
+    my_user_votes = {}
+    my_driver_votes = {}
+    for v in my_votes_raw:
+        if v['target_user_id'] and v['target_user_id'] not in my_user_votes:
+            my_user_votes[v['target_user_id']] = v['rating']
+        if v['target_driver_id'] and v['target_driver_id'] not in my_driver_votes:
+            my_driver_votes[v['target_driver_id']] = v['rating']
+
+    targets = []
+    for u in users_rows:
+        targets.append({
+            'id': u['id'],
+            'type': 'user',
+            'full_name': u['full_name'],
+            'role': u['role'],
+            'avg_rating': float(u['avg_rating'] or 0),
+            'vote_count': int(u['vote_count'] or 0),
+            'my_vote': my_user_votes.get(u['id']),
+        })
+    for d in driver_rows:
+        targets.append({
+            'id': d['id'],
+            'type': 'driver',
+            'full_name': d['full_name'],
+            'role': 'driver',
+            'avg_rating': float(d['avg_rating'] or 0),
+            'vote_count': int(d['vote_count'] or 0),
+            'my_vote': my_driver_votes.get(d['id']),
+        })
+
+    return resp(200, {'targets': targets})
+
+
+def submit_vote(cur, conn, schema, user, event):
+    """Отправка голоса за коллегу"""
+    body = json.loads(event.get('body') or '{}')
+    target_id = body.get('target_id')
+    target_type = body.get('target_type')
+    rating = int(body.get('rating', 0))
+
+    if rating < 1 or rating > 5:
+        return resp(400, {'error': 'Рейтинг от 1 до 5'})
+    if not target_id or target_type not in ('user', 'driver'):
+        return resp(400, {'error': 'Укажите target_id и target_type'})
+
+    target_user_id = int(target_id) if target_type == 'user' else None
+    target_driver_id = int(target_id) if target_type == 'driver' else None
+    target_role = target_type
+
+    if target_user_id == user['id']:
+        return resp(400, {'error': 'Нельзя оценивать себя'})
+
+    cur.execute(
+        f"INSERT INTO {schema}.user_ratings "
+        f"(rater_user_id, rater_role, target_user_id, target_driver_id, target_role, rating) "
+        f"VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (user['id'], user['role'], target_user_id, target_driver_id, target_role, rating)
+    )
+    rid = cur.fetchone()['id']
+
+    if target_user_id:
+        cur.execute(
+            f"UPDATE {schema}.dashboard_users SET "
+            f"rating = (SELECT ROUND(AVG(rating)::numeric, 2) FROM {schema}.user_ratings WHERE target_user_id = %s), "
+            f"rating_count = (SELECT COUNT(*) FROM {schema}.user_ratings WHERE target_user_id = %s) "
+            f"WHERE id = %s",
+            (target_user_id, target_user_id, target_user_id)
+        )
+    elif target_driver_id:
+        cur.execute(
+            f"UPDATE {schema}.drivers SET "
+            f"rating = (SELECT ROUND(AVG(rating)::numeric, 2) FROM {schema}.user_ratings WHERE target_driver_id = %s) "
+            f"WHERE id = %s",
+            (target_driver_id, target_driver_id)
+        )
+    conn.commit()
+    return resp(201, {'id': rid, 'ok': True})

@@ -32,6 +32,7 @@ export interface FeatureFlags {
   showDrivers: boolean;
   showRatings: boolean;
   showNotifications: boolean;
+  showVoting: boolean;
 }
 
 /* ── Brand colors ── */
@@ -124,6 +125,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
   showDrivers: false,
   showRatings: false,
   showNotifications: true,
+  showVoting: true,
 };
 
 const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
@@ -141,6 +143,7 @@ const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
   showDrivers: true,
   showRatings: true,
   showNotifications: true,
+  showVoting: true,
 };
 
 const DEFAULT_BRAND_COLORS: BrandColors = {
@@ -535,6 +538,7 @@ export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {
   showDrivers: 'Водители',
   showRatings: 'Рейтинги',
   showNotifications: 'Уведомления',
+  showVoting: 'Голосование',
 };
 
 /* ── Font sizes ── */

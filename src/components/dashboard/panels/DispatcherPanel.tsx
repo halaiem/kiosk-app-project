@@ -4,6 +4,7 @@ import { NotificationsView, AlertsView } from "./dispatcher/DispatcherAlertsNoti
 import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
 import DashMessagesView from "./shared/MessagesView";
 import ServiceRequestsPanel from "./shared/ServiceRequestsPanel";
+import VotingView from "./shared/VotingView";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -92,6 +93,9 @@ export default function DispatcherPanel({
   }
   if (tab === "service_requests") {
     return (<>{criticalPopup}<ServiceRequestsPanel role="dispatcher" vehicles={vehicles} /></>);
+  }
+  if (tab === "voting") {
+    return (<>{criticalPopup}<VotingView currentUserId={currentUserId || 0} /></>);
   }
   return null;
 }

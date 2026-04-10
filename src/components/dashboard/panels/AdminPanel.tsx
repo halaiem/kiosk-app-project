@@ -9,6 +9,7 @@ import { AdminVehiclesView } from "./admin/AdminVehiclesView";
 import { AdminNotificationsView } from "./admin/AdminNotificationsView";
 import MessagesView from "./shared/MessagesView";
 import ServiceRequestsPanel from "./shared/ServiceRequestsPanel";
+import VotingView from "./shared/VotingView";
 
 interface AdminPanelProps {
   tab: AdminTab;
@@ -38,5 +39,6 @@ export default function AdminPanel({ tab, servers, logs, drivers = [], notificat
   if (tab === "notifications") return <AdminNotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
   if (tab === "service_requests") return <ServiceRequestsPanel role="admin" canResolve={true} canTakeWork={true} />;
+  if (tab === "voting") return <VotingView currentUserId={currentUserId} />;
   return null;
 }

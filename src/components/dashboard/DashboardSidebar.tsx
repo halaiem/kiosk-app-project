@@ -36,6 +36,7 @@ const DISPATCHER_NAV: NavItem[] = [
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
   { tab: "vehicle_issues", icon: "Truck", label: "Проблемы ТС" },
+  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const TECHNICIAN_NAV: NavItem[] = [
@@ -49,6 +50,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
+  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
@@ -61,6 +63,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
+  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const IRIDA_TOOLS_NAV: NavItem[] = [
@@ -86,6 +89,7 @@ const MECHANIC_NAV: NavItem[] = [
   { tab: "email" as MechanicTab, icon: "Mail", label: "Email" },
   { tab: "notifications" as MechanicTab, icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as MechanicTab, icon: "MessageSquare", label: "Мессенджер" },
+  { tab: "voting" as MechanicTab, icon: "Star", label: "Голосование" },
 ];
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
