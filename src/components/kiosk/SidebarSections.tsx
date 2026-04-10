@@ -6,6 +6,7 @@ import { verifyMrmPin, type MrmAdminInfo } from '@/api/driverApi';
 
 export { ProfileSection } from './sidebar/SidebarProfile';
 export { NotificationsSection, SettingsSection, ArchiveSection } from './sidebar/SidebarSettings';
+export { default as VotingSection } from './sidebar/SidebarVoting';
 
 // ── Support Section ──────────────────────────────────────────────────────────
 const SUPPORT_CONTACTS = [

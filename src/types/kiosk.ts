@@ -1,5 +1,5 @@
 export type AppScreen = 'login' | 'welcome' | 'new_docs' | 'main' | 'menu';
-export type MenuSection = 'profile' | 'notifications' | 'settings' | 'archive' | 'support' | 'admin';
+export type MenuSection = 'profile' | 'notifications' | 'settings' | 'archive' | 'support' | 'admin' | 'voting';
 export type ThemeMode = 'light' | 'dark' | 'auto';
 export type MessageType = 'normal' | 'important' | 'can_error' | 'dispatcher';
 export type ConnectionStatus = 'online' | 'offline' | 'connecting';

@@ -7,6 +7,7 @@ import {
   ArchiveSection,
   SupportSection,
   AdminSection,
+  VotingSection,
   SupportModalRequest,
 } from '@/components/kiosk/SidebarSections';
 import type { MrmAdminInfo } from '@/api/driverApi';
@@ -17,6 +18,7 @@ const MENU_ITEMS: { id: MenuSection; label: string; icon: string; desc: string }
   { id: 'settings', label: 'Настройки', icon: 'Settings', desc: 'Параметры приложения и планшета' },
   { id: 'archive', label: 'Архив', icon: 'Archive', desc: 'История сообщений и событий' },
   { id: 'support', label: 'Поддержка', icon: 'Headphones', desc: 'Контакты техподдержки' },
+  { id: 'voting', label: 'Голосование', icon: 'Star', desc: 'Оценка коллег и рейтинг' },
 ];
 
 interface SidebarNavProps {
@@ -96,6 +98,7 @@ export default function SidebarNav({
           {activeSection === 'archive' && <ArchiveSection />}
           {activeSection === 'support' && <SupportSection onSendMessage={onSendMessage} onOpenModal={onSupportModal} />}
           {activeSection === 'admin' && <AdminSection mrmAdmin={mrmAdmin} />}
+          {activeSection === 'voting' && <VotingSection />}
         </div>
       )}
     </div>
