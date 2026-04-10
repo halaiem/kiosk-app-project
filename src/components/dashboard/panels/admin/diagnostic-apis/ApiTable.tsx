@@ -30,6 +30,11 @@ interface ApiTableProps {
   ) => void;
   onMockData: (vehicleId: string, vehicleNumber: string) => void;
   onDelete: (api: DiagnosticApiConfig) => void;
+  selectedIds?: Set<string>;
+  allSelected?: boolean;
+  someSelected?: boolean;
+  onToggleSelectAll?: () => void;
+  onToggleRow?: (id: string) => void;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -41,6 +46,11 @@ export default function ApiTable({
   onUpdate,
   onMockData,
   onDelete,
+  selectedIds,
+  allSelected,
+  someSelected,
+  onToggleSelectAll,
+  onToggleRow,
 }: ApiTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -88,6 +98,13 @@ export default function ApiTable({
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-border text-xs text-muted-foreground">
+          {onToggleSelectAll && (
+            <th className="w-10 px-4 py-2.5">
+              <input type="checkbox" checked={allSelected ?? false}
+                ref={(el) => { if (el) el.indeterminate = (someSelected ?? false) && !(allSelected ?? false); }}
+                onChange={onToggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
+            </th>
+          )}
           <SortableTh label="Статус" sortKey="isActive" sort={sort} onToggle={toggle} className="px-5" />
           <SortableTh label="ТС" sortKey="vehicleNumber" sort={sort} onToggle={toggle} className="px-3" />
           <SortableTh label="Название" sortKey="apiName" sort={sort} onToggle={toggle} className="px-3" />
@@ -100,7 +117,7 @@ export default function ApiTable({
       <tbody>
         {filtered.length === 0 ? (
           <tr>
-            <td colSpan={7} className="py-16">
+            <td colSpan={onToggleSelectAll ? 8 : 7} className="py-16">
               <div className="flex items-center justify-center">
                 <div className="text-center">
                   <Icon
@@ -128,7 +145,7 @@ export default function ApiTable({
                   key={api.id}
                   className="border-b border-border bg-muted/30"
                 >
-                  <td colSpan={7} className="px-5 py-4">
+                  <td colSpan={onToggleSelectAll ? 8 : 7} className="px-5 py-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Icon
                         name="Pencil"
@@ -216,8 +233,13 @@ export default function ApiTable({
                 key={api.id}
                 className={`border-b border-border transition-colors ${
                   api.isActive ? "hover:bg-muted/30" : "opacity-50"
-                }`}
+                } ${selectedIds?.has(api.id) ? "bg-primary/5" : ""}`}
               >
+                {onToggleRow && (
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={selectedIds?.has(api.id) ?? false} onChange={() => onToggleRow(api.id)} className="w-4 h-4 accent-primary cursor-pointer" />
+                  </td>
+                )}
                 {/* Status */}
                 <td className="px-5 py-3">
                   <button

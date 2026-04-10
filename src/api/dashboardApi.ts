@@ -203,6 +203,12 @@ export async function updateRoute(payload: Record<string, unknown>) {
   });
 }
 
+export async function deleteRoute(routeId: string) {
+  return request(`${DATA_URL}?entity=routes&id=${encodeURIComponent(routeId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function deleteSchedule(scheduleId: string) {
   return request(`${DATA_URL}?entity=schedule&id=${encodeURIComponent(scheduleId)}`, {
     method: 'DELETE',
@@ -312,6 +318,7 @@ export default {
   updateDriver,
   deleteDriver,
   updateRoute,
+  deleteRoute,
   deleteSchedule,
   createScheduleBatch,
   fetchTemplates,

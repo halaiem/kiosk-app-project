@@ -48,6 +48,7 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const openEdit = useCallback((entry: ScheduleEntry) => {
     setEDriverId(entry.driverId != null ? String(entry.driverId) : "");
@@ -117,13 +118,56 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
   const { sort: schedSort, toggle: schedToggle, sorted: sortedSchedule } = useTableSort(
     sorted as unknown as Record<string, unknown>[]
   );
+  const sortedList = sortedSchedule as typeof sorted;
+
+  const allSelected = sortedList.length > 0 && sortedList.every(item => selectedIds.has(item.id));
+  const someSelected = sortedList.some(item => selectedIds.has(item.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) { for (const item of sortedList) next.delete(item.id); }
+      else { for (const item of sortedList) next.add(item.id); }
+      return next;
+    });
+  }, [sortedList, allSelected]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
 
   return (
     <>
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        {selectedIds.size > 0 && (
+          <div className="px-5 py-2.5 border-b border-border bg-muted/20 flex items-center gap-3">
+            <span className="text-xs font-medium text-foreground">Выбрано: {selectedIds.size}</span>
+            <button onClick={async () => {
+              if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+              for (const id of selectedIds) {
+                try { await deleteSchedule(id); } catch (e) { console.error(e); }
+              }
+              setSelectedIds(new Set());
+              onReload?.();
+            }}
+              className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+              <Icon name="Trash2" className="w-3 h-3" />
+              Удалить ({selectedIds.size})
+            </button>
+            <button onClick={() => setSelectedIds(new Set())}
+              className="ml-auto h-7 px-3 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Сбросить
+            </button>
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
+              <th className="w-10 px-4 py-2.5">
+                <input type="checkbox" checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                  onChange={toggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
+              </th>
               <SortableTh label="Время" sortKey="startTime" sort={schedSort} onToggle={schedToggle} className="px-5" />
               <SortableTh label="Маршрут" sortKey="routeNumber" sort={schedSort} onToggle={schedToggle} className="px-3" />
               <SortableTh label="Водитель" sortKey="driverName" sort={schedSort} onToggle={schedToggle} className="px-3" />
@@ -135,7 +179,7 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                <td colSpan={7} className="text-center py-12 text-muted-foreground">
                   <Icon name="CalendarX" className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p>Нет записей в расписании</p>
                 </td>
@@ -147,8 +191,11 @@ export default function ScheduleTable({ schedule, search, onReload }: ScheduleTa
                   onClick={() => setDetailEntry(entry)}
                   className={`border-b border-border hover:bg-muted/30 transition-colors cursor-pointer ${
                     entry.status === "cancelled" ? "opacity-50" : ""
-                  }`}
+                  } ${selectedIds.has(entry.id) ? "bg-primary/5" : ""}`}
                 >
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleRow(entry.id)} className="w-4 h-4 accent-primary cursor-pointer" />
+                  </td>
                   <td className="px-5 py-3">
                     <span className="font-mono text-foreground font-medium">
                       {entry.startTime} – {entry.endTime}

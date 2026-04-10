@@ -57,6 +57,15 @@ export function DriversView({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [visiblePins, setVisiblePins] = useState<Set<string>>(new Set());
+
+  const togglePinVisibility = useCallback((id: string) => {
+    setVisiblePins(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
 
   const handleDelete = async (id: string) => {
     setDeleting(true);
@@ -186,6 +195,20 @@ export function DriversView({
             status: LIFECYCLE_STATUS_LABELS[d.driverStatus || "active"] || "Активен",
             phone: d.phone || "", rating: d.rating,
           }))} />
+          {selectedIds.size > 0 && (
+            <button onClick={async () => {
+              if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+              for (const id of selectedIds) {
+                try { await apiDeleteDriver(Number(id)); } catch (e) { console.error(e); }
+              }
+              setSelectedIds(new Set());
+              onReload?.();
+            }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+              <Icon name="Trash2" className="w-3.5 h-3.5" />
+              Удалить ({selectedIds.size})
+            </button>
+          )}
           <button onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0">
             <Icon name="UserPlus" className="w-3.5 h-3.5" />Добавить
@@ -236,7 +259,23 @@ export function DriversView({
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground">••••</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground min-w-[3rem]">
+                          {visiblePins.has(d.id) ? (d.pin || '—') : '••••'}
+                        </span>
+                        <button onClick={() => togglePinVisibility(d.id)}
+                          className="w-6 h-6 rounded bg-muted/50 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                          title={visiblePins.has(d.id) ? "Скрыть PIN" : "Показать PIN"}>
+                          <Icon name={visiblePins.has(d.id) ? "EyeOff" : "Eye"} className="w-3 h-3" />
+                        </button>
+                        {visiblePins.has(d.id) && d.pin && (
+                          <button onClick={() => navigator.clipboard.writeText(d.pin!)}
+                            className="w-6 h-6 rounded bg-muted/50 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                            title="Копировать PIN">
+                            <Icon name="Copy" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs font-mono">{d.phone || "—"}</td>
                     <td className="px-3 py-2.5">

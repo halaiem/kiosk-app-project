@@ -240,6 +240,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [viewUser, setViewUser] = useState<ApiUser | null>(null);
+  const [resetPwState, setResetPwState] = useState<{id: number; password: string} | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
@@ -504,6 +505,20 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <Icon name="Download" className="w-3.5 h-3.5" />CSV
             </button>
             <ReportButton filename="users" data={users.map(u => ({ id: u.employee_id, name: u.full_name, role: ROLE_LABELS[u.role] || u.role }))} />
+            {selectedIds.size > 0 && (
+              <button onClick={async () => {
+                if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+                for (const id of selectedIds) {
+                  try { await deleteDashboardUser(id); } catch (e) { console.error(e); }
+                }
+                setSelectedIds(new Set());
+                await loadUsers();
+              }}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+                <Icon name="Trash2" className="w-3.5 h-3.5" />
+                Удалить ({selectedIds.size})
+              </button>
+            )}
             <button onClick={() => { setShowAddForm(true); cancelEdit(); }}
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Icon name="UserPlus" className="w-3.5 h-3.5" />
@@ -707,6 +722,32 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                         </>
                       ) : (
                         <>
+                          {resetPwState?.id === entry.id ? (
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[10px] bg-green-500/15 text-green-500 px-1.5 py-0.5 rounded">{resetPwState.password}</span>
+                              <button onClick={() => { navigator.clipboard.writeText(resetPwState.password); }}
+                                className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center" title="Копировать">
+                                <Icon name="Copy" className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => setResetPwState(null)}
+                                className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center">
+                                <Icon name="X" className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={async () => {
+                              const newPw = generatePassword();
+                              try {
+                                await updateDashboardUser({ id: entry.id, password: newPw });
+                                setResetPwState({ id: entry.id, password: newPw });
+                                setTimeout(() => setResetPwState(prev => prev?.id === entry.id ? null : prev), 30000);
+                              } catch (e) { console.error('Reset pw:', e); }
+                            }}
+                              className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 flex items-center justify-center transition-colors"
+                              title="Сбросить пароль">
+                              <Icon name="KeyRound" className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button onClick={() => setViewUser(entry)}
                             className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
                             title="Просмотр">

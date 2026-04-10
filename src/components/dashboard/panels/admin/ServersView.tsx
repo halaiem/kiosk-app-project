@@ -175,6 +175,7 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const [filterStatus, setFilterStatus] = useState<ServerStatus | "all">("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Синхронизация при добавлении API из раздела API
   useEffect(() => {
@@ -257,6 +258,22 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
     return SERVER_TYPES.filter(t => types.has(t.value));
   }, [allServers]);
 
+  const allSelected = filteredServers.length > 0 && filteredServers.every(s => selectedIds.has(s.id));
+  const someSelected = filteredServers.some(s => selectedIds.has(s.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) { for (const s of filteredServers) next.delete(s.id); }
+      else { for (const s of filteredServers) next.add(s.id); }
+      return next;
+    });
+  }, [filteredServers, allSelected]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+
   return (
     <div className="space-y-5">
       {/* Summary */}
@@ -285,6 +302,9 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
           <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
             <Icon name="Server" className="w-4 h-4 text-blue-500" />
           </div>
+          <input type="checkbox" checked={allSelected}
+            ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+            onChange={toggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
           <span className="text-sm font-semibold text-foreground">Серверы</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             {filteredServers.length}{filteredServers.length !== allServers.length ? ` из ${allServers.length}` : ""}
@@ -304,6 +324,19 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
                 </button>
               )}
             </div>
+            {selectedIds.size > 0 && (
+              <button onClick={() => {
+                if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+                for (const id of selectedIds) {
+                  try { handleDelete(id); } catch (e) { console.error(e); }
+                }
+                setSelectedIds(new Set());
+              }}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+                <Icon name="Trash2" className="w-3.5 h-3.5" />
+                Удалить ({selectedIds.size})
+              </button>
+            )}
             <button onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Icon name="Plus" className="w-3.5 h-3.5" />Добавить сервер
@@ -368,7 +401,8 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
 
             return (
               <div key={srv.id}>
-                <div className="px-5 py-3 flex items-center gap-3 hover:bg-muted/20 transition-colors">
+                <div className={`px-5 py-3 flex items-center gap-3 hover:bg-muted/20 transition-colors ${selectedIds.has(srv.id) ? "bg-primary/5" : ""}`}>
+                  <input type="checkbox" checked={selectedIds.has(srv.id)} onChange={() => toggleRow(srv.id)} className="w-4 h-4 accent-primary cursor-pointer shrink-0" />
                   <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
                     <Icon name={typeIcon(srv.serverType)} className="w-4 h-4 text-muted-foreground" />
                   </div>

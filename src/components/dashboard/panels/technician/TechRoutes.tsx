@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import type { RouteInfo, RouteStatus } from "@/types/dashboard";
-import { updateRoute } from "@/api/dashboardApi";
+import { updateRoute, deleteRoute } from "@/api/dashboardApi";
 
 export function formatDate(date: Date): string {
   const d = new Date(date);
@@ -98,6 +98,7 @@ export function RoutesView({ routes, onReload }: { routes: RouteInfo[]; onReload
   const [eColor, setEColor] = useState("#3b82f6");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const openEdit = useCallback((route: RouteInfo) => {
     setENumber(route.number);
@@ -151,6 +152,10 @@ export function RoutesView({ routes, onReload }: { routes: RouteInfo[]; onReload
     return result;
   }, [routes, search, statusFilter]);
 
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
+
   const summaryCards = [
     { icon: "Route", value: routes.length, label: "Всего маршрутов", color: "text-blue-500", bg: "bg-blue-500/10" },
     { icon: "MapPin", value: totalStops, label: "Всего остановок", color: "text-green-500", bg: "bg-green-500/10" },
@@ -179,6 +184,20 @@ export function RoutesView({ routes, onReload }: { routes: RouteInfo[]; onReload
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Маршрут..." className="h-9 pl-8 pr-3 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-36" />
           </div>
           <ReportButton filename="routes" data={routes} />
+          {selectedIds.size > 0 && (
+            <button onClick={async () => {
+              if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+              for (const id of selectedIds) {
+                try { await deleteRoute(id); } catch (e) { console.error(e); }
+              }
+              setSelectedIds(new Set());
+              onReload?.();
+            }}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+              <Icon name="Trash2" className="w-3.5 h-3.5" />
+              Удалить ({selectedIds.size})
+            </button>
+          )}
           <button onClick={() => setShowForm(true)} className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
             <Icon name="Plus" className="w-4 h-4" />
             Добавить
@@ -210,7 +229,9 @@ export function RoutesView({ routes, onReload }: { routes: RouteInfo[]; onReload
           const rs = getRouteStatus(route);
           const rsConfig = ROUTE_STATUS_CONFIG[rs];
           return (
-          <div key={route.id} className="bg-card border border-border rounded-2xl p-5 flex gap-4">
+          <div key={route.id} className={`bg-card border border-border rounded-2xl p-5 flex gap-4 relative ${selectedIds.has(route.id) ? "ring-2 ring-primary/30 bg-primary/5" : ""}`}>
+            <input type="checkbox" checked={selectedIds.has(route.id)} onChange={() => toggleRow(route.id)}
+              className="absolute top-3 right-3 w-4 h-4 accent-primary cursor-pointer" />
             <div
               className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-lg font-bold text-white ${
                 rs === "active" ? "bg-green-500" : rs === "route_change" ? "bg-orange-500" : rs === "temp_route" ? "bg-blue-500" : rs === "route_extension" ? "bg-purple-500" : rs === "planned" ? "bg-cyan-500" : "bg-gray-400"

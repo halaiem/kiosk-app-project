@@ -272,6 +272,20 @@ export default function MrmAdminsBlock() {
               IP_планшета: a.lastTabletIp || "",
             }))}
           />
+          {selectedIds.size > 0 && (
+            <button onClick={async () => {
+              if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+              for (const id of selectedIds) {
+                try { await deleteMrmAdmin(id); } catch (e) { console.error(e); }
+              }
+              setSelectedIds(new Set());
+              await load();
+            }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+              <Icon name="Trash2" className="w-3.5 h-3.5" />
+              Удалить ({selectedIds.size})
+            </button>
+          )}
           <button
             onClick={() => { setShowForm(true); setEditId(null); setDeleteConfirmId(null); }}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">

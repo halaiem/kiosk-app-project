@@ -33,6 +33,7 @@ export function DiagnosticApisView() {
   const [toast, setToast] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadData = async () => {
     setLoading(true);
@@ -76,6 +77,22 @@ export function DiagnosticApisView() {
         a.apiUrl.toLowerCase().includes(q)
     );
   }, [apis, search]);
+
+  const allSelected = filtered.length > 0 && filtered.every(a => selectedIds.has(a.id));
+  const someSelected = filtered.some(a => selectedIds.has(a.id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) { for (const a of filtered) next.delete(a.id); }
+      else { for (const a of filtered) next.add(a.id); }
+      return next;
+    });
+  }, [filtered, allSelected]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }, []);
 
   // ── Export ───────────────────────────────────────────────────────────────
 
@@ -260,6 +277,20 @@ export function DiagnosticApisView() {
                 </div>
               )}
             </div>
+            {selectedIds.size > 0 && (
+              <button onClick={async () => {
+                if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+                for (const id of selectedIds) {
+                  const api = apis.find(a => a.id === id);
+                  if (api) { try { await handleDelete(api); } catch (e) { console.error(e); } }
+                }
+                setSelectedIds(new Set());
+              }}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+                <Icon name="Trash2" className="w-3.5 h-3.5" />
+                Удалить ({selectedIds.size})
+              </button>
+            )}
             <button onClick={() => setShowAddForm(true)}
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Icon name="Plus" className="w-3.5 h-3.5" />Добавить API
@@ -285,6 +316,11 @@ export function DiagnosticApisView() {
           onUpdate={handleUpdate}
           onMockData={handleMockData}
           onDelete={handleDelete}
+          selectedIds={selectedIds}
+          allSelected={allSelected}
+          someSelected={someSelected}
+          onToggleSelectAll={toggleSelectAll}
+          onToggleRow={toggleRow}
         />
       </div>
 

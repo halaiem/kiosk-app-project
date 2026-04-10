@@ -121,6 +121,19 @@ export default function VehiclesTable({
             <Icon name="Download" className="w-3.5 h-3.5" />
             CSV
           </button>
+          {selectedIds.size > 0 && (
+            <button onClick={async () => {
+              if (!confirm(`Удалить ${selectedIds.size} записей?`)) return;
+              for (const id of selectedIds) {
+                try { onDelete(id); } catch (e) { console.error(e); }
+              }
+              setSelectedIds(new Set());
+            }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors">
+              <Icon name="Trash2" className="w-3.5 h-3.5" />
+              Удалить ({selectedIds.size})
+            </button>
+          )}
           <button
             onClick={onAddClick}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

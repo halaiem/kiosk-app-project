@@ -427,6 +427,16 @@ def handle_routes(method, qs, event, cur, conn, user):
             _cache_del('routes', 'stats')
         return resp(200, {'ok': True})
 
+    if method == 'DELETE':
+        rid = qs.get('id')
+        if not rid:
+            return resp(400, {'error': 'id обязателен'})
+        cur.execute("UPDATE routes SET is_active = false, updated_at = now() WHERE id = %s", (rid,))
+        log_action(cur, user, 'delete_route', rid, 'Маршрут удалён')
+        conn.commit()
+        _cache_del('routes', 'stats')
+        return resp(200, {'ok': True})
+
     return resp(405, {'error': 'Method not allowed'})
 
 
