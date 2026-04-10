@@ -256,6 +256,8 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [newRoleColor, setNewRoleColor] = useState("bg-blue-500/15 text-blue-500");
   const [editingRoleKey, setEditingRoleKey] = useState<string | null>(null);
   const [roleKeyError, setRoleKeyError] = useState("");
+  const [viewRoleKey, setViewRoleKey] = useState<string | null>(null);
+  const [deleteBuiltinConfirmKey, setDeleteBuiltinConfirmKey] = useState<string | null>(null);
 
   const allRoles = useMemo(() => [
     ...BUILTIN_ROLES,
@@ -818,16 +820,59 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
 
         <div className="divide-y divide-border">
           {BUILTIN_ROLES.map(r => (
-            <div key={r.key} className="flex items-center gap-3 px-5 py-3">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${r.color.split(" ")[0]}`}>
-                <Icon name={r.icon} className={`w-4 h-4 ${r.color.split(" ")[1]}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-foreground">{r.label}</span>
-                <span className="text-xs text-muted-foreground font-mono ml-2">{r.key}</span>
-              </div>
-              <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-muted">встроенная</span>
-              <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
+            <div key={r.key} className={`flex items-center gap-3 px-5 py-3 transition-colors ${editingRoleKey === r.key ? "bg-primary/5" : "hover:bg-muted/20"}`}>
+              {editingRoleKey === r.key ? (
+                <EditCustomRoleRow
+                  role={r}
+                  allKeys={[...BUILTIN_ROLES.map(b => b.key).filter(k => k !== r.key), ...customRoles.map(c => c.key)]}
+                  onSave={(updated) => {
+                    const idx = BUILTIN_ROLES.findIndex(b => b.key === r.key);
+                    if (idx !== -1) { BUILTIN_ROLES[idx] = { ...BUILTIN_ROLES[idx], ...updated }; }
+                    setEditingRoleKey(null);
+                  }}
+                  onCancel={() => setEditingRoleKey(null)}
+                />
+              ) : (
+                <>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${r.color.split(" ")[0]}`}>
+                    <Icon name={r.icon} className={`w-4 h-4 ${r.color.split(" ")[1]}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground">{r.label}</span>
+                    <span className="text-xs text-muted-foreground font-mono ml-2">{r.key}</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded-full bg-muted">встроенная</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setViewRoleKey(r.key)}
+                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                      title="Просмотр">
+                      <Icon name="Eye" className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => setEditingRoleKey(r.key)}
+                      className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                      title="Редактировать">
+                      <Icon name="Pencil" className="w-3.5 h-3.5" />
+                    </button>
+                    {deleteBuiltinConfirmKey === r.key ? (
+                      <>
+                        <span className="text-[11px] text-destructive font-medium">Удалить?</span>
+                        <button onClick={() => setDeleteBuiltinConfirmKey(null)}
+                          className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                          title="Отмена">
+                          <Icon name="X" className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => setDeleteBuiltinConfirmKey(r.key)}
+                        className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
+                        title="Удалить">
+                        <Icon name="Trash2" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           ))}
           {customRoles.map(r => (
@@ -918,6 +963,75 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
           onClose={() => setViewUser(null)}
         />
       )}
+
+      {/* Role view popup */}
+      {viewRoleKey && (() => {
+        const role = [...BUILTIN_ROLES, ...customRoles].find(r => r.key === viewRoleKey);
+        if (!role) return null;
+        const usersWithRole = sortedList.filter(u => u.role === role.key);
+        const isBuiltin = BUILTIN_ROLES.some(r => r.key === role.key);
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={() => setViewRoleKey(null)}>
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}>
+                  <Icon name={role.icon} className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground">{role.label}</h2>
+                  <span className="text-xs text-muted-foreground font-mono">{role.key}</span>
+                </div>
+                <button onClick={() => setViewRoleKey(null)}
+                  className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="X" className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Тип роли</span>
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${isBuiltin ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+                    {isBuiltin ? "Встроенная" : "Пользовательская"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Пользователей</span>
+                  <span className="font-semibold text-foreground">{usersWithRole.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Цвет</span>
+                  <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded ${role.color}`}>{role.label}</span>
+                </div>
+                {usersWithRole.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">Пользователи с этой ролью:</p>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                      {usersWithRole.map(u => (
+                        <div key={u.id} className="flex items-center gap-2 text-xs">
+                          <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            <span className="text-[9px] font-bold text-muted-foreground">{u.full_name.charAt(0)}</span>
+                          </div>
+                          <span className="text-foreground truncate">{u.full_name}</span>
+                          <span className="text-muted-foreground font-mono ml-auto">{u.employee_id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
+                <button onClick={() => { setViewRoleKey(null); setEditingRoleKey(role.key); }}
+                  className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+                  <Icon name="Pencil" className="w-3.5 h-3.5" />Редактировать
+                </button>
+                <button onClick={() => setViewRoleKey(null)}
+                  className="h-8 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
