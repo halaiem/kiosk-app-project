@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import {
   useAppSettings,
@@ -12,6 +12,7 @@ import {
   type BrandColors,
   type FontSize,
   type CustomTransportType,
+  type AppSettings,
 } from "@/context/AppSettingsContext";
 import { Toggle } from "./Toggle";
 import { FontSettingsBlock } from "./FontSettingsBlock";
@@ -68,29 +69,39 @@ function FeaturesBlock({
   iconName,
   features,
   onChange,
+  collapsed: initialCollapsed,
 }: {
   title: string;
   iconName: string;
   features: FeatureFlags;
   onChange: (patch: Partial<FeatureFlags>) => void;
+  collapsed?: boolean;
 }) {
+  const [open, setOpen] = useState(!initialCollapsed);
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-        <Icon name={iconName} className="w-4 h-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <span className="ml-auto text-[10px] text-muted-foreground">
+    <div className="border border-border rounded-xl overflow-hidden bg-muted/20">
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        className="w-full px-4 py-2.5 flex items-center gap-2 text-left hover:bg-muted/30 transition-colors"
+      >
+        <Icon name={iconName} className="w-3.5 h-3.5 text-primary" />
+        <span className="text-xs font-semibold text-foreground flex-1">{title}</span>
+        <span className="text-[10px] text-muted-foreground">
           {Object.values(features).filter(Boolean).length}/{Object.values(features).length}
         </span>
-      </div>
-      <div className="p-4 space-y-3">
-        {(Object.keys(features) as (keyof FeatureFlags)[]).map((key) => (
-          <div key={key} className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground">{FEATURE_LABELS[key]}</label>
-            <Toggle value={features[key]} onChange={(v) => onChange({ [key]: v })} />
-          </div>
-        ))}
-      </div>
+        <Icon name={open ? "ChevronUp" : "ChevronDown"} className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="px-4 pb-3 space-y-2.5 border-t border-border pt-3">
+          {(Object.keys(features) as (keyof FeatureFlags)[]).map((key) => (
+            <div key={key} className="flex items-center justify-between">
+              <label className="text-xs text-muted-foreground">{FEATURE_LABELS[key]}</label>
+              <Toggle value={features[key]} onChange={(v) => onChange({ [key]: v })} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -864,44 +875,723 @@ export function InterfaceSettingsView() {
       </div>
 
       {/* ════════ 9. FEATURES ════════ */}
-      <div>
-        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Icon name="ToggleLeft" className="w-4 h-4 text-primary" />
-          Функции для каждого экрана
-        </h3>
-        <div className="grid grid-cols-3 gap-4">
-          <FeaturesBlock
-            title="Планшет водителя"
-            iconName="Tablet"
-            features={settings.featuresTablet}
-            onChange={(patch) => updateFeatures("tablet", patch)}
-          />
-          <FeaturesBlock
-            title="Диспетчер"
-            iconName="Radio"
-            features={settings.featuresDispatcher}
-            onChange={(patch) => updateFeatures("dispatcher", patch)}
-          />
-          <FeaturesBlock
-            title="Технолог"
-            iconName="Wrench"
-            features={settings.featuresTechnician}
-            onChange={(patch) => updateFeatures("technician", patch)}
-          />
-          <FeaturesBlock
-            title="Администратор"
-            iconName="ShieldCheck"
-            features={settings.featuresAdmin}
-            onChange={(patch) => updateFeatures("admin", patch)}
-          />
-          <FeaturesBlock
-            title="Механик"
-            iconName="Settings"
-            features={settings.featuresMechanic}
-            onChange={(patch) => updateFeatures("mechanic", patch)}
+      <FeaturesSection
+        settings={settings}
+        updateFeatures={updateFeatures}
+      />
+    </div>
+  );
+}
+
+/* ── Section 9: Features Section ── */
+
+type FeatureTab = "dashboard" | "tablet";
+
+interface SectionItem {
+  tab: string;
+  icon: string;
+  label: string;
+}
+
+interface CustomRoleDef {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
+  dispatcher: [
+    { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "dash_messages", icon: "MessagesSquare", label: "Мессенджер" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
+    { tab: "vehicle_issues", icon: "Truck", label: "Проблемы ТС" },
+  ],
+  technician: [
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "routes", icon: "Route", label: "Маршруты" },
+    { tab: "documents", icon: "FileText", label: "Документы" },
+    { tab: "vehicles", icon: "Bus", label: "Транспорт" },
+    { tab: "drivers", icon: "Users", label: "Водители" },
+    { tab: "schedule", icon: "Calendar", label: "Расписание" },
+    { tab: "daily_assignment", icon: "ClipboardList", label: "Наряд на день" },
+    { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "dash_messages", icon: "MessageSquare", label: "Сообщения" },
+  ],
+  admin: [
+    { tab: "users", icon: "Users", label: "Пользователи" },
+    { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "settings", icon: "Settings", label: "Настройки" },
+    { tab: "servers", icon: "Server", label: "Серверы" },
+    { tab: "logs", icon: "ScrollText", label: "Логи" },
+    { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "dash_messages", icon: "MessageSquare", label: "Сообщения" },
+  ],
+  mechanic: [
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "auto_diagnostics", icon: "Activity", label: "Диагностика" },
+    { tab: "service_log", icon: "BookOpen", label: "Журнал" },
+    { tab: "ts_docs", icon: "FolderOpen", label: "Документация ТС" },
+    { tab: "email", icon: "Mail", label: "Email" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "dash_messages", icon: "MessageSquare", label: "Мессенджер" },
+  ],
+};
+
+const TABLET_SCREENS: SectionItem[] = [
+  { tab: "profile", icon: "User", label: "Профиль" },
+  { tab: "notifications", icon: "Bell", label: "Уведомления" },
+  { tab: "settings", icon: "Settings", label: "Настройки" },
+  { tab: "archive", icon: "Archive", label: "Архив" },
+  { tab: "support", icon: "Headphones", label: "Поддержка" },
+];
+
+const TABLET_WIDGETS: SectionItem[] = [
+  { tab: "map", icon: "Map", label: "Карта маршрута" },
+  { tab: "stops", icon: "MapPin", label: "Остановки" },
+  { tab: "messenger", icon: "MessageSquare", label: "Мессенджер" },
+  { tab: "interval", icon: "Clock", label: "Интервал" },
+  { tab: "vehicle_status", icon: "Activity", label: "Статус ТС" },
+  { tab: "weather", icon: "CloudRain", label: "Погода" },
+];
+
+const ROLE_META: Record<string, { label: string; icon: string }> = {
+  dispatcher: { label: "Диспетчер", icon: "Radio" },
+  technician: { label: "Техник", icon: "Wrench" },
+  admin: { label: "Администратор", icon: "ShieldCheck" },
+  mechanic: { label: "Механик", icon: "Settings" },
+};
+
+type FeatureRoleKey = "tablet" | "dispatcher" | "technician" | "admin" | "mechanic";
+
+const ROLE_FEATURE_KEY: Record<string, FeatureRoleKey> = {
+  dispatcher: "dispatcher",
+  technician: "technician",
+  admin: "admin",
+  mechanic: "mechanic",
+};
+
+const SETTINGS_FEATURE_KEY: Record<string, keyof AppSettings> = {
+  dispatcher: "featuresDispatcher",
+  technician: "featuresTechnician",
+  admin: "featuresAdmin",
+  mechanic: "featuresMechanic",
+};
+
+const DEFAULT_CUSTOM_FEATURES: FeatureFlags = {
+  showMap: false,
+  showSpeed: false,
+  showRoute: false,
+  showMessenger: false,
+  showBreak: false,
+  showTelemetry: false,
+  showServiceRequests: false,
+  showSchedule: false,
+  showDocuments: false,
+  showDiagnostics: false,
+  showVehicles: false,
+  showDrivers: false,
+  showRatings: false,
+  showNotifications: false,
+};
+
+function loadCustomSections(role: string): SectionItem[] {
+  try {
+    const raw = localStorage.getItem(`custom_sections_${role}`);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomSections(role: string, items: SectionItem[]) {
+  localStorage.setItem(`custom_sections_${role}`, JSON.stringify(items));
+}
+
+function loadCustomRoles(): CustomRoleDef[] {
+  try {
+    const raw = localStorage.getItem("custom_roles");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function loadCustomRoleFeatures(roleKey: string): FeatureFlags {
+  try {
+    const raw = localStorage.getItem(`features_custom_${roleKey}`);
+    if (!raw) return { ...DEFAULT_CUSTOM_FEATURES };
+    return { ...DEFAULT_CUSTOM_FEATURES, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_CUSTOM_FEATURES };
+  }
+}
+
+function saveCustomRoleFeatures(roleKey: string, flags: FeatureFlags) {
+  localStorage.setItem(`features_custom_${roleKey}`, JSON.stringify(flags));
+}
+
+function getAllUniqueSections(): SectionItem[] {
+  const seen = new Set<string>();
+  const result: SectionItem[] = [];
+  const all = [
+    ...Object.values(DASHBOARD_SECTIONS).flat(),
+    ...TABLET_SCREENS,
+    ...TABLET_WIDGETS,
+  ];
+  for (const s of all) {
+    const key = `${s.tab}::${s.label}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(s);
+    }
+  }
+  return result;
+}
+
+function SectionList({ items, onRemove }: { items: SectionItem[]; onRemove?: (tab: string) => void }) {
+  return (
+    <div className="space-y-1">
+      {items.map((item) => (
+        <div
+          key={item.tab}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/30 border border-border/50"
+        >
+          <Icon name={item.icon} className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs text-foreground flex-1">{item.label}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">{item.tab}</span>
+          {onRemove && (
+            <button
+              onClick={() => onRemove(item.tab)}
+              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+            >
+              <Icon name="X" className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddSectionDropdown({
+  currentTabs,
+  onAdd,
+}: {
+  currentTabs: Set<string>;
+  onAdd: (item: SectionItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const available = useMemo(() => {
+    return getAllUniqueSections().filter((s) => !currentTabs.has(s.tab));
+  }, [currentTabs]);
+
+  if (available.length === 0) {
+    return (
+      <button
+        disabled
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground opacity-50"
+      >
+        <Icon name="Plus" className="w-3.5 h-3.5" />
+        Все разделы добавлены
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((p) => !p)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted transition-colors"
+      >
+        <Icon name="Plus" className="w-3.5 h-3.5" />
+        Добавить раздел или виджет
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-border bg-popover shadow-lg py-1 min-w-[220px] max-h-60 overflow-y-auto">
+          {available.map((s) => (
+            <button
+              key={s.tab}
+              onClick={() => {
+                onAdd(s);
+                setOpen(false);
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
+            >
+              <Icon name={s.icon} className="w-4 h-4 text-muted-foreground" />
+              <span className="flex-1 text-left">{s.label}</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{s.tab}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoveSectionDropdown({
+  sections,
+  targetRoles,
+  onMove,
+}: {
+  sections: SectionItem[];
+  targetRoles: { key: string; label: string }[];
+  onMove: (section: SectionItem, targetRole: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<SectionItem | null>(null);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => {
+          setOpen((p) => !p);
+          setSelected(null);
+        }}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted transition-colors"
+      >
+        <Icon name="MoveRight" className="w-3.5 h-3.5" />
+        Переместить раздел
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-border bg-popover shadow-lg py-1 min-w-[220px] max-h-60 overflow-y-auto">
+          {!selected ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Выберите раздел
+              </div>
+              {sections.map((s) => (
+                <button
+                  key={s.tab}
+                  onClick={() => setSelected(s)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
+                >
+                  <Icon name={s.icon} className="w-4 h-4 text-muted-foreground" />
+                  {s.label}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Переместить &laquo;{selected.label}&raquo; в:
+              </div>
+              {targetRoles.map((r) => (
+                <button
+                  key={r.key}
+                  onClick={() => {
+                    onMove(selected, r.key);
+                    setOpen(false);
+                    setSelected(null);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
+                >
+                  <Icon name={ROLE_META[r.key]?.icon || "User"} className="w-4 h-4 text-muted-foreground" />
+                  {r.label}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoleCard({
+  roleKey,
+  roleLabel,
+  roleIcon,
+  builtInSections,
+  features,
+  onFeaturesChange,
+  customSections,
+  onAddCustomSection,
+  onRemoveCustomSection,
+  onMoveSection,
+  allRoleKeys,
+}: {
+  roleKey: string;
+  roleLabel: string;
+  roleIcon: string;
+  builtInSections: SectionItem[];
+  features: FeatureFlags;
+  onFeaturesChange: (patch: Partial<FeatureFlags>) => void;
+  customSections: SectionItem[];
+  onAddCustomSection: (item: SectionItem) => void;
+  onRemoveCustomSection: (tab: string) => void;
+  onMoveSection: (section: SectionItem, targetRole: string) => void;
+  allRoleKeys: { key: string; label: string }[];
+}) {
+  const allSections = [...builtInSections, ...customSections];
+  const currentTabs = useMemo(() => new Set(allSections.map((s) => s.tab)), [allSections]);
+  const targetRoles = allRoleKeys.filter((r) => r.key !== roleKey);
+  const enabledCount = Object.values(features).filter(Boolean).length;
+  const totalCount = Object.values(features).length;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+        <Icon name={roleIcon} className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">{roleLabel}</h3>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {enabledCount}/{totalCount}
+        </span>
+      </div>
+      <div className="p-4 space-y-4">
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Icon name="PanelLeft" className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">Разделы sidebar</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{allSections.length}</span>
+          </div>
+          <SectionList items={builtInSections} />
+          {customSections.length > 0 && (
+            <div className="mt-2">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider px-1">
+                Добавленные
+              </span>
+              <div className="mt-1 space-y-1">
+                {customSections.map((item) => (
+                  <div
+                    key={item.tab}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20"
+                  >
+                    <Icon name={item.icon} className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs text-foreground flex-1">{item.label}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                      custom
+                    </span>
+                    <button
+                      onClick={() => onRemoveCustomSection(item.tab)}
+                      className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                    >
+                      <Icon name="X" className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <FeaturesBlock
+          title="Флаги функций"
+          iconName="ToggleLeft"
+          features={features}
+          onChange={onFeaturesChange}
+          collapsed
+        />
+
+        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+          <AddSectionDropdown currentTabs={currentTabs} onAdd={onAddCustomSection} />
+          <MoveSectionDropdown
+            sections={customSections}
+            targetRoles={targetRoles}
+            onMove={onMoveSection}
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function TabletCard({
+  features,
+  onFeaturesChange,
+  customSections,
+  onAddCustomSection,
+  onRemoveCustomSection,
+}: {
+  features: FeatureFlags;
+  onFeaturesChange: (patch: Partial<FeatureFlags>) => void;
+  customSections: SectionItem[];
+  onAddCustomSection: (item: SectionItem) => void;
+  onRemoveCustomSection: (tab: string) => void;
+}) {
+  const allItems = [...TABLET_SCREENS, ...TABLET_WIDGETS, ...customSections];
+  const currentTabs = useMemo(() => new Set(allItems.map((s) => s.tab)), [allItems]);
+  const enabledCount = Object.values(features).filter(Boolean).length;
+  const totalCount = Object.values(features).length;
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+        <Icon name="Tablet" className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Планшет водителя</h3>
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {enabledCount}/{totalCount}
+        </span>
+      </div>
+      <div className="p-4 space-y-4">
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Icon name="Monitor" className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">Экраны планшета</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{TABLET_SCREENS.length}</span>
+          </div>
+          <SectionList items={TABLET_SCREENS} />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Icon name="LayoutGrid" className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-foreground">Виджеты планшета</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{TABLET_WIDGETS.length}</span>
+          </div>
+          <SectionList items={TABLET_WIDGETS} />
+        </div>
+
+        {customSections.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Icon name="Puzzle" className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-medium text-foreground">Добавленные</span>
+            </div>
+            <div className="space-y-1">
+              {customSections.map((item) => (
+                <div
+                  key={item.tab}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20"
+                >
+                  <Icon name={item.icon} className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs text-foreground flex-1">{item.label}</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    custom
+                  </span>
+                  <button
+                    onClick={() => onRemoveCustomSection(item.tab)}
+                    className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                  >
+                    <Icon name="X" className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <FeaturesBlock
+          title="Флаги функций"
+          iconName="ToggleLeft"
+          features={features}
+          onChange={onFeaturesChange}
+          collapsed
+        />
+
+        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+          <AddSectionDropdown currentTabs={currentTabs} onAdd={onAddCustomSection} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturesSection({
+  settings,
+  updateFeatures,
+}: {
+  settings: AppSettings;
+  updateFeatures: (role: FeatureRoleKey, patch: Partial<FeatureFlags>) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<FeatureTab>("dashboard");
+  const [customSectionsMap, setCustomSectionsMap] = useState<Record<string, SectionItem[]>>({});
+  const [customRoles, setCustomRoles] = useState<CustomRoleDef[]>([]);
+  const [customRoleFeatures, setCustomRoleFeatures] = useState<Record<string, FeatureFlags>>({});
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const roles = ["dispatcher", "technician", "admin", "mechanic", "tablet"];
+    const map: Record<string, SectionItem[]> = {};
+    for (const r of roles) {
+      map[r] = loadCustomSections(r);
+    }
+    setCustomSectionsMap(map);
+    const cr = loadCustomRoles();
+    setCustomRoles(cr);
+    const crFeats: Record<string, FeatureFlags> = {};
+    for (const c of cr) {
+      crFeats[c.key] = loadCustomRoleFeatures(c.key);
+      if (!map[c.key]) map[c.key] = loadCustomSections(c.key);
+    }
+    setCustomRoleFeatures(crFeats);
+    setCustomSectionsMap({ ...map });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const handleAddCustomSection = useCallback((role: string, item: SectionItem) => {
+    setCustomSectionsMap((prev) => {
+      const next = { ...prev, [role]: [...(prev[role] || []), item] };
+      saveCustomSections(role, next[role]);
+      return next;
+    });
+    setToast(`Раздел "${item.label}" добавлен`);
+  }, []);
+
+  const handleRemoveCustomSection = useCallback((role: string, tab: string) => {
+    setCustomSectionsMap((prev) => {
+      const next = { ...prev, [role]: (prev[role] || []).filter((s) => s.tab !== tab) };
+      saveCustomSections(role, next[role]);
+      return next;
+    });
+  }, []);
+
+  const handleMoveSection = useCallback((sourceRole: string, section: SectionItem, targetRole: string) => {
+    setCustomSectionsMap((prev) => {
+      const next = { ...prev };
+      next[sourceRole] = (next[sourceRole] || []).filter((s) => s.tab !== section.tab);
+      next[targetRole] = [...(next[targetRole] || []), section];
+      saveCustomSections(sourceRole, next[sourceRole]);
+      saveCustomSections(targetRole, next[targetRole]);
+      return next;
+    });
+    const targetLabel = ROLE_META[targetRole]?.label || targetRole;
+    setToast(`"${section.label}" перемещён в ${targetLabel}`);
+  }, []);
+
+  const handleCustomRoleFeatureChange = useCallback((roleKey: string, patch: Partial<FeatureFlags>) => {
+    setCustomRoleFeatures((prev) => {
+      const current = prev[roleKey] || { ...DEFAULT_CUSTOM_FEATURES };
+      const updated = { ...current, ...patch };
+      saveCustomRoleFeatures(roleKey, updated);
+      return { ...prev, [roleKey]: updated };
+    });
+  }, []);
+
+  const builtInRoleKeys = ["dispatcher", "technician", "admin", "mechanic"];
+  const allRoleEntries = [
+    ...builtInRoleKeys.map((k) => ({ key: k, label: ROLE_META[k].label })),
+    ...customRoles.map((c) => ({ key: c.key, label: c.label })),
+  ];
+
+  const tabs: { key: FeatureTab; label: string; icon: string }[] = [
+    { key: "dashboard", label: "Дашборд", icon: "Monitor" },
+    { key: "tablet", label: "Планшет", icon: "Tablet" },
+  ];
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <Icon name="ToggleLeft" className="w-4 h-4 text-primary" />
+        Функции для каждого экрана
+      </h3>
+
+      <div className="flex items-center gap-1 mb-4">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeTab === t.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon name={t.icon} className="w-3.5 h-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "dashboard" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            {builtInRoleKeys.map((roleKey) => {
+              const meta = ROLE_META[roleKey];
+              const featureKey = SETTINGS_FEATURE_KEY[roleKey];
+              const features = settings[featureKey] as FeatureFlags;
+              const frk = ROLE_FEATURE_KEY[roleKey];
+              return (
+                <RoleCard
+                  key={roleKey}
+                  roleKey={roleKey}
+                  roleLabel={meta.label}
+                  roleIcon={meta.icon}
+                  builtInSections={DASHBOARD_SECTIONS[roleKey] || []}
+                  features={features}
+                  onFeaturesChange={(patch) => updateFeatures(frk, patch)}
+                  customSections={customSectionsMap[roleKey] || []}
+                  onAddCustomSection={(item) => handleAddCustomSection(roleKey, item)}
+                  onRemoveCustomSection={(tab) => handleRemoveCustomSection(roleKey, tab)}
+                  onMoveSection={(section, target) => handleMoveSection(roleKey, section, target)}
+                  allRoleKeys={allRoleEntries}
+                />
+              );
+            })}
+          </div>
+
+          {customRoles.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="UserPlus" className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground">Пользовательские роли</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {customRoles.map((cr) => (
+                  <RoleCard
+                    key={cr.key}
+                    roleKey={cr.key}
+                    roleLabel={cr.label}
+                    roleIcon={cr.icon || "User"}
+                    builtInSections={[]}
+                    features={customRoleFeatures[cr.key] || { ...DEFAULT_CUSTOM_FEATURES }}
+                    onFeaturesChange={(patch) => handleCustomRoleFeatureChange(cr.key, patch)}
+                    customSections={customSectionsMap[cr.key] || []}
+                    onAddCustomSection={(item) => handleAddCustomSection(cr.key, item)}
+                    onRemoveCustomSection={(tab) => handleRemoveCustomSection(cr.key, tab)}
+                    onMoveSection={(section, target) => handleMoveSection(cr.key, section, target)}
+                    allRoleKeys={allRoleEntries}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {customRoles.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border bg-muted/20 px-5 py-4 flex items-center gap-3">
+              <Icon name="UserPlus" className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-xs font-medium text-foreground">Пользовательские роли</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Новые роли, добавленные в разделе Пользователи, автоматически появятся здесь
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "tablet" && (
+        <div className="grid grid-cols-2 gap-4">
+          <TabletCard
+            features={settings.featuresTablet}
+            onFeaturesChange={(patch) => updateFeatures("tablet", patch)}
+            customSections={customSectionsMap["tablet"] || []}
+            onAddCustomSection={(item) => handleAddCustomSection("tablet", item)}
+            onRemoveCustomSection={(tab) => handleRemoveCustomSection("tablet", tab)}
+          />
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-2 rounded-xl bg-foreground text-background px-4 py-3 shadow-lg text-sm font-medium animate-in fade-in slide-in-from-bottom-2">
+          <Icon name="CheckCircle" className="w-4 h-4 text-green-400" />
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

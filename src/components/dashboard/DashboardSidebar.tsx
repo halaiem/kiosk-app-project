@@ -59,6 +59,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
   { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
+  { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];
 
@@ -83,6 +84,7 @@ const MECHANIC_NAV: NavItem[] = [
   { tab: "service_log" as MechanicTab, icon: "BookOpen", label: "Журнал" },
   { tab: "ts_docs" as MechanicTab, icon: "FolderOpen", label: "Документация ТС" },
   { tab: "email" as MechanicTab, icon: "Mail", label: "Email" },
+  { tab: "notifications" as MechanicTab, icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as MechanicTab, icon: "MessageSquare", label: "Мессенджер" },
 ];
 
