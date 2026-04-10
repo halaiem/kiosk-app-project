@@ -172,6 +172,8 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewServer, setViewServer] = useState<CustomServer | null>(null);
+  const [filterStatus, setFilterStatus] = useState<ServerStatus | "all">("all");
+  const [filterType, setFilterType] = useState<string>("all");
 
   // Синхронизация при добавлении API из раздела API
   useEffect(() => {
@@ -234,6 +236,17 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
   const typeLabel = (t?: string) => SERVER_TYPES.find(x => x.value === t)?.label || t || "—";
   const typeIcon = (t?: string) => SERVER_TYPE_ICONS[t || "other"] || "Server";
 
+  const filteredServers = useMemo(() => allServers.filter(s => {
+    if (filterStatus !== "all" && s.status !== filterStatus) return false;
+    if (filterType !== "all" && s.serverType !== filterType) return false;
+    return true;
+  }), [allServers, filterStatus, filterType]);
+
+  const usedTypes = useMemo(() => {
+    const types = new Set(allServers.map(s => s.serverType).filter(Boolean));
+    return SERVER_TYPES.filter(t => types.has(t.value));
+  }, [allServers]);
+
   return (
     <div className="space-y-5">
       {/* Summary */}
@@ -263,20 +276,64 @@ export function ServersView({ servers: propServers }: { servers: ServerInfo[] })
             <Icon name="Server" className="w-4 h-4 text-blue-500" />
           </div>
           <span className="text-sm font-semibold text-foreground">Серверы</span>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{allServers.length}</span>
+          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            {filteredServers.length}{filteredServers.length !== allServers.length ? ` из ${allServers.length}` : ""}
+          </span>
           <button onClick={() => setShowAddModal(true)}
             className="ml-auto flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
             <Icon name="Plus" className="w-3.5 h-3.5" />Добавить сервер
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="px-5 py-2.5 border-b border-border flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            {(["all", "online", "warning", "offline"] as const).map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`h-7 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  filterStatus === s
+                    ? s === "all" ? "bg-primary text-primary-foreground"
+                      : s === "online" ? "bg-green-500/20 text-green-600"
+                      : s === "warning" ? "bg-yellow-500/20 text-yellow-600"
+                      : "bg-red-500/20 text-red-500"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}>
+                {s === "all" ? "Все статусы" : SERVER_STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
+          {usedTypes.length > 1 && (
+            <>
+              <div className="w-px h-4 bg-border" />
+              <div className="flex items-center gap-1 flex-wrap">
+                <button onClick={() => setFilterType("all")}
+                  className={`h-7 px-3 rounded-lg text-xs font-medium transition-colors ${filterType === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                  Все типы
+                </button>
+                {usedTypes.map(t => (
+                  <button key={t.value} onClick={() => setFilterType(t.value)}
+                    className={`h-7 px-3 rounded-lg text-xs font-medium transition-colors ${filterType === t.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {(filterStatus !== "all" || filterType !== "all") && (
+            <button onClick={() => { setFilterStatus("all"); setFilterType("all"); }}
+              className="ml-auto h-7 px-2.5 rounded-lg text-xs text-muted-foreground hover:text-foreground bg-muted flex items-center gap-1 transition-colors">
+              <Icon name="X" className="w-3 h-3" />Сбросить
+            </button>
+          )}
+        </div>
+
         <div className="divide-y divide-border">
-          {allServers.length === 0 ? (
+          {filteredServers.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-              <Icon name="ServerOff" className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              Нет серверов
+              <Icon name={allServers.length === 0 ? "ServerOff" : "Filter"} className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              {allServers.length === 0 ? "Нет серверов" : "Ни один сервер не подходит под фильтр"}
             </div>
-          ) : allServers.map(srv => {
+          ) : filteredServers.map(srv => {
             const isExpanded = expandedId === srv.id;
             const cpuWarn = srv.cpu > 70;
             const memWarn = srv.memory > 80;
