@@ -1,4 +1,4 @@
-import urls from './config';
+import urls from '../../backend/func2url.json';
 
 const AUTH_URL = urls['dashboard-auth'];
 const DATA_URL = urls['dashboard-data'];

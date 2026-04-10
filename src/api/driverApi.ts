@@ -1,11 +1,11 @@
-import urls from './config';
+import urls from '../../backend/func2url.json';
 
 const URLS = {
-  auth: urls['driver-auth'],
-  messages: urls['driver-messages'],
-  manage: urls['driver-manage'],
-  docs: urls['driver-docs'],
-  mrm: urls['irida-mrm'],
+  auth: 'https://functions.poehali.dev/b5ce54b6-0bb0-4452-b25b-d6a3ea35aad0',
+  messages: 'https://functions.poehali.dev/29b782fe-206c-496b-8e16-1d7cf4338395',
+  manage: 'https://functions.poehali.dev/1357aa6d-31b9-4e7c-8b5a-e5baa000e171',
+  docs: 'https://functions.poehali.dev/504848fa-a424-4824-9e20-36c9d190a109',
+  mrm: (urls as Record<string, string>)['irida-mrm'],
 };
 
 const MRM_KEY = 'mrm_admin_info';

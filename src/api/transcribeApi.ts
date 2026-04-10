@@ -1,6 +1,4 @@
-import urls from './config';
-
-const TRANSCRIBE_URL = urls['transcribe'];
+const TRANSCRIBE_URL = 'https://functions.poehali.dev/be33a4e1-8653-4cb9-a6db-6ec5ce816bcd';
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

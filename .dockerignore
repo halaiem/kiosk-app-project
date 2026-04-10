@@ -1,14 +1,10 @@
 node_modules
-dist
 .git
 .gitignore
 *.md
-backend
-db_migrations
-docs
 builds
 vite-dev.log
 .env
-.env.*
 server/.env
 server/backups
+db_migrations

@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import urls from '@/api/config';
+import urls from "../../../../backend/func2url.json";
 
-const API_URL = urls["dashboard-messages"];
+const API_URL = (urls as Record<string, string>)["dashboard-messages"];
 
 function getDriverToken(): string | null {
   return localStorage.getItem("driver_session_token") || localStorage.getItem("dashboard_token");

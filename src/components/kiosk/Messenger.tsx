@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react
 import Icon from '@/components/ui/icon';
 import { Message, ConnectionStatus } from '@/types/kiosk';
 import { transcribeAudio, uploadAudio } from '@/api/transcribeApi';
-import urls from '@/api/config';
+import urls from '../../../backend/func2url.json';
 
-const DRIVER_MESSAGES_URL = urls['driver-messages'];
+const DRIVER_MESSAGES_URL = (urls as Record<string, string>)['driver-messages'];
 
 const DEFAULT_TEMPLATES = [
   '🚦 Задержка на светофоре',
