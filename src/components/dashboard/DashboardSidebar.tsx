@@ -47,6 +47,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "schedule", icon: "Calendar", label: "Расписание" },
   { tab: "daily_assignment", icon: "ClipboardList", label: "Наряд на день" },
   { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
+  { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];
 
