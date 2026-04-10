@@ -42,7 +42,7 @@ interface MessagesViewProps {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
-  technician: "Техник",
+  technician: "Технолог",
   dispatcher: "Диспетчер",
   mechanic: "Механик",
   irida_tools: "Irida-Tools",

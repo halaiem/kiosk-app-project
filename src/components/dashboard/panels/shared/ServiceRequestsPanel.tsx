@@ -153,6 +153,8 @@ export default function ServiceRequestsPanel({
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const refreshRef = useRef<ReturnType<typeof setInterval>>();
 
   const fetchRequests = useCallback(async () => {
@@ -261,6 +263,32 @@ export default function ServiceRequestsPanel({
       else next.add(id);
       return next;
     });
+  }, []);
+
+  const exportExcel = useCallback((rows: ServiceRequest[]) => {
+    const header = ["№", "Номер", "Заголовок", "ТС", "Приоритет", "Статус", "Кому", "Автор", "Дата"];
+    const exRows = [header.join("\t")];
+    rows.forEach((r, i) => {
+      exRows.push([
+        String(i + 1),
+        r.request_number,
+        r.title || "",
+        r.vehicle_label || "",
+        PRIORITY_LABELS[r.priority] || r.priority,
+        STATUS_LABELS[r.status] || r.status,
+        r.target_role ? (ROLE_LABELS[r.target_role] || r.target_role) : "",
+        r.creator_name || "",
+        formatDate(r.created_at),
+      ].join("\t"));
+    });
+    const blob = new Blob(["\uFEFF" + exRows.join("\n")], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `service_requests_${today}.xls`;
+    a.click();
+    URL.revokeObjectURL(url);
   }, []);
 
   const exportCsv = useCallback((rows: ServiceRequest[]) => {
@@ -377,18 +405,9 @@ export default function ServiceRequestsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Заявки на обслуживание</h2>
-          <p className="text-muted-foreground mt-1">Управление заявками и сервисными запросами</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Icon name="Plus" className="w-4 h-4" />
-          Создать заявку
-        </button>
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Заявки на обслуживание</h2>
+        <p className="text-muted-foreground mt-1">Управление заявками и сервисными запросами</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -427,13 +446,40 @@ export default function ServiceRequestsPanel({
               className="pl-8 pr-3 py-1.5 rounded-lg text-sm bg-card border border-border text-foreground placeholder:text-muted-foreground w-48 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              onClick={() => setShowExportMenu(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-sm"
+              title={selectedIds.size > 0 ? `Экспорт выбранных (${selectedIds.size})` : "Экспорт"}
+            >
+              <Icon name="Download" className="w-4 h-4" />
+              Экспорт
+              <Icon name="ChevronDown" className="w-3.5 h-3.5" />
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-[140px]"
+                onMouseLeave={() => setShowExportMenu(false)}>
+                <button
+                  onClick={() => { exportExcel(selectedIds.size > 0 ? filtered.filter(r => selectedIds.has(r.id)) : filtered); setShowExportMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <Icon name="FileSpreadsheet" className="w-4 h-4 text-green-600" />
+                  Excel
+                </button>
+                <button
+                  onClick={() => { handleExport(); setShowExportMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <Icon name="FileText" className="w-4 h-4 text-blue-500" />
+                  CSV
+                </button>
+              </div>
+            )}
+          </div>
           <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-sm"
-            title={selectedIds.size > 0 ? `Экспорт выбранных (${selectedIds.size})` : "Экспорт CSV"}
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
-            <Icon name="Download" className="w-4 h-4" />
-            CSV
+            <Icon name="Plus" className="w-4 h-4" />
+            Создать заявку
           </button>
           <button onClick={loadAll} className="p-1.5 rounded-lg bg-card border border-border hover:bg-muted transition-colors" title="Обновить">
             <Icon name="RefreshCw" className={`w-4 h-4 text-muted-foreground ${loading ? "animate-spin" : ""}`} />

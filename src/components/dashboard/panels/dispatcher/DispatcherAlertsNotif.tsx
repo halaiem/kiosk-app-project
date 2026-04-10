@@ -85,7 +85,7 @@ const NOTIF_LEVEL_LABELS: Record<AlertLevel, string> = {
 };
 
 const FORWARD_ROLES: { key: UserRole; label: string; icon: string }[] = [
-  { key: "technician", label: "Техник", icon: "Wrench" },
+  { key: "technician", label: "Технолог", icon: "Wrench" },
   { key: "mechanic", label: "Механик", icon: "Settings" },
   { key: "admin", label: "Администратор", icon: "ShieldCheck" },
 ];

@@ -31,7 +31,7 @@ interface LogEntry {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
-  technician: "Техник",
+  technician: "Технолог",
   dispatcher: "Диспетчер",
   mechanic: "Механик",
   system: "Система",

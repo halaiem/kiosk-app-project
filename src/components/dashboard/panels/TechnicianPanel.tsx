@@ -9,6 +9,7 @@ import TechServiceRequestsView from "./technician/TechServiceRequestsView";
 import { NotificationsView } from "./technician/TechNotificationsView";
 import MessagesView from "./shared/MessagesView";
 import VotingView from "./shared/VotingView";
+import { AdminVehiclesView } from "./admin/AdminVehiclesView";
 import type {
   TechnicianTab,
   RouteInfo,
@@ -63,6 +64,7 @@ export default function TechnicianPanel({
   if (tab === "diagnostics") return <TechDiagnosticsView onReload={onReload} />;
   if (tab === "notifications") return <NotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
+  if (tab === "admin_vehicles") return <AdminVehiclesView />;
   if (tab === "voting") return <VotingView currentUserId={currentUserId || 0} />;
   return null;
 }

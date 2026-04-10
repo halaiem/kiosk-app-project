@@ -43,6 +43,7 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
   { tab: "routes", icon: "Route", label: "Маршруты" },
   { tab: "documents", icon: "FileText", label: "Документы" },
+  { tab: "admin_vehicles" as DashboardTab, icon: "Truck", label: "Транспортные средства" },
   { tab: "vehicles", icon: "Bus", label: "Транспорт" },
   { tab: "drivers", icon: "Users", label: "Водители" },
   { tab: "schedule", icon: "Calendar", label: "Расписание" },
@@ -55,7 +56,6 @@ const TECHNICIAN_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { tab: "users", icon: "Users", label: "Пользователи" },
-  { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
   { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "servers", icon: "Server", label: "Серверы" },

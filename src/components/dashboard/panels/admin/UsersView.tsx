@@ -42,7 +42,7 @@ const ROLE_STYLES: Record<string, string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   dispatcher:  "Диспетчер",
-  technician:  "Техник",
+  technician:  "Технолог",
   admin:       "Администратор",
   irida_tools: "Irida-Tools",
   mechanic:    "Механик",
@@ -73,7 +73,7 @@ function saveCustomRoles(roles: CustomRole[]) {
 
 const BUILTIN_ROLES: { key: string; label: string; icon: string; color: string }[] = [
   { key: "dispatcher",  label: "Диспетчер",      icon: "Radio",       color: "bg-blue-500/15 text-blue-500" },
-  { key: "technician",  label: "Техник",          icon: "Wrench",      color: "bg-green-500/15 text-green-500" },
+  { key: "technician",  label: "Технолог",        icon: "Wrench",      color: "bg-green-500/15 text-green-500" },
   { key: "admin",       label: "Администратор",   icon: "ShieldCheck", color: "bg-red-500/15 text-red-500" },
   { key: "mechanic",    label: "Механик",         icon: "Settings",    color: "bg-orange-500/15 text-orange-500" },
 ];
@@ -364,7 +364,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const filters: { key: RoleFilter; label: string }[] = useMemo(() => [
     { key: "all", label: "Все" },
     { key: "dispatcher", label: "Диспетчеры" },
-    { key: "technician", label: "Техники" },
+    { key: "technician", label: "Технологи" },
     { key: "admin", label: "Администраторы" },
     { key: "mechanic", label: "Механики" },
     ...customRoles.map(cr => ({ key: cr.key as RoleFilter, label: cr.label + "ы" })),
