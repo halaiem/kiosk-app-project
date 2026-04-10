@@ -60,7 +60,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
-  { tab: "diagnostic_apis", icon: "Plug", label: "API диагностики" },
+  { tab: "diagnostic_apis", icon: "Plug", label: "API" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
   { tab: "voting", icon: "Star", label: "Голосование" },

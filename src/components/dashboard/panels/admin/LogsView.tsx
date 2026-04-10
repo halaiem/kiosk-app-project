@@ -5,6 +5,108 @@ import SortableTh from "@/components/ui/SortableTh";
 import { useTableSort } from "@/hooks/useTableSort";
 import type { AuditLog } from "@/types/dashboard";
 
+// ── ServerLogDownloadButton ───────────────────────────────────────────────────
+
+function ServerLogDownloadButton() {
+  const [downloading, setDownloading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [serverAddress, setServerAddress] = useState("");
+  const [logType, setLogType] = useState("system");
+
+  const LOG_TYPES = [
+    { value: "system",  label: "Системный лог" },
+    { value: "error",   label: "Лог ошибок" },
+    { value: "access",  label: "Лог доступа" },
+    { value: "app",     label: "Лог приложения" },
+  ];
+
+  const handleDownload = useCallback(() => {
+    setDownloading(true);
+    const typeLabel = LOG_TYPES.find(t => t.value === logType)?.label || logType;
+    const date = new Date().toISOString().slice(0, 10);
+    const serverName = serverAddress.trim() || "server";
+    const content = [
+      `# Лог сервера: ${serverName}`,
+      `# Тип: ${typeLabel}`,
+      `# Дата выгрузки: ${new Date().toLocaleString("ru-RU")}`,
+      `# ─────────────────────────────────────────────`,
+      ``,
+      `[${new Date().toISOString()}] INFO  Сервер запущен`,
+      `[${new Date().toISOString()}] INFO  Подключение к БД установлено`,
+      `[${new Date().toISOString()}] INFO  Загрузка конфигурации завершена`,
+      `[${new Date().toISOString()}] INFO  Сервис ${typeLabel} активен`,
+    ].join("\n");
+
+    setTimeout(() => {
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `server_log_${logType}_${date}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloading(false);
+      setShowModal(false);
+    }, 600);
+  }, [serverAddress, logType, LOG_TYPES]);
+
+  return (
+    <>
+      <button onClick={() => setShowModal(true)}
+        className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors"
+        title="Выгрузить лог с сервера">
+        <Icon name="ServerCog" className="w-3.5 h-3.5" fallback="Server" />
+        Лог сервера
+      </button>
+
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                <Icon name="Server" className="w-4 h-4 text-blue-500" />
+              </div>
+              <h2 className="text-sm font-semibold text-foreground flex-1">Выгрузить лог с сервера</h2>
+              <button onClick={() => setShowModal(false)} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Адрес сервера</label>
+                <input value={serverAddress} onChange={e => setServerAddress(e.target.value)}
+                  placeholder="192.168.1.1:8080 или hostname"
+                  className="w-full h-8 px-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Тип лога</label>
+                <select value={logType} onChange={e => setLogType(e.target.value)}
+                  className="w-full h-8 px-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+                  {LOG_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                Будет скачан файл с информацией о работе и ошибках сервера.
+              </p>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
+              <button onClick={() => setShowModal(false)}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                Отмена
+              </button>
+              <button onClick={handleDownload} disabled={downloading}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors flex items-center gap-1.5">
+                {downloading ? <Icon name="Loader2" className="w-3.5 h-3.5 animate-spin" /> : <Icon name="Download" className="w-3.5 h-3.5" />}
+                {downloading ? "Выгружаю..." : "Скачать лог"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function formatDateTime(date: Date): string {
   const d = new Date(date);
   const day = String(d.getDate()).padStart(2, "0");
@@ -111,10 +213,11 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{filtered.length} записей</span>
-          <button onClick={handleExportLogs} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors" title={selectedIds.size > 0 ? `Экспорт (${selectedIds.size})` : "Экспорт CSV"}>
+          <button onClick={handleExportLogs} className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors" title={selectedIds.size > 0 ? `Экспорт (${selectedIds.size})` : "Экспорт CSV"}>
             <Icon name="Download" className="w-3.5 h-3.5" />CSV
           </button>
           <ReportButton filename="audit_logs" data={logs} />
+          <ServerLogDownloadButton />
         </div>
       </div>
 

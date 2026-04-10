@@ -35,9 +35,9 @@ export function generateMapVehicles(): MapVehicleInfo[] {
 function hoursAgo(h: number) { return new Date(Date.now() - h * 3600000); }
 
 const FALLBACK_SERVERS: ServerInfo[] = [
-  { id: '1', name: 'Основной сервер', status: 'online', cpu: 42, memory: 68, disk: 55, uptime: '45д 12ч', lastCheck: new Date() },
-  { id: '2', name: 'Сервер маршрутов', status: 'online', cpu: 28, memory: 45, disk: 38, uptime: '45д 12ч', lastCheck: new Date() },
-  { id: '3', name: 'Сервер телеметрии', status: 'warning', cpu: 87, memory: 82, disk: 61, uptime: '12д 5ч', lastCheck: new Date() },
+  { id: '1', name: 'Сервер ИРИДА', status: 'online', cpu: 42, memory: 68, disk: 55, uptime: '45д 12ч', lastCheck: new Date() },
+  { id: '2', name: 'Сервер Базы данных', status: 'online', cpu: 28, memory: 45, disk: 38, uptime: '45д 12ч', lastCheck: new Date() },
+  { id: '3', name: 'Сервер Перевозчик', status: 'warning', cpu: 87, memory: 82, disk: 61, uptime: '12д 5ч', lastCheck: new Date() },
 ];
 
 const FALLBACK_NOTIFICATIONS: Notification[] = [
