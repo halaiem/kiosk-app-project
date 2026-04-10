@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import IconPickerModal from "./IconPickerModal";
-import urls from "../../../../../../backend/func2url.json";
+import urls from '@/api/config';
 
-const API_URL = (urls as Record<string, string>)["dashboard-messages"];
+const API_URL = urls["dashboard-messages"];
 const TOKEN_KEY = "dashboard_token";
 
 function getToken(): string | null {

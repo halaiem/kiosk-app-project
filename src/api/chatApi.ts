@@ -1,4 +1,4 @@
-import urls from '../../backend/func2url.json';
+import urls from './config';
 
 const BASE = urls['dashboard-messages'];
 

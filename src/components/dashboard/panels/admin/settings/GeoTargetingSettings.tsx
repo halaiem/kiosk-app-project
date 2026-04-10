@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Icon from "@/components/ui/icon";
-import urls from "../../../../../../backend/func2url.json";
+import urls from '@/api/config';
 
 // Fix default Leaflet marker icon
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
 });
 
 /* ── API helpers ─────────────────────────────────────────────────── */
-const API_URL = (urls as Record<string, string>)["dashboard-messages"];
+const API_URL = urls["dashboard-messages"];
 const TOKEN_KEY = "dashboard_token";
 
 function getToken(): string | null {

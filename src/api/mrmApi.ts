@@ -1,6 +1,6 @@
-import urls from '../../backend/func2url.json';
+import urls from './config';
 
-const MRM_URL = (urls as Record<string, string>)['irida-mrm'];
+const MRM_URL = urls['irida-mrm'];
 
 function getToken(): string | null {
   return localStorage.getItem('dashboard_token');

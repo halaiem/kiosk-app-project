@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import urls from "../../../../../backend/func2url.json";
+import urls from '@/api/config';
 
 const API_URL = urls["service-requests"];
 const TOKEN_KEY = "dashboard_token";
