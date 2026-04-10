@@ -95,6 +95,13 @@ export async function updateDiagnosticApi(payload: {
   });
 }
 
+export async function deleteDiagnosticApi(id: string) {
+  return dashRequest(`${DIAG_URL}?action=delete_api`, {
+    method: 'DELETE',
+    body: JSON.stringify({ id }),
+  });
+}
+
 export async function fetchVehicleDiagnostics(vehicleId: string) {
   const data = await dashRequest(`${DIAG_URL}?action=vehicle_diagnostics&vehicle_id=${encodeURIComponent(vehicleId)}`);
   return data.diagnostics || [];

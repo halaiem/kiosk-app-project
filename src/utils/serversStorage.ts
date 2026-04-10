@@ -30,6 +30,14 @@ export function saveStoredServers(list: StoredServer[]) {
   window.dispatchEvent(new CustomEvent(SERVERS_UPDATED_EVENT));
 }
 
+export function deactivateServerByApiId(apiId: string) {
+  const existing = loadStoredServers();
+  const updated = existing.map(s =>
+    s.apiId === apiId ? { ...s, status: "offline" as const, uptime: "—" } : s
+  );
+  saveStoredServers(updated);
+}
+
 export function addServerFromApi(params: {
   apiId: string;
   apiName: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import SortableTh from "@/components/ui/SortableTh";
 import { useTableSort } from "@/hooks/useTableSort";
@@ -29,6 +29,7 @@ interface ApiTableProps {
     data: { apiName: string; apiUrl: string; apiKey: string; pollInterval: string }
   ) => void;
   onMockData: (vehicleId: string, vehicleNumber: string) => void;
+  onDelete: (api: DiagnosticApiConfig) => void;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -39,9 +40,16 @@ export default function ApiTable({
   onToggleActive,
   onUpdate,
   onMockData,
+  onDelete,
 }: ApiTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const { sort, toggle, sorted } = useTableSort(filtered as unknown as Record<string, unknown>[]);
+
+  const handleDeleteConfirm = useCallback((api: DiagnosticApiConfig) => {
+    onDelete(api);
+    setDeleteConfirmId(null);
+  }, [onDelete]);
 
   // Edit form state
   const [eApiName, setEApiName] = useState("");
@@ -274,14 +282,39 @@ export default function ApiTable({
                       <Icon name="Pencil" className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() =>
-                        onMockData(api.vehicleId, api.vehicleNumber)
-                      }
+                      onClick={() => onMockData(api.vehicleId, api.vehicleNumber)}
                       className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 flex items-center justify-center transition-colors"
                       title="Сгенерировать тестовые данные"
                     >
                       <Icon name="FlaskConical" className="w-3.5 h-3.5" />
                     </button>
+                    {deleteConfirmId === api.id ? (
+                      <>
+                        <span className="text-[11px] text-destructive font-medium whitespace-nowrap">Удалить?</span>
+                        <button
+                          onClick={() => handleDeleteConfirm(api)}
+                          className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors"
+                          title="Подтвердить"
+                        >
+                          <Icon name="Check" className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                          title="Отмена"
+                        >
+                          <Icon name="X" className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirmId(api.id)}
+                        className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
+                        title="Удалить API"
+                      >
+                        <Icon name="Trash2" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

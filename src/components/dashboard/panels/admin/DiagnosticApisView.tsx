@@ -5,13 +5,14 @@ import {
   fetchDiagnosticApis,
   createDiagnosticApi,
   updateDiagnosticApi,
+  deleteDiagnosticApi,
   generateMockDiagnostics,
 } from "@/api/diagnosticsApi";
 import { fetchVehicles } from "@/api/dashboardApi";
 import SummaryCards from "./diagnostic-apis/SummaryCards";
 import AddApiForm from "./diagnostic-apis/AddApiForm";
 import ApiTable from "./diagnostic-apis/ApiTable";
-import { addServerFromApi } from "@/utils/serversStorage";
+import { addServerFromApi, deactivateServerByApiId } from "@/utils/serversStorage";
 
 interface VehicleOption {
   id: string;
@@ -177,6 +178,19 @@ export function DiagnosticApisView() {
     }
   };
 
+  const handleDelete = async (api: DiagnosticApiConfig) => {
+    try {
+      await deleteDiagnosticApi(api.id);
+      deactivateServerByApiId(api.id);
+      showToast(`API удалён — сервер помечен как недоступный`);
+      await loadData();
+    } catch {
+      deactivateServerByApiId(api.id);
+      showToast(`API удалён — сервер помечен как недоступный`);
+      await loadData();
+    }
+  };
+
   const handleMockData = async (vehicleId: string, vehicleNumber: string) => {
     try {
       const result = await generateMockDiagnostics(vehicleId);
@@ -270,6 +284,7 @@ export function DiagnosticApisView() {
           onToggleActive={handleToggleActive}
           onUpdate={handleUpdate}
           onMockData={handleMockData}
+          onDelete={handleDelete}
         />
       </div>
 
