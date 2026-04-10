@@ -78,8 +78,6 @@ const BUILTIN_ROLES: { key: string; label: string; icon: string; color: string }
   { key: "mechanic",    label: "Механик",         icon: "Settings",    color: "bg-orange-500/15 text-orange-500" },
 ];
 
-// ── Icon and color options for custom roles ───────────────────────────────────
-
 const ROLE_ICON_OPTIONS = [
   "User", "Users", "UserCheck", "Briefcase", "Star", "Building2",
   "Car", "Truck", "Bus", "Wrench", "Settings", "Radio", "ShieldCheck",
@@ -117,8 +115,6 @@ function EditCustomRoleRow({
   const [icon, setIcon] = useState(role.icon);
   const [color, setColor] = useState(role.color);
   const [err, setErr] = useState("");
-
-  // allKeys is used for future duplicate-key validation if key editing is added
   void allKeys;
 
   return (
@@ -128,13 +124,13 @@ function EditCustomRoleRow({
       </div>
       <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
         <input value={label} onChange={(e) => { setLabel(e.target.value); setErr(""); }}
-          className="h-7 px-2.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" placeholder="Название" />
+          className="h-8 px-2.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" placeholder="Название" />
         <select value={icon} onChange={(e) => setIcon(e.target.value)}
-          className="h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+          className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
           {ROLE_ICON_OPTIONS.map(ico => <option key={ico} value={ico}>{ico}</option>)}
         </select>
         <select value={color} onChange={(e) => setColor(e.target.value)}
-          className="h-7 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+          className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
           {ROLE_COLOR_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
         {err && <span className="text-xs text-destructive">{err}</span>}
@@ -142,13 +138,76 @@ function EditCustomRoleRow({
       <button onClick={() => {
         if (!label.trim()) { setErr("Введите название"); return; }
         onSave({ ...role, label, icon, color });
-      }} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+      }} className="flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
         <Icon name="Check" className="w-3 h-3" /> Сохранить
       </button>
-      <button onClick={onCancel} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+      <button onClick={onCancel} className="flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
         <Icon name="X" className="w-3 h-3" /> Отмена
       </button>
     </>
+  );
+}
+
+// ── UserDetailPopup ───────────────────────────────────────────────────────────
+
+function UserDetailPopup({
+  user,
+  roleLabel,
+  roleStyle,
+  onClose,
+}: {
+  user: ApiUser;
+  roleLabel: string;
+  roleStyle: string;
+  onClose: () => void;
+}) {
+  function getInitials(name: string) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <Icon name="User" className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground flex-1">Карточка сотрудника</h2>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+            <Icon name="X" className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+              {getInitials(user.full_name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold text-foreground truncate">{user.full_name}</h3>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded mt-1 inline-block ${roleStyle}`}>{roleLabel}</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: "ID", value: user.employee_id },
+              { label: "Телефон", value: user.phone || "—" },
+              { label: "Рейтинг", value: `${(user.rating ?? 5).toFixed(1)} / 5.0` },
+              { label: "Статус", value: user.is_active ? "Активен" : "Заблокирован" },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-muted/40 rounded-xl px-3 py-2.5">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
+                <p className="text-sm font-medium text-foreground">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <button onClick={onClose} className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -180,12 +239,14 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [viewUser, setViewUser] = useState<ApiUser | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<string>("dispatcher");
-  const [newPassword, setNewPassword] = useState("");
+  const [newPassword, setNewPassword] = useState(() => "");
   const [newRating, setNewRating] = useState<number>(5);
+  const [newIsActive, setNewIsActive] = useState<boolean>(true);
   const [createError, setCreateError] = useState("");
 
   // Custom roles state
@@ -198,13 +259,11 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [editingRoleKey, setEditingRoleKey] = useState<string | null>(null);
   const [roleKeyError, setRoleKeyError] = useState("");
 
-  // All roles combined
   const allRoles = useMemo(() => [
     ...BUILTIN_ROLES,
     ...customRoles,
   ], [customRoles]);
 
-  // Dynamic role style/label maps
   const roleStylesMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const r of allRoles) map[r.key] = r.color;
@@ -281,10 +340,28 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     a.click(); URL.revokeObjectURL(url);
   }, []);
 
-  const handleExportUsers = useCallback(() => {
+  const exportUsersExcel = useCallback((rows: ApiUser[]) => {
+    const header = ["№\tID\tФИО\tРоль\tРейтинг\tСтатус"];
+    const lines = rows.map((u, i) => [
+      i + 1, u.employee_id, u.full_name,
+      ROLE_LABELS[u.role] || u.role, u.rating ?? "", u.is_active ? "Активен" : "Заблокирован",
+    ].join("\t"));
+    const content = [header[0], ...lines].join("\n");
+    const blob = new Blob(["\uFEFF" + content], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `users_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportCsv = useCallback(() => {
     const rows = selectedIds.size > 0 ? sortedList.filter((u) => selectedIds.has(u.id)) : sortedList;
     exportUsersCsv(rows);
   }, [sortedList, selectedIds, exportUsersCsv]);
+
+  const handleExportExcel = useCallback(() => {
+    const rows = selectedIds.size > 0 ? sortedList.filter((u) => selectedIds.has(u.id)) : sortedList;
+    exportUsersExcel(rows);
+  }, [sortedList, selectedIds, exportUsersExcel]);
 
   const filters: { key: RoleFilter; label: string }[] = useMemo(() => [
     { key: "all", label: "Все" },
@@ -350,6 +427,27 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     }
   };
 
+  const handleCreateAndCopy = async () => {
+    if (!newId.trim() || !newName.trim() || !newPassword.trim()) return;
+    setSaving(true);
+    setCreateError("");
+    try {
+      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
+      await loadUsers();
+      setNewName("");
+      setNewId("");
+      setNewPassword(generatePassword());
+      setNewRating(5);
+      setNewIsActive(true);
+      setCreateError("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Ошибка создания';
+      setCreateError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (userId: number) => {
     try {
       await deleteDashboardUser(userId);
@@ -367,6 +465,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setNewRole("dispatcher");
     setNewPassword("");
     setNewRating(5);
+    setNewIsActive(true);
     setCreateError("");
   };
 
@@ -383,28 +482,34 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
           <span className="text-sm font-semibold text-foreground">Пользователи</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{users.filter(u => u.is_active).length}</span>
         </div>
+
         {/* Toolbar */}
-        <div className="px-5 py-3 border-b border-border flex items-center gap-3">
-          {filters.map((f) => (
-            <button key={f.key} onClick={() => setRoleFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                roleFilter === f.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}>
-              {f.label}
-            </button>
-          ))}
+        <div className="px-5 py-3 border-b border-border flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {filters.map((f) => (
+              <button key={f.key} onClick={() => setRoleFilter(f.key)}
+                className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  roleFilter === f.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">
               <Icon name="Search" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Имя, ID..."
                 className="h-8 pl-8 pr-3 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-36" />
             </div>
-            <button onClick={handleExportUsers} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-colors" title={selectedIds.size > 0 ? `Экспорт (${selectedIds.size})` : "Экспорт CSV"}>
+            <button onClick={handleExportExcel} className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground border border-border transition-colors" title={selectedIds.size > 0 ? `Excel (${selectedIds.size})` : "Экспорт Excel"}>
+              <Icon name="FileSpreadsheet" className="w-3.5 h-3.5" />Excel
+            </button>
+            <button onClick={handleExportCsv} className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground border border-border transition-colors" title={selectedIds.size > 0 ? `CSV (${selectedIds.size})` : "Экспорт CSV"}>
               <Icon name="Download" className="w-3.5 h-3.5" />CSV
             </button>
             <ReportButton filename="users" data={users.map(u => ({ id: u.employee_id, name: u.full_name, role: ROLE_LABELS[u.role] || u.role }))} />
             <button onClick={() => { setShowAddForm(true); cancelEdit(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Icon name="UserPlus" className="w-3.5 h-3.5" />
               Добавить
             </button>
@@ -419,45 +524,71 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <span className="text-sm font-semibold text-foreground">Новый пользователь</span>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <input type="text" value={newId} onChange={(e) => setNewId(e.target.value)} placeholder="ID (например D003)"
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="ФИО"
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
-                className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                {allRoles.map(r => (
-                  <option key={r.key} value={r.key}>{r.label}</option>
-                ))}
-              </select>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">ID</label>
+                <input type="text" value={newId} onChange={(e) => setNewId(e.target.value)} placeholder="D003"
+                  className={`${inputCls} w-full`} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">ФИО</label>
+                <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Иванов И.И."
+                  className={`${inputCls} w-full`} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Роль</label>
+                <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
+                  className={`${inputCls} w-full`}>
+                  {allRoles.map(r => (
+                    <option key={r.key} value={r.key}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="mt-3">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Рейтинг (1–5)</label>
-              <div className="flex items-center gap-1.5">
-                {[1,2,3,4,5].map(s => (
-                  <button key={s} type="button" onClick={() => setNewRating(s)}
-                    className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${newRating >= s ? "bg-yellow-400 text-yellow-900" : "bg-muted text-muted-foreground"}`}>
-                    {s}
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Статус</label>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setNewIsActive(true)}
+                    className={`flex-1 h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${newIsActive ? "bg-green-500/15 text-green-500" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${newIsActive ? "bg-green-500" : "bg-muted-foreground"}`} />
+                    Активен
                   </button>
-                ))}
-                <span className="text-xs text-muted-foreground ml-2">{newRating} / 5</span>
+                  <button type="button" onClick={() => setNewIsActive(false)}
+                    className={`flex-1 h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${!newIsActive ? "bg-red-500/15 text-red-500" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${!newIsActive ? "bg-red-500" : "bg-muted-foreground"}`} />
+                    Уволен
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Рейтинг (1–5)</label>
+                <div className="flex items-center gap-1">
+                  {[1,2,3,4,5].map(s => (
+                    <button key={s} type="button" onClick={() => setNewRating(s)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${newRating >= s ? "bg-yellow-400 text-yellow-900" : "bg-muted text-muted-foreground"}`}>
+                      {s}
+                    </button>
+                  ))}
+                  <span className="text-xs text-muted-foreground ml-1">{newRating}/5</span>
+                </div>
               </div>
             </div>
             <div className="mt-3">
-              <label className="text-xs text-muted-foreground mb-1.5 block">Пароль</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Пароль</label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-9 px-3 rounded-lg border border-border bg-background flex items-center">
+                <div className="flex-1 h-8 px-3 rounded-lg border border-border bg-background flex items-center">
                   <input type="text" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Введите или сгенерируйте пароль"
-                    className="flex-1 bg-transparent text-foreground text-sm font-mono tracking-wide placeholder:text-muted-foreground focus:outline-none" />
+                    placeholder="Введите или сгенерируйте"
+                    className="flex-1 bg-transparent text-foreground text-xs font-mono placeholder:text-muted-foreground focus:outline-none" />
                 </div>
                 <button type="button" onClick={() => setNewPassword(generatePassword())}
-                  className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0">
-                  <Icon name="RefreshCw" className="w-3.5 h-3.5" /> Сгенерировать
+                  className="h-8 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0">
+                  <Icon name="RefreshCw" className="w-3 h-3" /> Сгенерировать
                 </button>
                 {newPassword && (
                   <button type="button" onClick={() => navigator.clipboard.writeText(newPassword)}
-                    className="h-9 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0">
-                    <Icon name="Copy" className="w-3.5 h-3.5" /> Скопировать
+                    className="h-8 px-3 rounded-lg border border-border bg-muted hover:bg-muted/70 text-muted-foreground text-xs flex items-center gap-1.5 transition-colors shrink-0">
+                    <Icon name="Copy" className="w-3 h-3" /> Копировать
                   </button>
                 )}
               </div>
@@ -468,14 +599,19 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 {createError}
               </div>
             )}
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-4">
               <button onClick={resetAddForm}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
                 Отмена
               </button>
               <button onClick={handleCreate} disabled={!newId.trim() || !newName.trim() || !newPassword.trim() || saving}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {saving ? 'Создаю...' : 'Создать'}
+              </button>
+              <button onClick={handleCreateAndCopy} disabled={!newId.trim() || !newName.trim() || !newPassword.trim() || saving}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-muted/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
+                <Icon name="CopyPlus" className="w-3.5 h-3.5" />
+                Новый и копи
               </button>
             </div>
           </div>
@@ -485,101 +621,72 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="w-10 px-5 py-2.5">
+              <th className="w-10 px-4 py-2.5">
                 <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }} onChange={toggleSelectAll} className="w-4 h-4 accent-primary cursor-pointer" />
               </th>
-              <SortableTh label="ID" sortKey="employee_id" sort={usersSort} onToggle={usersToggle} className="px-5 w-24" />
+              <SortableTh label="ID" sortKey="employee_id" sort={usersSort} onToggle={usersToggle} className="px-4 w-24" />
               <SortableTh label="ФИО" sortKey="full_name" sort={usersSort} onToggle={usersToggle} className="px-3" />
               <SortableTh label="Роль" sortKey="role" sort={usersSort} onToggle={usersToggle} className="px-3 w-36" />
               <SortableTh label="Рейтинг" sortKey="rating" sort={usersSort} onToggle={usersToggle} className="px-3 w-28" />
-              <th className="text-left px-3 py-2.5 font-medium w-32 text-muted-foreground">Статус</th>
-              <th className="text-right px-5 py-2.5 font-medium w-28 text-muted-foreground">Действия</th>
+              <th className="text-left px-3 py-2.5 font-medium w-28 text-muted-foreground">Статус</th>
+              <th className="text-right px-4 py-2.5 font-medium w-28 text-muted-foreground">Действия</th>
             </tr>
           </thead>
           <tbody>
             {sortedList.map((entry) => {
               const isEditing = editingId === entry.id;
               const isConfirmDelete = deleteConfirmId === entry.id;
+              const rStyle = roleStylesMap[entry.role] || ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground";
+              const rLabel = roleLabelsMap[entry.role] || ROLE_LABELS[entry.role] || entry.role;
 
               if (isEditing && editState) {
                 return (
                   <tr key={entry.id} className="border-b border-primary/20 bg-primary/5">
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-2.5">
                       <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleRow(entry.id)} className="w-4 h-4 accent-primary cursor-pointer" />
                     </td>
-                    {/* ID */}
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-2.5">
                       <span className="font-mono text-xs text-muted-foreground">{entry.employee_id}</span>
                     </td>
-                    {/* ФИО */}
-                    <td className="px-3 py-3">
-                      <input
-                        value={editState.full_name}
-                        onChange={(e) => setEditState({ ...editState, full_name: e.target.value })}
-                        className={`${inputCls} w-full`}
-                        placeholder="ФИО"
-                        autoFocus
-                      />
+                    <td className="px-3 py-2.5">
+                      <input value={editState.full_name} onChange={(e) => setEditState({ ...editState, full_name: e.target.value })}
+                        className={`${inputCls} w-full`} placeholder="ФИО" autoFocus />
                     </td>
-                    {/* Роль */}
-                    <td className="px-3 py-3">
-                      <select
-                        value={editState.role}
-                        onChange={(e) => setEditState({ ...editState, role: e.target.value })}
-                        className={`${inputCls} w-full`}
-                      >
+                    <td className="px-3 py-2.5">
+                      <select value={editState.role} onChange={(e) => setEditState({ ...editState, role: e.target.value })}
+                        className={`${inputCls} w-full`}>
                         {allRoles.map(r => (
                           <option key={r.key} value={r.key}>{r.label}</option>
                         ))}
                       </select>
                     </td>
-                    {/* Рейтинг */}
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-2.5">
                       <div className="flex items-center gap-0.5">
                         {[1,2,3,4,5].map(s => (
                           <button key={s} type="button" onClick={() => setEditState({ ...editState, rating: s })}
-                            className={`w-5 h-5 text-[11px] rounded transition-colors ${(editState.rating ?? 5) >= s ? "text-yellow-500" : "text-muted-foreground/30"}`}>
-                            ★
-                          </button>
+                            className={`w-5 h-5 text-[11px] rounded transition-colors ${(editState.rating ?? 5) >= s ? "text-yellow-500" : "text-muted-foreground/30"}`}>★</button>
                         ))}
                       </div>
                     </td>
-                    {/* Статус */}
-                    <td className="px-3 py-3">
-                      <button
-                        onClick={() => setEditState({ ...editState, is_active: !editState.is_active })}
-                        className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg transition-colors ${
-                          editState.is_active
-                            ? "bg-green-500/15 text-green-500 hover:bg-green-500/25"
-                            : "bg-red-500/15 text-red-500 hover:bg-red-500/25"
-                        }`}
-                      >
-                        <div className={`w-2 h-2 rounded-full ${editState.is_active ? "bg-green-500" : "bg-red-500"}`} />
-                        {editState.is_active ? "Активен" : "Заблокирован"}
+                    <td className="px-3 py-2.5">
+                      <button onClick={() => setEditState({ ...editState, is_active: !editState.is_active })}
+                        className={`flex items-center gap-1.5 text-xs font-medium h-7 px-2.5 rounded-lg transition-colors ${editState.is_active ? "bg-green-500/15 text-green-500 hover:bg-green-500/25" : "bg-red-500/15 text-red-500 hover:bg-red-500/25"}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${editState.is_active ? "bg-green-500" : "bg-red-500"}`} />
+                        {editState.is_active ? "Активен" : "Уволен"}
                       </button>
                     </td>
-                    {/* Действия — пароль + сохр/отмена */}
-                    <td className="px-5 py-3">
+                    <td className="px-4 py-2.5">
                       <div className="flex flex-col gap-1.5 items-end">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="password"
-                            value={editState.password}
-                            onChange={(e) => setEditState({ ...editState, password: e.target.value })}
-                            placeholder="Новый пароль"
-                            className={`${inputCls} w-32`}
-                          />
-                        </div>
+                        <input type="password" value={editState.password} onChange={(e) => setEditState({ ...editState, password: e.target.value })}
+                          placeholder="Новый пароль" className={`${inputCls} w-32`} />
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleSaveEdit(entry.id)} disabled={saving}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors">
-                            <Icon name="Check" className="w-3 h-3" />
-                            Сохранить
+                            className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors">
+                            <Icon name="Check" className="w-3 h-3" />Сохр.
                           </button>
                           <button onClick={cancelEdit}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                            className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
                             <Icon name="X" className="w-3 h-3" />
-                            Отмена
                           </button>
                         </div>
                       </div>
@@ -590,17 +697,15 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
 
               return (
                 <tr key={entry.id} className={`border-b border-border transition-colors hover:bg-muted/30 ${selectedIds.has(entry.id) ? "bg-primary/5" : ""}`}>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-2.5">
                     <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleRow(entry.id)} className="w-4 h-4 accent-primary cursor-pointer" />
                   </td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
-                  <td className="px-3 py-3 font-medium text-foreground">{entry.full_name}</td>
-                  <td className="px-3 py-3">
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${roleStylesMap[entry.role] || ROLE_STYLES[entry.role] || "bg-muted text-muted-foreground"}`}>
-                      {roleLabelsMap[entry.role] || ROLE_LABELS[entry.role] || entry.role}
-                    </span>
+                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{entry.employee_id}</td>
+                  <td className="px-3 py-2.5 font-medium text-foreground text-sm">{entry.full_name}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${rStyle}`}>{rLabel}</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-0.5">
                       {Array.from({ length: 5 }, (_, i) => (
                         <span key={i} className={`text-xs ${i < (entry.rating ?? 5) ? "text-yellow-500" : "text-muted-foreground/25"}`}>★</span>
@@ -608,17 +713,17 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                       <span className="text-[10px] text-muted-foreground ml-1">{(entry.rating ?? 5).toFixed(1)}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5 text-xs font-medium">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                       <span className="text-green-500">Активен</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-1.5 justify-end">
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1 justify-end">
                       {isConfirmDelete ? (
                         <>
-                          <span className="text-xs text-destructive font-medium">Удалить?</span>
+                          <span className="text-xs text-destructive font-medium mr-1">Удалить?</span>
                           <button onClick={() => handleDelete(entry.id)}
                             className="w-7 h-7 rounded-lg bg-red-500/15 text-red-500 hover:bg-red-500/25 flex items-center justify-center transition-colors">
                             <Icon name="Check" className="w-3.5 h-3.5" />
@@ -630,11 +735,15 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                         </>
                       ) : (
                         <>
+                          <button onClick={() => setViewUser(entry)}
+                            className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                            title="Просмотр">
+                            <Icon name="Eye" className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => startEdit(entry)}
-                            className="flex items-center gap-1 px-2.5 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
+                            className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
                             title="Редактировать">
                             <Icon name="Pencil" className="w-3.5 h-3.5" />
-                            Изменить
                           </button>
                           <button onClick={() => { setDeleteConfirmId(entry.id); cancelEdit(); }}
                             className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
@@ -650,7 +759,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
+                <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-foreground">Пользователи не найдены</td>
               </tr>
             )}
           </tbody>
@@ -665,16 +774,12 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
           </div>
           <span className="text-sm font-semibold text-foreground">Роли</span>
           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{allRoles.length}</span>
-          <button
-            onClick={() => setShowRolesManager(v => !v)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Icon name="Plus" className="w-3.5 h-3.5" />
-            Создать роль
+          <button onClick={() => setShowRolesManager(v => !v)}
+            className="ml-auto flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <Icon name="Plus" className="w-3.5 h-3.5" />Создать роль
           </button>
         </div>
 
-        {/* Create role form */}
         {showRolesManager && (
           <div className="px-5 py-4 border-b border-border bg-muted/30">
             <div className="flex items-center gap-2 mb-3">
@@ -683,96 +788,65 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Ключ роли (латиница, без пробелов)</label>
-                <input
-                  value={newRoleKey}
-                  onChange={(e) => {
-                    const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
-                    setNewRoleKey(v);
-                    setRoleKeyError("");
-                  }}
-                  placeholder="например: supervisor"
-                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full"
-                />
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Ключ (латиница)</label>
+                <input value={newRoleKey} onChange={(e) => { const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""); setNewRoleKey(v); setRoleKeyError(""); }}
+                  placeholder="supervisor"
+                  className="h-8 px-3 rounded-lg border border-border bg-background text-foreground text-xs font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Название роли</label>
-                <input
-                  value={newRoleLabel}
-                  onChange={(e) => setNewRoleLabel(e.target.value)}
-                  placeholder="например: Супервизор"
-                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full"
-                />
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Название</label>
+                <input value={newRoleLabel} onChange={(e) => setNewRoleLabel(e.target.value)} placeholder="Супервизор"
+                  className="h-8 px-3 rounded-lg border border-border bg-background text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full" />
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Иконка</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Иконка</label>
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg border border-border bg-background flex items-center justify-center shrink-0">
-                    <Icon name={newRoleIcon} className="w-4 h-4 text-foreground" />
+                  <div className="w-8 h-8 rounded-lg border border-border bg-background flex items-center justify-center shrink-0">
+                    <Icon name={newRoleIcon} className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <select
-                    value={newRoleIcon}
-                    onChange={(e) => setNewRoleIcon(e.target.value)}
-                    className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring flex-1"
-                  >
-                    {ROLE_ICON_OPTIONS.map(ico => (
-                      <option key={ico} value={ico}>{ico}</option>
-                    ))}
+                  <select value={newRoleIcon} onChange={(e) => setNewRoleIcon(e.target.value)}
+                    className="flex-1 h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+                    {ROLE_ICON_OPTIONS.map(ico => <option key={ico} value={ico}>{ico}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Цвет</label>
-                <select
-                  value={newRoleColor}
-                  onChange={(e) => setNewRoleColor(e.target.value)}
-                  className="h-9 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full"
-                >
-                  {ROLE_COLOR_OPTIONS.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Цвет</label>
+                <select value={newRoleColor} onChange={(e) => setNewRoleColor(e.target.value)}
+                  className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring w-full">
+                  {ROLE_COLOR_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
             </div>
             {roleKeyError && (
-              <div className="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs">
-                <Icon name="AlertCircle" className="w-3.5 h-3.5 shrink-0" />
-                {roleKeyError}
-              </div>
+              <p className="text-xs text-destructive mt-2">{roleKeyError}</p>
             )}
-            <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={() => { setShowRolesManager(false); setNewRoleKey(""); setNewRoleLabel(""); setRoleKeyError(""); }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              >
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setShowRolesManager(false); setNewRoleKey(""); setNewRoleLabel(""); setRoleKeyError(""); }}
+                className="h-8 px-4 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
                 Отмена
               </button>
-              <button
-                onClick={() => {
-                  if (!newRoleKey.trim()) { setRoleKeyError("Введите ключ роли"); return; }
-                  if (!newRoleLabel.trim()) { setRoleKeyError("Введите название роли"); return; }
-                  const allKeys = [...BUILTIN_ROLES.map(r => r.key), ...customRoles.map(r => r.key)];
-                  if (allKeys.includes(newRoleKey)) { setRoleKeyError("Роль с таким ключом уже существует"); return; }
-                  const created: CustomRole = { key: newRoleKey, label: newRoleLabel, icon: newRoleIcon, color: newRoleColor };
-                  const updated = [...customRoles, created];
-                  setCustomRoles(updated);
-                  saveCustomRoles(updated);
-                  setShowRolesManager(false);
-                  setNewRoleKey(""); setNewRoleLabel(""); setNewRoleIcon("User"); setNewRoleColor("bg-blue-500/15 text-blue-500"); setRoleKeyError("");
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
+              <button onClick={() => {
+                if (!newRoleKey.trim()) { setRoleKeyError("Введите ключ роли"); return; }
+                if (!newRoleLabel.trim()) { setRoleKeyError("Введите название роли"); return; }
+                const allKeys = [...BUILTIN_ROLES.map(r => r.key), ...customRoles.map(r => r.key)];
+                if (allKeys.includes(newRoleKey)) { setRoleKeyError("Роль с таким ключом уже существует"); return; }
+                const created: CustomRole = { key: newRoleKey, label: newRoleLabel, icon: newRoleIcon, color: newRoleColor };
+                const updated = [...customRoles, created];
+                setCustomRoles(updated);
+                saveCustomRoles(updated);
+                setShowRolesManager(false);
+                setNewRoleKey(""); setNewRoleLabel(""); setNewRoleIcon("User"); setNewRoleColor("bg-blue-500/15 text-blue-500"); setRoleKeyError("");
+              }} className="h-8 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
                 Создать роль
               </button>
             </div>
           </div>
         )}
 
-        {/* Roles table */}
         <div className="divide-y divide-border">
-          {/* Built-in roles */}
           {BUILTIN_ROLES.map(r => (
             <div key={r.key} className="flex items-center gap-3 px-5 py-3">
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${r.color.split(" ")[0]}`}>
@@ -786,19 +860,15 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
             </div>
           ))}
-          {/* Custom roles */}
           {customRoles.map(r => (
             <div key={r.key} className={`flex items-center gap-3 px-5 py-3 ${editingRoleKey === r.key ? "bg-primary/5" : ""}`}>
               {editingRoleKey === r.key ? (
-                /* Inline edit for custom role */
                 <EditCustomRoleRow
                   role={r}
                   allKeys={[...BUILTIN_ROLES.map(b => b.key), ...customRoles.map(c => c.key).filter(k => k !== r.key)]}
                   onSave={(updated) => {
                     const list = customRoles.map(c => c.key === r.key ? updated : c);
-                    setCustomRoles(list);
-                    saveCustomRoles(list);
-                    setEditingRoleKey(null);
+                    setCustomRoles(list); saveCustomRoles(list); setEditingRoleKey(null);
                   }}
                   onCancel={() => setEditingRoleKey(null)}
                 />
@@ -813,22 +883,12 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                   </div>
                   <span className="text-[10px] text-primary px-2 py-0.5 rounded-full bg-primary/10">пользовательская</span>
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${r.color}`}>{r.label}</span>
-                  <button
-                    onClick={() => setEditingRoleKey(r.key)}
-                    className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-                    title="Редактировать"
-                  >
+                  <button onClick={() => setEditingRoleKey(r.key)}
+                    className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors">
                     <Icon name="Pencil" className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => {
-                      const updated = customRoles.filter(c => c.key !== r.key);
-                      setCustomRoles(updated);
-                      saveCustomRoles(updated);
-                    }}
-                    className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors"
-                    title="Удалить роль"
-                  >
+                  <button onClick={() => { const updated = customRoles.filter(c => c.key !== r.key); setCustomRoles(updated); saveCustomRoles(updated); }}
+                    className="w-7 h-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center transition-colors">
                     <Icon name="Trash2" className="w-3.5 h-3.5" />
                   </button>
                 </>
@@ -846,7 +906,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
       {/* ── Блок: Администратор МРМ ── */}
       <MrmAdminsBlock />
 
-      {/* ── Блок: Водители (1:1 из панели Техника) ── */}
+      {/* ── Блок: Водители ── */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
@@ -860,17 +920,33 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
         </div>
       </div>
 
+      {/* Bulk action bar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-200">
           <span className="text-sm font-medium text-foreground">Выбрано {selectedIds.size}</span>
-          <button onClick={() => exportUsersCsv(sortedList.filter((u) => selectedIds.has(u.id)))} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-            <Icon name="Download" className="w-3.5 h-3.5" />
-            Экспорт выбранных
+          <button onClick={() => exportUsersExcel(sortedList.filter((u) => selectedIds.has(u.id)))}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+            <Icon name="FileSpreadsheet" className="w-3.5 h-3.5" />Excel
           </button>
-          <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => exportUsersCsv(sortedList.filter((u) => selectedIds.has(u.id)))}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <Icon name="Download" className="w-3.5 h-3.5" />CSV
+          </button>
+          <button onClick={() => setSelectedIds(new Set())}
+            className="h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
             Сбросить
           </button>
         </div>
+      )}
+
+      {/* User detail popup */}
+      {viewUser && (
+        <UserDetailPopup
+          user={viewUser}
+          roleLabel={roleLabelsMap[viewUser.role] || ROLE_LABELS[viewUser.role] || viewUser.role}
+          roleStyle={roleStylesMap[viewUser.role] || ROLE_STYLES[viewUser.role] || "bg-muted text-muted-foreground"}
+          onClose={() => setViewUser(null)}
+        />
       )}
     </div>
   );

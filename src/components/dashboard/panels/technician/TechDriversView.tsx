@@ -158,9 +158,6 @@ export function DriversView({
               <SortableTh label="Таб. №" sortKey="tabNumber" sort={colSort} onToggle={colToggle} className="px-5" />
               <SortableTh label="ФИО" sortKey="name" sort={colSort} onToggle={colToggle} className="px-3" />
               <SortableTh label="Статус" sortKey="status" sort={colSort} onToggle={colToggle} className="px-3" />
-              <SortableTh label="ТС" sortKey="vehicleNumber" sort={colSort} onToggle={colToggle} className="px-3" />
-              <SortableTh label="Маршрут" sortKey="routeNumber" sort={colSort} onToggle={colToggle} className="px-3" />
-              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">Смена</th>
               <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">PIN</th>
               <SortableTh label="Телефон" sortKey="phone" sort={colSort} onToggle={colToggle} className="px-3" />
               <SortableTh label="Рейтинг" sortKey="rating" sort={colSort} onToggle={colToggle} className="px-3" />
@@ -214,19 +211,6 @@ export function DriversView({
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground text-xs">
-                      {d.vehicleNumber || "---"}
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground text-xs">
-                      {d.routeNumber || "---"}
-                    </td>
-                    <td className="px-3 py-3 text-xs">
-                      <span className="text-muted-foreground">
-                        {d.shiftStart
-                          ? `↑ ${formatTime(d.shiftStart)}`
-                          : "---"}
-                      </span>
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded tracking-widest text-foreground">

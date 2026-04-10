@@ -186,22 +186,6 @@ export default function DriverDetailModal({
               colored: DRIVER_STATUS_STYLES[driver.status],
             },
             {
-              label: "Бортовой номер",
-              value: driver.vehicleNumber || "—",
-            },
-            {
-              label: "Маршрут",
-              value: driver.routeNumber
-                ? `№${driver.routeNumber}`
-                : "—",
-            },
-            {
-              label: "Начало смены",
-              value: driver.shiftStart
-                ? formatTime(driver.shiftStart)
-                : "—",
-            },
-            {
               label: "Телефон",
               value: driver.phone || "—",
             },
