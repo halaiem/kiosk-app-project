@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
+import urls from '@/api/config';
 
-const SHELL_API = 'https://functions.poehali.dev/e8230c6e-2b9b-4f87-b0f0-d1df4e9f3456';
+const SHELL_API = urls['irida-shell'];
 
 interface HistoryEntry {
   command: string;

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import JSZip from 'jszip';
 import Icon from '@/components/ui/icon';
+import urls from '@/api/config';
 
-const DB_API = 'https://functions.poehali.dev/22cfaab8-03c4-4688-aefc-5435cc7b4675';
+const DB_API = urls['irida-database'];
 
 interface TableInfo {
   name: string;

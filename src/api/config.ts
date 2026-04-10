@@ -10,7 +10,7 @@ function buildUrls(): Record<string, string> {
   const base = SELF_HOSTED_BASE.replace(/\/+$/, '');
   const result: Record<string, string> = {};
   for (const name of Object.keys(cloudUrls)) {
-    result[name] = `${base}/${name}`;
+    result[name] = `${base}/api/${name}`;
   }
   return result;
 }

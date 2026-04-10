@@ -650,7 +650,8 @@ export default function MessagesView({
     setTranscribing(true);
     try {
       const b64 = await blobToBase64(blob);
-      const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
+      const { default: urls } = await import("@/api/config");
+      const transcribeUrl = urls["transcribe"];
       const res = await fetch(transcribeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -683,7 +684,8 @@ export default function MessagesView({
     setTranscribingFile(fileId);
     try {
       const fmt = contentType.includes("webm") ? "webm" : contentType.includes("ogg") ? "ogg" : contentType.includes("wav") ? "wav" : "mp3";
-      const transcribeUrl = (await import("../../../../../backend/func2url.json")).default["transcribe"];
+      const { default: urls } = await import("@/api/config");
+      const transcribeUrl = urls["transcribe"];
       const res = await fetch(transcribeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

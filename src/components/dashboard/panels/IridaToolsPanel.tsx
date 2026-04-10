@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Highlight, themes } from 'prism-react-renderer';
 import JSZip from 'jszip';
 import Icon from '@/components/ui/icon';
+import urls from '@/api/config';
 import DatabaseSection from './DatabaseSection';
 import CitiesSection from './irida/CitiesSection';
 import ItSettingsSection from './irida/ItSettingsSection';
@@ -363,7 +364,7 @@ function buildTree(files: string[]): Record<string, string[]> {
   return tree;
 }
 
-const IRIDA_FILES_URL = 'https://functions.poehali.dev/9a4d89c3-efbe-40ea-baaf-e6b9153785d3';
+const IRIDA_FILES_URL = urls['irida-files'];
 
 const sourceFiles = import.meta.glob('/src/**/*.{ts,tsx,css,json}', { query: '?raw', import: 'default', eager: false }) as Record<string, () => Promise<string>>;
 

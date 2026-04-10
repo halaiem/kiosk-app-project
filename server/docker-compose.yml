@@ -61,7 +61,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # === Backend API (FastAPI) ===
+  # === Backend API (FastAPI — все 15 функций) ===
   api:
     build:
       context: ..
@@ -74,6 +74,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: production
+      MAIN_DB_SCHEMA: ${MAIN_DB_SCHEMA:-public}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      YANDEX_SPEECHKIT_KEY: ${YANDEX_SPEECHKIT_KEY:-}
     depends_on:
       db:
         condition: service_healthy

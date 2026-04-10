@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
+import urls from '@/api/config';
 
 const ENDPOINTS = [
-  { name: 'Dashboard Auth', url: 'https://functions.poehali.dev/eed2e524', method: 'POST', status: 'online', latency: 42, desc: 'Авторизация пользователей' },
-  { name: 'Dashboard Data', url: 'https://functions.poehali.dev/9b521dba', method: 'GET', status: 'online', latency: 67, desc: 'Данные дашборда' },
-  { name: 'Driver API', url: 'https://functions.poehali.dev/1357aa6d', method: 'GET/POST', status: 'online', latency: 55, desc: 'Управление водителями' },
-  { name: 'Driver Messages', url: 'https://functions.poehali.dev/29b782fe', method: 'WS/POST', status: 'online', latency: 38, desc: 'Мессенджер водителей' },
-  { name: 'Vehicle Diagnostics', url: 'https://functions.poehali.dev/4ed5fdd8', method: 'GET', status: 'online', latency: 91, desc: 'Диагностика транспорта' },
-  { name: 'Irida Files', url: 'https://functions.poehali.dev/9a4d89c3', method: 'GET/POST', status: 'online', latency: 33, desc: 'Файлы терминала' },
-  { name: 'Irida Database', url: 'https://functions.poehali.dev/22cfaab8', method: 'GET/POST', status: 'online', latency: 29, desc: 'Менеджер базы данных' },
-  { name: 'Transcribe Service', url: 'https://functions.poehali.dev/be33a4e1', method: 'POST', status: 'warning', latency: 1240, desc: 'Транскрибация голоса' },
+  { name: 'Dashboard Auth', url: urls['dashboard-auth'], method: 'POST', status: 'online', latency: 42, desc: 'Авторизация пользователей' },
+  { name: 'Dashboard Data', url: urls['dashboard-data'], method: 'GET', status: 'online', latency: 67, desc: 'Данные дашборда' },
+  { name: 'Driver API', url: urls['driver-manage'], method: 'GET/POST', status: 'online', latency: 55, desc: 'Управление водителями' },
+  { name: 'Driver Messages', url: urls['driver-messages'], method: 'WS/POST', status: 'online', latency: 38, desc: 'Мессенджер водителей' },
+  { name: 'Vehicle Diagnostics', url: urls['vehicle-diagnostics'], method: 'GET', status: 'online', latency: 91, desc: 'Диагностика транспорта' },
+  { name: 'Irida Files', url: urls['irida-files'], method: 'GET/POST', status: 'online', latency: 33, desc: 'Файлы терминала' },
+  { name: 'Irida Database', url: urls['irida-database'], method: 'GET/POST', status: 'online', latency: 29, desc: 'Менеджер базы данных' },
+  { name: 'Transcribe Service', url: urls['transcribe'], method: 'POST', status: 'warning', latency: 1240, desc: 'Транскрибация голоса' },
 ];
 
 const NET_PARAMS = [
