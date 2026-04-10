@@ -36,7 +36,6 @@ const DISPATCHER_NAV: NavItem[] = [
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
   { tab: "vehicle_issues", icon: "Truck", label: "Проблемы ТС" },
-  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const TECHNICIAN_NAV: NavItem[] = [
@@ -51,19 +50,17 @@ const TECHNICIAN_NAV: NavItem[] = [
   { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
-  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const ADMIN_NAV: NavItem[] = [
   { tab: "users", icon: "Users", label: "Пользователи" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
+  { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
+  { tab: "diagnostic_apis", icon: "Plug", label: "API" },
   { tab: "servers", icon: "Server", label: "Серверы" },
   { tab: "logs", icon: "ScrollText", label: "Логи" },
-  { tab: "diagnostic_apis", icon: "Plug", label: "API" },
-  { tab: "notifications", icon: "Bell", label: "Уведомления" },
-  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
-  { tab: "voting", icon: "Star", label: "Голосование" },
 ];
 
 const IRIDA_TOOLS_NAV: NavItem[] = [
@@ -89,7 +86,6 @@ const MECHANIC_NAV: NavItem[] = [
   { tab: "email" as MechanicTab, icon: "Mail", label: "Email" },
   { tab: "notifications" as MechanicTab, icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as MechanicTab, icon: "MessageSquare", label: "Мессенджер" },
-  { tab: "voting" as MechanicTab, icon: "Star", label: "Голосование" },
 ];
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
@@ -323,6 +319,21 @@ export default function DashboardSidebar({
           >
             <Icon name={isDark ? "Sun" : "Moon"} className="w-[18px] h-[18px] shrink-0" />
             {!collapsed && <span>{isDark ? "Светлая тема" : "Тёмная тема"}</span>}
+          </button>
+        )}
+        {["dispatcher", "technician", "admin", "mechanic"].includes(user.role) && (
+          <button
+            onClick={() => onTabChange("voting" as DashboardTab)}
+            title={collapsed ? "Голосование" : undefined}
+            className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors relative
+              ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"}
+              ${activeTab === "voting" ? "text-white" : "opacity-70 hover:opacity-100"}`}
+            style={activeTab === "voting" ? { backgroundColor: "hsl(var(--sidebar-primary))" } : undefined}
+            onMouseEnter={(e) => { if (activeTab !== "voting") e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
+            onMouseLeave={(e) => { if (activeTab !== "voting") e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            <Icon name="Star" className="w-[18px] h-[18px] shrink-0" />
+            {!collapsed && <span>Голосование</span>}
           </button>
         )}
         <button
