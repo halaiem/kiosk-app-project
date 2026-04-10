@@ -16,6 +16,7 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSecretPopup, setShowSecretPopup] = useState(false);
+  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
   const [secretInput, setSecretInput] = useState('');
   const [secretError, setSecretError] = useState(false);
   const [secretShake, setSecretShake] = useState(false);
@@ -144,20 +145,35 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
           </form>
 
           <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-2">Демо-доступ</p>
-            <div className="space-y-1">
-              {[
-                { id: "DSP01", pass: "disp123", role: "Диспетчер" },
-                { id: "TCH01", pass: "tech123", role: "Технолог" },
-                { id: "ADM01", pass: "admin123", role: "Админ" },
-                { id: "PRS01", pass: "prs123", role: "Механик" },
-              ].map((cred) => (
-                <div key={cred.id} className="flex items-center justify-between text-xs text-muted-foreground/70 px-2">
-                  <span className="font-mono">{cred.id} / {cred.pass}</span>
-                  <span>{cred.role}</span>
-                </div>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowDemoCredentials((v) => !v)}
+              className="flex items-center justify-center gap-1.5 w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              <Icon name="KeyRound" className="w-3 h-3" />
+              Демо-доступ
+              <Icon name={showDemoCredentials ? "ChevronUp" : "ChevronDown"} className="w-3 h-3" />
+            </button>
+            {showDemoCredentials && (
+              <div className="mt-2 space-y-1">
+                {[
+                  { id: "DSP01", pass: "disp123", role: "Диспетчер" },
+                  { id: "TCH01", pass: "tech123", role: "Технолог" },
+                  { id: "ADM01", pass: "admin123", role: "Админ" },
+                  { id: "PRS01", pass: "prs123", role: "Механик" },
+                ].map((cred) => (
+                  <button
+                    key={cred.id}
+                    type="button"
+                    onClick={() => { setId(cred.id); setPassword(cred.pass); }}
+                    className="flex items-center justify-between w-full text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-muted/40 rounded-lg px-2 py-1 transition-colors"
+                  >
+                    <span className="font-mono">{cred.id} / {cred.pass}</span>
+                    <span>{cred.role}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
