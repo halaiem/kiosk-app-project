@@ -12,6 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ /app/backend/
 COPY server/main.py /app/main.py
 
+RUN for req in /app/backend/*/requirements.txt; do \
+    [ -f "$req" ] && pip install --no-cache-dir -r "$req" 2>/dev/null || true; \
+    done
+
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 

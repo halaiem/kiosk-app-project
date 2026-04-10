@@ -37,7 +37,7 @@ services:
     ports:
       - "8000:8000"
 
-  # ── Frontend (Nginx) ──
+  # ── Frontend (Nginx + SPA) ──
   frontend:
     build:
       context: .
@@ -45,6 +45,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    volumes:
+      - ./server/nginx-no-ssl.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
 
