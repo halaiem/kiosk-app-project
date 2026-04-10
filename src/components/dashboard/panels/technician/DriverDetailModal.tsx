@@ -10,16 +10,12 @@ import {
   updateDriver as apiUpdateDriver,
   deleteDriver as apiDeleteDriver,
 } from "@/api/dashboardApi";
-import {
-  DRIVER_STATUS_STYLES,
-  DRIVER_STATUS_LABELS,
-} from "./TechVDConstants";
 
 const LIFECYCLE_STATUS_LABELS: Record<string, string> = {
   active: "Активен",
   vacation: "В отпуске",
   sick_leave: "Больничный",
-  fired: "Уволен",
+  fired: "Неактивен",
 };
 const LIFECYCLE_STATUS_STYLES: Record<string, string> = {
   active: "bg-green-500/15 text-green-500",
@@ -180,20 +176,9 @@ export default function DriverDetailModal({
         <div className="grid grid-cols-2 gap-3 text-sm">
           {[
             { label: "Таб. номер", value: driver.tabNumber },
-            {
-              label: "Статус смены",
-              value: DRIVER_STATUS_LABELS[driver.status],
-              colored: DRIVER_STATUS_STYLES[driver.status],
-            },
-            {
-              label: "Телефон",
-              value: driver.phone || "—",
-            },
-            {
-              label: "Рейтинг",
-              value: `${driver.rating.toFixed(1)} / 5.0`,
-            },
-          ].map(({ label, value, colored }) => (
+            { label: "Телефон", value: driver.phone || "—" },
+            { label: "Рейтинг", value: `${driver.rating.toFixed(1)} / 5.0` },
+          ].map(({ label, value, colored }: { label: string; value: string; colored?: string }) => (
             <div key={label} className="bg-muted/40 rounded-xl p-3">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
                 {label}

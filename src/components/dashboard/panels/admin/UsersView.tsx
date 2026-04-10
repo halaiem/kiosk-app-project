@@ -191,7 +191,7 @@ function UserDetailPopup({
             {[
               { label: "ID", value: user.employee_id },
               { label: "Телефон", value: user.phone || "—" },
-              { label: "Рейтинг", value: `${(user.rating ?? 5).toFixed(1)} / 5.0` },
+              { label: "Рейтинг (голосование)", value: `${(user.rating ?? 5).toFixed(1)} / 5.0` },
               { label: "Статус", value: user.is_active ? "Активен" : "Заблокирован" },
             ].map(({ label, value }) => (
               <div key={label} className="bg-muted/40 rounded-xl px-3 py-2.5">
@@ -245,8 +245,6 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [newId, setNewId] = useState("");
   const [newRole, setNewRole] = useState<string>("dispatcher");
   const [newPassword, setNewPassword] = useState(() => "");
-  const [newRating, setNewRating] = useState<number>(5);
-  const [newIsActive, setNewIsActive] = useState<boolean>(true);
   const [createError, setCreateError] = useState("");
 
   // Custom roles state
@@ -416,7 +414,7 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setSaving(true);
     setCreateError("");
     try {
-      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
+      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword } as Parameters<typeof createDashboardUser>[0]);
       resetAddForm();
       await loadUsers();
     } catch (e) {
@@ -432,13 +430,11 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setSaving(true);
     setCreateError("");
     try {
-      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword, rating: newRating } as Parameters<typeof createDashboardUser>[0]);
+      await createDashboardUser({ employee_id: newId, full_name: newName, role: newRole as UserRole, password: newPassword } as Parameters<typeof createDashboardUser>[0]);
       await loadUsers();
       setNewName("");
       setNewId("");
       setNewPassword(generatePassword());
-      setNewRating(5);
-      setNewIsActive(true);
       setCreateError("");
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка создания';
@@ -464,8 +460,6 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setNewId("");
     setNewRole("dispatcher");
     setNewPassword("");
-    setNewRating(5);
-    setNewIsActive(true);
     setCreateError("");
   };
 
@@ -544,35 +538,6 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 </select>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Статус</label>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setNewIsActive(true)}
-                    className={`flex-1 h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${newIsActive ? "bg-green-500/15 text-green-500" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${newIsActive ? "bg-green-500" : "bg-muted-foreground"}`} />
-                    Активен
-                  </button>
-                  <button type="button" onClick={() => setNewIsActive(false)}
-                    className={`flex-1 h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${!newIsActive ? "bg-red-500/15 text-red-500" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${!newIsActive ? "bg-red-500" : "bg-muted-foreground"}`} />
-                    Уволен
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Рейтинг (1–5)</label>
-                <div className="flex items-center gap-1">
-                  {[1,2,3,4,5].map(s => (
-                    <button key={s} type="button" onClick={() => setNewRating(s)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${newRating >= s ? "bg-yellow-400 text-yellow-900" : "bg-muted text-muted-foreground"}`}>
-                      {s}
-                    </button>
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-1">{newRating}/5</span>
-                </div>
-              </div>
-            </div>
             <div className="mt-3">
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Пароль</label>
               <div className="flex items-center gap-2">
@@ -627,7 +592,12 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
               <SortableTh label="ID" sortKey="employee_id" sort={usersSort} onToggle={usersToggle} className="px-4 w-24" />
               <SortableTh label="ФИО" sortKey="full_name" sort={usersSort} onToggle={usersToggle} className="px-3" />
               <SortableTh label="Роль" sortKey="role" sort={usersSort} onToggle={usersToggle} className="px-3 w-36" />
-              <SortableTh label="Рейтинг" sortKey="rating" sort={usersSort} onToggle={usersToggle} className="px-3 w-28" />
+              <th className="text-left px-3 py-2.5 font-medium text-muted-foreground">
+                <span className="flex flex-col">
+                  <span>Рейтинг</span>
+                  <span className="text-[9px] font-normal text-muted-foreground/60 normal-case">голосование</span>
+                </span>
+              </th>
               <th className="text-left px-3 py-2.5 font-medium w-28 text-muted-foreground">Статус</th>
               <th className="text-right px-4 py-2.5 font-medium w-28 text-muted-foreground">Действия</th>
             </tr>

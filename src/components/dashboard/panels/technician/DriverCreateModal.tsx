@@ -186,7 +186,7 @@ export default function DriverCreateModal({
                     <button type="button" onClick={() => setFDriverStatus("fired")}
                       className={`flex-1 h-9 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${fDriverStatus === "fired" ? "bg-red-500/15 text-red-500" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${fDriverStatus === "fired" ? "bg-red-500" : "bg-muted-foreground"}`} />
-                      Уволен
+                      Неактивен
                     </button>
                   </div>
                 </div>
@@ -212,24 +212,26 @@ export default function DriverCreateModal({
                   </button>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">Водитель вводит этот PIN при авторизации на планшете</p>
+                <div className="flex items-center gap-2 mt-3">
+                  <button onClick={handleCreate} disabled={saving || !fName.trim() || !fPin.trim()}
+                    className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors">
+                    {saving ? "Создаю..." : "Создать"}
+                  </button>
+                  <button onClick={handleCreateAndNew} disabled={saving || !fName.trim() || !fPin.trim()}
+                    className="flex-1 h-9 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:text-foreground disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5">
+                    <Icon name="CopyPlus" className="w-3.5 h-3.5" />
+                    Новый и копи
+                  </button>
+                </div>
               </div>
 
               {error && <p className="text-xs text-destructive">{error}</p>}
             </div>
 
-            <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">
+            <div className="px-5 py-3 border-t border-border flex items-center justify-end">
               <button onClick={resetForm}
                 className="h-8 px-4 rounded-lg bg-muted text-muted-foreground text-xs font-medium hover:text-foreground transition-colors">
                 Отмена
-              </button>
-              <button onClick={handleCreateAndNew} disabled={saving || !fName.trim() || !fPin.trim()}
-                className="h-8 px-4 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:text-foreground disabled:opacity-40 transition-colors flex items-center gap-1.5">
-                <Icon name="CopyPlus" className="w-3.5 h-3.5" />
-                Новый и копи
-              </button>
-              <button onClick={handleCreate} disabled={saving || !fName.trim() || !fPin.trim()}
-                className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-40 transition-colors">
-                {saving ? "Создаю..." : "Создать"}
               </button>
             </div>
           </>
