@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import SortableTh from "@/components/ui/SortableTh";
@@ -30,6 +30,16 @@ interface EditState {
   password: string;
   is_active: boolean;
   rating: number;
+}
+
+interface BulkRow {
+  id: string;
+  full_name: string;
+  role: string;
+  password: string;
+  phone: string;
+  status: 'pending' | 'ok' | 'error';
+  error?: string;
 }
 
 const ROLE_STYLES: Record<string, string> = {
@@ -247,6 +257,14 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
   const [newRole, setNewRole] = useState<string>("dispatcher");
   const [newPassword, setNewPassword] = useState(() => "");
   const [createError, setCreateError] = useState("");
+
+  // Bulk creation state
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>(() => Array.from({ length: 3 }, (_, i) => ({ id: `D00${i + 1}`, full_name: "", role: "dispatcher", password: "", phone: "", status: 'pending' as const })));
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDone, setBulkDone] = useState<BulkRow[]>([]);
+  const [showBulkExport, setShowBulkExport] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Custom roles state
   const [customRoles, setCustomRoles] = useState<CustomRole[]>(() => loadCustomRoles());
@@ -466,6 +484,85 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
     setCreateError("");
   };
 
+  // ── Bulk helpers ──────────────────────────────────────────────────────────────
+  const addBulkRow = useCallback(() => {
+    setBulkRows(prev => [...prev, { id: "", full_name: "", role: "dispatcher", password: generatePassword(), phone: "", status: 'pending' }]);
+  }, []);
+
+  const removeBulkRow = useCallback((idx: number) => {
+    setBulkRows(prev => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const updateBulkRow = useCallback((idx: number, field: string, value: string) => {
+    setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, status: 'pending', error: undefined } : r));
+  }, []);
+
+  const genAllPasswords = useCallback(() => {
+    setBulkRows(prev => prev.map(r => ({ ...r, password: generatePassword(), status: 'pending', error: undefined })));
+  }, []);
+
+  const handleBulkCreate = useCallback(async () => {
+    const toCreate = bulkRows.filter(r => r.id.trim() && r.full_name.trim() && r.password.trim());
+    if (toCreate.length === 0) return;
+    setBulkSaving(true);
+    const results: BulkRow[] = [];
+    for (const row of toCreate) {
+      try {
+        await createDashboardUser({ employee_id: row.id.trim(), full_name: row.full_name.trim(), role: row.role as UserRole, password: row.password.trim(), ...(row.phone.trim() ? { phone: row.phone.trim() } : {}) } as Parameters<typeof createDashboardUser>[0]);
+        results.push({ ...row, status: 'ok' });
+      } catch (e) {
+        results.push({ ...row, status: 'error', error: e instanceof Error ? e.message : 'Ошибка' });
+      }
+    }
+    setBulkDone(results);
+    setShowBulkExport(true);
+    await loadUsers();
+    setBulkSaving(false);
+    setBulkRows(results.filter(r => r.status === 'error').length > 0
+      ? results.filter(r => r.status === 'error').map(r => ({ ...r, status: 'pending' as const }))
+      : [{ id: "", full_name: "", role: "dispatcher", password: generatePassword(), phone: "", status: 'pending' as const }]);
+  }, [bulkRows]);
+
+  const exportBulkCsv = useCallback((rows: BulkRow[]) => {
+    const header = "ID;ФИО;Роль;Пароль;Телефон";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [r.id, `"${r.full_name.replace(/"/g, '""')}"`, r.role, r.password, r.phone].join(";")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `users_credentials_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const exportBulkExcel = useCallback((rows: BulkRow[]) => {
+    const header = "ID\tФИО\tРоль\tПароль\tТелефон";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [r.id, r.full_name, r.role, r.password, r.phone].join("\t")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `users_credentials_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleImportCsv = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string) || "";
+      const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
+      const start = lines[0]?.toLowerCase().includes("id") ? 1 : 0;
+      const parsed: BulkRow[] = lines.slice(start).map(line => {
+        const cols = line.split(/[;,\t]/);
+        return { id: (cols[0] || "").trim(), full_name: (cols[1] || "").replace(/^"|"$/g, "").trim(), role: (cols[2] || "dispatcher").trim() || "dispatcher", password: (cols[3] || generatePassword()).trim() || generatePassword(), phone: (cols[4] || "").trim(), status: 'pending' as const };
+      }).filter(r => r.id || r.full_name);
+      if (parsed.length > 0) setBulkRows(parsed);
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  }, []);
+
   const inputCls = "h-8 px-2.5 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground";
 
   return (
@@ -519,13 +616,158 @@ export function UsersView({ drivers = [], onReload }: UsersViewProps) {
                 Удалить ({selectedIds.size})
               </button>
             )}
-            <button onClick={() => { setShowAddForm(true); cancelEdit(); }}
+            <button onClick={() => { setShowBulkForm(v => !v); setShowAddForm(false); }}
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors ${showBulkForm ? "bg-indigo-500/15 text-indigo-500 border-indigo-500/30" : "bg-muted text-muted-foreground hover:text-foreground border-border"}`}>
+              <Icon name="Users" className="w-3.5 h-3.5" />
+              Массово
+            </button>
+            <button onClick={() => { setShowAddForm(true); setShowBulkForm(false); cancelEdit(); }}
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Icon name="UserPlus" className="w-3.5 h-3.5" />
               Добавить
             </button>
           </div>
         </div>
+
+        {/* Bulk create form */}
+        {showBulkForm && (
+          <div className="px-5 py-4 border-b border-border bg-indigo-500/5">
+            {/* Bulk header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+                <Icon name="Users" className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-foreground">Массовое создание пользователей</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Заполните таблицу или импортируйте CSV. После создания — скачайте файл с паролями.</p>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <input ref={fileInputRef} type="file" accept=".csv,.txt" onChange={handleImportCsv} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="Upload" className="w-3.5 h-3.5" />Импорт CSV
+                </button>
+                <button onClick={genAllPasswords}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="RefreshCw" className="w-3.5 h-3.5" />Обновить пароли
+                </button>
+                <button onClick={() => { setShowBulkForm(false); setBulkDone([]); setShowBulkExport(false); }}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="X" className="w-3.5 h-3.5" />Закрыть
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk table */}
+            <div className="rounded-xl border border-border overflow-hidden mb-3">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-8">#</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-28">ID</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">ФИО</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-36">Роль</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-40">Пароль</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-32">Телефон</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground w-24">Статус</th>
+                    <th className="w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkRows.map((row, idx) => (
+                    <tr key={idx} className={`border-b border-border last:border-0 ${row.status === 'ok' ? 'bg-green-500/5' : row.status === 'error' ? 'bg-red-500/5' : ''}`}>
+                      <td className="px-3 py-1.5 text-muted-foreground">{idx + 1}</td>
+                      <td className="px-3 py-1.5">
+                        <input value={row.id} onChange={e => updateBulkRow(idx, 'id', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input value={row.full_name} onChange={e => updateBulkRow(idx, 'full_name', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          placeholder="Иванов И.И."
+                          className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <select value={row.role} onChange={e => updateBulkRow(idx, 'role', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                          {allRoles.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <div className="flex items-center gap-1">
+                          <input value={row.password} onChange={e => updateBulkRow(idx, 'password', e.target.value)}
+                            disabled={row.status === 'ok'}
+                            className="flex-1 h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 min-w-0" />
+                          {row.status !== 'ok' && (
+                            <button onClick={() => updateBulkRow(idx, 'password', generatePassword())}
+                              className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 transition-colors" title="Новый пароль">
+                              <Icon name="RefreshCw" className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input value={row.phone} onChange={e => updateBulkRow(idx, 'phone', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          placeholder="+7..."
+                          className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        {row.status === 'ok' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-500/15 text-green-500">Создан</span>}
+                        {row.status === 'error' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-red-500/15 text-red-500" title={row.error}>Ошибка</span>}
+                        {row.status === 'pending' && <span className="text-[11px] text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {row.status !== 'ok' && (
+                          <button onClick={() => removeBulkRow(idx)}
+                            className="w-6 h-6 rounded text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors">
+                            <Icon name="X" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Bulk actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={addBulkRow}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Plus" className="w-3.5 h-3.5" />Добавить строку
+              </button>
+              <button onClick={handleBulkCreate} disabled={bulkSaving || bulkRows.filter(r => r.id.trim() && r.full_name.trim() && r.password.trim() && r.status !== 'ok').length === 0}
+                className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                <Icon name="UserPlus" className="w-3.5 h-3.5" />
+                {bulkSaving ? 'Создаю...' : `Создать (${bulkRows.filter(r => r.id.trim() && r.full_name.trim() && r.password.trim() && r.status !== 'ok').length})`}
+              </button>
+
+              {/* Export block — appears after creation */}
+              {showBulkExport && bulkDone.filter(r => r.status === 'ok').length > 0 && (
+                <div className="flex items-center gap-2 ml-auto p-2 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <Icon name="ShieldCheck" className="w-4 h-4 text-green-500 shrink-0" />
+                  <span className="text-xs text-green-600 font-medium">
+                    Создано: {bulkDone.filter(r => r.status === 'ok').length} — скачайте пароли
+                  </span>
+                  <button onClick={() => exportBulkExcel(bulkDone)}
+                    className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors">
+                    <Icon name="FileSpreadsheet" className="w-3 h-3" />Excel
+                  </button>
+                  <button onClick={() => exportBulkCsv(bulkDone)}
+                    className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-white/80 text-green-700 border border-green-500/30 hover:bg-white transition-colors">
+                    <Icon name="Download" className="w-3 h-3" />CSV
+                  </button>
+                  <button onClick={() => setShowBulkExport(false)} className="w-6 h-6 rounded text-green-500 hover:text-green-700 flex items-center justify-center">
+                    <Icon name="X" className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Add form */}
         {showAddForm && (
