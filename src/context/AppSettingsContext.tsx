@@ -65,53 +65,6 @@ export interface BrandFont {
 
 export type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
-/* ── Sidebar UI config ── */
-
-export type SidebarRoleKey = 'dispatcher' | 'technician' | 'admin' | 'mechanic' | 'engineer' | 'manager';
-
-export interface SidebarNavItem {
-  tab: string;
-  icon: string;
-  label: string;
-  hidden?: boolean;
-}
-
-export interface SidebarConfig {
-  width: number;           // px, default 240
-  headerHeight: number;    // px, default 72
-  footerHeight: number;    // px, default 160
-  logoSize: number;        // px, default 32
-  navItemHeight: number;   // px, default 36
-  navFontSize: number;     // px, default 13
-  bgImage: string | null;  // URL or null
-  bgImageScale: number;    // 1.0 = 100%
-  bgImageOpacity: number;  // 0-1
-  bgPattern: string | null; // pattern name
-  bgPatternScale: number;
-  bgPatternOpacity: number;
-  bgPatternColor: string;
-  navOrder: SidebarNavItem[]; // custom order/visibility
-}
-
-export function defaultSidebarConfig(): SidebarConfig {
-  return {
-    width: 240,
-    headerHeight: 72,
-    footerHeight: 160,
-    logoSize: 32,
-    navItemHeight: 36,
-    navFontSize: 13,
-    bgImage: null,
-    bgImageScale: 1,
-    bgImageOpacity: 0.15,
-    bgPattern: null,
-    bgPatternScale: 1,
-    bgPatternOpacity: 0.08,
-    bgPatternColor: '#ffffff',
-    navOrder: [],
-  };
-}
-
 /* ── Feature role type ── */
 
 export type FeatureRole = 'tablet' | 'dispatcher' | 'technician' | 'admin' | 'mechanic' | 'engineer' | 'manager';
@@ -157,14 +110,6 @@ export interface AppSettings {
   brandColors: BrandColors;
   brandFont: BrandFont | null;
   fontSize: FontSize;
-
-  /* sidebar UI per role */
-  sidebarDispatcher: SidebarConfig;
-  sidebarTechnician: SidebarConfig;
-  sidebarAdmin: SidebarConfig;
-  sidebarMechanic: SidebarConfig;
-  sidebarEngineer: SidebarConfig;
-  sidebarManager: SidebarConfig;
 }
 
 /* ── Defaults ── */
@@ -256,13 +201,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   brandColors: { ...DEFAULT_BRAND_COLORS },
   brandFont: null,
   fontSize: 'md',
-
-  sidebarDispatcher: defaultSidebarConfig(),
-  sidebarTechnician: defaultSidebarConfig(),
-  sidebarAdmin: defaultSidebarConfig(),
-  sidebarMechanic: defaultSidebarConfig(),
-  sidebarEngineer: defaultSidebarConfig(),
-  sidebarManager: defaultSidebarConfig(),
 };
 
 /* ── Deep-merge helper for nested objects (one level) ── */
@@ -318,14 +256,6 @@ function loadSettings(): AppSettings {
         // ensure arrays
         transportTypes: parsed.transportTypes ?? DEFAULT_SETTINGS.transportTypes,
         customTransportTypes: parsed.customTransportTypes ?? DEFAULT_SETTINGS.customTransportTypes,
-
-        // sidebar configs per role
-        sidebarDispatcher: { ...defaultSidebarConfig(), ...(parsed.sidebarDispatcher as Partial<SidebarConfig> | undefined) },
-        sidebarTechnician: { ...defaultSidebarConfig(), ...(parsed.sidebarTechnician as Partial<SidebarConfig> | undefined) },
-        sidebarAdmin: { ...defaultSidebarConfig(), ...(parsed.sidebarAdmin as Partial<SidebarConfig> | undefined) },
-        sidebarMechanic: { ...defaultSidebarConfig(), ...(parsed.sidebarMechanic as Partial<SidebarConfig> | undefined) },
-        sidebarEngineer: { ...defaultSidebarConfig(), ...(parsed.sidebarEngineer as Partial<SidebarConfig> | undefined) },
-        sidebarManager: { ...defaultSidebarConfig(), ...(parsed.sidebarManager as Partial<SidebarConfig> | undefined) },
       };
 
       return result;
@@ -338,20 +268,10 @@ function loadSettings(): AppSettings {
 
 /* ── Context ── */
 
-export const SIDEBAR_CONFIG_KEY: Record<SidebarRoleKey, keyof AppSettings> = {
-  dispatcher: 'sidebarDispatcher',
-  technician: 'sidebarTechnician',
-  admin: 'sidebarAdmin',
-  mechanic: 'sidebarMechanic',
-  engineer: 'sidebarEngineer',
-  manager: 'sidebarManager',
-};
-
 interface AppSettingsContextValue {
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => void;
   updateFeatures: (role: FeatureRole, patch: Partial<FeatureFlags>) => void;
-  updateSidebarConfig: (role: SidebarRoleKey, patch: Partial<SidebarConfig>) => void;
   resetSettings: () => void;
 }
 
@@ -409,15 +329,6 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     setSettings(prev => {
       const key = FEATURE_KEY_MAP[role];
       const next = { ...prev, [key]: { ...(prev[key] as FeatureFlags), ...patch } };
-      localStorage.setItem('app_settings', JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const updateSidebarConfig = useCallback((role: SidebarRoleKey, patch: Partial<SidebarConfig>) => {
-    setSettings(prev => {
-      const key = SIDEBAR_CONFIG_KEY[role];
-      const next = { ...prev, [key]: { ...(prev[key] as SidebarConfig), ...patch } };
       localStorage.setItem('app_settings', JSON.stringify(next));
       return next;
     });
@@ -496,13 +407,13 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.fontSize]);
 
   return (
-    <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, updateSidebarConfig, resetSettings }}>
+    <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, resetSettings }}>
       {children}
     </AppSettingsContext.Provider>
   );
 }
 
-export function useAppSettings(): AppSettingsContextValue {
+export function useAppSettings() {
   const ctx = useContext(AppSettingsContext);
   if (!ctx) throw new Error('useAppSettings must be used inside AppSettingsProvider');
   return ctx;

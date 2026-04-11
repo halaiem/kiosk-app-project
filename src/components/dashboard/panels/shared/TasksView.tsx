@@ -2,27 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import func2url from '../../../../../backend/func2url.json';
 
-/* ── file helper ────────────────────────────────── */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve((r.result as string).split(',')[1]);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-function formatBytes(b: number): string {
-  if (b < 1024) return `${b} Б`;
-  if (b < 1048576) return `${(b / 1024).toFixed(1)} КБ`;
-  return `${(b / 1048576).toFixed(1)} МБ`;
-}
-function isImage(type: string) { return type.startsWith('image/'); }
-const MAX_BYTES = 20 * 1024 * 1024;
-
-interface AttachFile { file: File; preview?: string; }
-interface UploadedAttach { id?: number; name: string; url: string; type: string; size: number; }
-interface CommentFile { file: File; preview?: string; }
-
 const API_URL = func2url.tasks;
 const TOKEN_KEY = 'dashboard_token';
 
@@ -50,7 +29,6 @@ export interface Task {
   updated_at: string;
   completed_at: string | null;
   comment_count: number;
-  attachment_count?: number;
 }
 
 interface TaskComment {
@@ -59,12 +37,6 @@ interface TaskComment {
   created_at: string;
   user_name: string;
   user_role: string;
-  file_url?: string | null;
-  file_name?: string | null;
-  file_size?: number | null;
-  content_type?: string | null;
-  is_voice?: boolean;
-  voice_transcript?: string | null;
 }
 
 export interface StaffUser {
@@ -230,23 +202,6 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
-  // Attachments for new task form
-  const [newAttachments, setNewAttachments] = useState<AttachFile[]>([]);
-  const attachInputRef = useRef<HTMLInputElement>(null);
-
-  // Comment file + voice
-  const [commentFile, setCommentFile] = useState<CommentFile | null>(null);
-  const commentFileRef = useRef<HTMLInputElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Task attachments in detail view
-  const [taskAttachments, setTaskAttachments] = useState<UploadedAttach[]>([]);
-  const [attachLoading, setAttachLoading] = useState(false);
-
   useEffect(() => {
     const h = (e: MouseEvent) => { if (exportRef.current && !exportRef.current.contains(e.target as Node)) setShowExportMenu(false); };
     document.addEventListener('mousedown', h);
@@ -293,37 +248,20 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
     if (task) loadComments(task.id); else setComments([]);
   }, [loadComments]);
 
-  const handleAttachFiles = useCallback((files: FileList | null) => {
-    if (!files) return;
-    const valid: AttachFile[] = [];
-    for (const f of Array.from(files)) {
-      if (f.size > MAX_BYTES) { setError(`Файл "${f.name}" слишком большой (макс 20 МБ)`); continue; }
-      const preview = isImage(f.type) ? URL.createObjectURL(f) : undefined;
-      valid.push({ file: f, preview });
-    }
-    setNewAttachments(prev => [...prev, ...valid].slice(0, 10));
-  }, []);
-
   const handleCreate = useCallback(async () => {
     if (!newTitle.trim()) return;
     setSaving(true);
     try {
-      // convert attachments to base64
-      const attachments = await Promise.all(newAttachments.map(async a => ({
-        data: await fileToBase64(a.file),
-        name: a.file.name,
-        type: a.file.type,
-      })));
       const res = await fetch(`${API_URL}?action=create`, {
         method: 'POST', headers: hdrs(),
-        body: JSON.stringify({ title: newTitle, description: newDesc, priority: newPriority, category: newCategory, assignee_user_id: newAssignee || null, due_date: newDue || null, lifetime_hours: newLifetime ? parseInt(newLifetime) : null, attachments }),
+        body: JSON.stringify({ title: newTitle, description: newDesc, priority: newPriority, category: newCategory, assignee_user_id: newAssignee || null, due_date: newDue || null, lifetime_hours: newLifetime ? parseInt(newLifetime) : null }),
       });
       if (!res.ok) throw new Error();
       setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewCategory('other'); setNewAssignee(''); setNewDue(''); setNewLifetime('');
-      setNewAttachments([]); setShowCreate(false); await loadTasks();
+      setShowCreate(false); await loadTasks();
     } catch { setError('Ошибка создания задачи'); }
     setSaving(false);
-  }, [newTitle, newDesc, newPriority, newCategory, newAssignee, newDue, newLifetime, newAttachments, loadTasks]);
+  }, [newTitle, newDesc, newPriority, newCategory, newAssignee, newDue, newLifetime, loadTasks]);
 
   const handleStatusChange = useCallback(async (taskId: number, newStatus: TaskStatus) => {
     try {
@@ -360,78 +298,18 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
     setDeleting(false);
   }, [selectedTask, loadTasks]);
 
-  const handleAddComment = useCallback(async (voiceBlob?: Blob) => {
-    if (!selectedTask) return;
-    if (!newComment.trim() && !commentFile && !voiceBlob) return;
+  const handleAddComment = useCallback(async () => {
+    if (!selectedTask || !newComment.trim()) return;
     setSavingComment(true);
     try {
-      let body: Record<string, unknown> = { task_id: selectedTask.id, message: newComment.trim() };
-
-      if (voiceBlob) {
-        const arr = await voiceBlob.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(arr)));
-        body = { ...body, file_data: b64, file_name: `voice_${Date.now()}.ogg`, file_type: 'audio/ogg', is_voice: true };
-      } else if (commentFile) {
-        const b64 = await fileToBase64(commentFile.file);
-        body = { ...body, file_data: b64, file_name: commentFile.file.name, file_type: commentFile.file.type, is_voice: false };
-      }
-
-      const res = await fetch(`${API_URL}?action=add_comment`, { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
+      const res = await fetch(`${API_URL}?action=add_comment`, { method: 'POST', headers: hdrs(), body: JSON.stringify({ task_id: selectedTask.id, message: newComment.trim() }) });
       if (!res.ok) throw new Error();
-      setNewComment(''); setCommentFile(null);
-      await loadComments(selectedTask.id);
+      setNewComment(''); await loadComments(selectedTask.id);
       setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, comment_count: t.comment_count + 1 } : t));
       setSelectedTask(prev => prev ? { ...prev, comment_count: prev.comment_count + 1 } : prev);
     } catch { /* */ }
     setSavingComment(false);
-  }, [selectedTask, newComment, commentFile, loadComments]);
-
-  const loadTaskAttachments = useCallback(async (taskId: number) => {
-    setAttachLoading(true);
-    try {
-      const res = await fetch(`${API_URL}?action=attachments&task_id=${taskId}`, { headers: hdrs() });
-      if (res.ok) { const d = await res.json(); setTaskAttachments(d.attachments || []); }
-    } catch { /* */ }
-    setAttachLoading(false);
-  }, []);
-
-  // override handleSelectTask to also load attachments
-  const handleSelectTaskWithAttach = useCallback((task: Task | null) => {
-    setSelectedTask(task); setNewComment(''); setCommentFile(null);
-    if (task) { loadComments(task.id); loadTaskAttachments(task.id); }
-    else { setComments([]); setTaskAttachments([]); }
-  }, [loadComments, loadTaskAttachments]);
-
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      audioChunksRef.current = [];
-      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/ogg' });
-        await handleAddComment(blob);
-        setRecordingSeconds(0);
-      };
-      mr.start();
-      mediaRecorderRef.current = mr;
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      recordTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
-    } catch { setError('Нет доступа к микрофону'); }
-  }, [handleAddComment]);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
-    }
-  }, [isRecording]);
-
-  // Use the enhanced version that also loads attachments
-  const handleSelectTask = handleSelectTaskWithAttach;
+  }, [selectedTask, newComment, loadComments]);
 
   const toggleSelect = useCallback((id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -534,37 +412,8 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
               <input type="number" min={1} placeholder="напр. 24" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newLifetime} onChange={e => setNewLifetime(e.target.value)} />
             </div>
           </div>
-          {/* File attachments */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs text-muted-foreground">Вложения (макс 20 МБ каждый, до 10 файлов)</label>
-              <button type="button" onClick={() => attachInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-xs text-muted-foreground hover:text-foreground transition-all">
-                <Icon name="Paperclip" size={13} />Прикрепить файлы
-              </button>
-              <input ref={attachInputRef} type="file" multiple accept="*/*" className="hidden"
-                onChange={e => handleAttachFiles(e.target.files)} />
-            </div>
-            {newAttachments.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {newAttachments.map((a, i) => (
-                  <div key={i} className="relative flex items-center gap-2 px-2.5 py-1.5 bg-muted rounded-lg text-xs group">
-                    {a.preview
-                      ? <img src={a.preview} alt="" className="w-8 h-8 rounded object-cover" />
-                      : <Icon name="File" size={16} className="text-muted-foreground" />}
-                    <span className="max-w-[100px] truncate">{a.file.name}</span>
-                    <span className="text-muted-foreground">{formatBytes(a.file.size)}</span>
-                    <button onClick={() => setNewAttachments(prev => prev.filter((_, j) => j !== i))}
-                      className="w-4 h-4 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500/40">
-                      <Icon name="X" size={10} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => { setShowCreate(false); setNewAttachments([]); }} className="px-4 py-1.5 rounded-lg text-sm bg-muted hover:bg-muted/80">Отмена</button>
+            <button onClick={() => setShowCreate(false)} className="px-4 py-1.5 rounded-lg text-sm bg-muted hover:bg-muted/80">Отмена</button>
             <button onClick={handleCreate} disabled={!newTitle.trim() || saving} className="px-4 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
               {saving ? 'Создание...' : 'Создать'}
             </button>
@@ -716,33 +565,10 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
             {selectedTask.completed_at && <span>Завершено: {formatDateTime(selectedTask.completed_at)}</span>}
           </div>
 
-          {/* Attachments panel */}
-          {(attachLoading || taskAttachments.length > 0) && (
-            <div className="border-t border-border pt-4">
-              <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                <Icon name="Paperclip" size={14} />Вложения ({taskAttachments.length})
-              </h4>
-              {attachLoading ? <div className="text-xs text-muted-foreground">Загрузка...</div> : (
-                <div className="flex flex-wrap gap-2">
-                  {taskAttachments.map(a => (
-                    <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-2.5 py-1.5 bg-muted/50 rounded-lg text-xs hover:bg-muted transition-all group border border-border">
-                      {isImage(a.type)
-                        ? <img src={a.url} alt={a.name} className="w-8 h-8 rounded object-cover" />
-                        : <Icon name="File" size={16} className="text-muted-foreground" />}
-                      <span className="max-w-[120px] truncate group-hover:text-primary">{a.name}</span>
-                      <span className="text-muted-foreground">{formatBytes(a.size)}</span>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="border-t border-border pt-4">
             <h4 className="font-semibold text-sm mb-3 flex items-center gap-2"><Icon name="MessageSquare" size={14} />Комментарии ({selectedTask.comment_count})</h4>
             {commentsLoading ? <div className="text-xs text-muted-foreground py-3">Загрузка...</div> : (
-              <div className="space-y-2 max-h-72 overflow-auto">
+              <div className="space-y-2 max-h-60 overflow-auto">
                 {comments.map(c => (
                   <div key={c.id} className="flex gap-2.5 p-2.5 bg-muted/30 rounded-lg">
                     <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">{c.user_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}</div>
@@ -752,89 +578,17 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                         <span className="text-muted-foreground">{ROLE_LABELS[c.user_role] || c.user_role}</span>
                         <span className="text-muted-foreground ml-auto">{formatDateTime(c.created_at)}</span>
                       </div>
-                      {/* Voice message */}
-                      {c.is_voice && c.file_url && (
-                        <div className="mt-1 space-y-1">
-                          <audio controls src={c.file_url} className="h-8 w-full max-w-xs" />
-                          {c.voice_transcript && (
-                            <div className="text-xs text-muted-foreground italic bg-muted/40 px-2 py-1 rounded">
-                              <Icon name="Mic" size={10} className="inline mr-1" />{c.voice_transcript}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* File attachment */}
-                      {!c.is_voice && c.file_url && (
-                        <a href={c.file_url} target="_blank" rel="noopener noreferrer"
-                          className="mt-1 flex items-center gap-1.5 text-xs text-primary hover:underline">
-                          {isImage(c.content_type || '') && <img src={c.file_url} alt={c.file_name || ''} className="w-12 h-12 rounded object-cover" />}
-                          {!isImage(c.content_type || '') && <Icon name="Paperclip" size={12} />}
-                          <span>{c.file_name || 'Файл'}</span>
-                          {c.file_size && <span className="text-muted-foreground">({formatBytes(c.file_size)})</span>}
-                        </a>
-                      )}
-                      {/* Text message */}
-                      {c.message && <p className="text-sm mt-0.5">{c.message}</p>}
+                      <p className="text-sm mt-0.5">{c.message}</p>
                     </div>
                   </div>
                 ))}
                 {comments.length === 0 && <div className="text-xs text-muted-foreground py-2">Комментариев пока нет</div>}
               </div>
             )}
-
-            {/* Comment file preview */}
-            {commentFile && (
-              <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 bg-muted/50 rounded-lg text-xs">
-                {commentFile.preview
-                  ? <img src={commentFile.preview} alt="" className="w-8 h-8 rounded object-cover" />
-                  : <Icon name="File" size={16} className="text-muted-foreground" />}
-                <span className="flex-1 truncate">{commentFile.file.name}</span>
-                <span className="text-muted-foreground">{formatBytes(commentFile.file.size)}</span>
-                <button onClick={() => setCommentFile(null)} className="text-red-500 hover:text-red-400">
-                  <Icon name="X" size={13} />
-                </button>
-              </div>
-            )}
-
-            {/* Recording indicator */}
-            {isRecording && (
-              <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-500">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span>Запись... {recordingSeconds}с</span>
-                <button onClick={stopRecording} className="ml-auto px-2.5 py-1 bg-red-500 text-white rounded-lg text-[11px] hover:bg-red-600 flex items-center gap-1">
-                  <Icon name="Square" size={10} />Остановить
-                </button>
-              </div>
-            )}
-
-            <div className="flex gap-1.5 mt-3 items-end">
-              <input className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm min-h-[38px]"
-                placeholder="Написать комментарий..." value={newComment}
-                onChange={e => setNewComment(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddComment()} />
-              {/* Attach file button */}
-              <button onClick={() => commentFileRef.current?.click()} title="Прикрепить файл"
-                className="w-9 h-9 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shrink-0">
-                <Icon name="Paperclip" size={15} />
-              </button>
-              <input ref={commentFileRef} type="file" accept="*/*" className="hidden"
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  if (f.size > MAX_BYTES) { setError('Файл слишком большой (макс 20 МБ)'); return; }
-                  setCommentFile({ file: f, preview: isImage(f.type) ? URL.createObjectURL(f) : undefined });
-                }} />
-              {/* Mic button */}
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                title={isRecording ? 'Остановить запись' : 'Записать голосовое сообщение'}
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all shrink-0 border ${isRecording ? 'bg-red-500 border-red-500 text-white animate-pulse' : 'bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-muted/60'}`}>
-                <Icon name={isRecording ? 'MicOff' : 'Mic'} size={15} />
-              </button>
-              {/* Send button */}
-              <button onClick={() => handleAddComment()} disabled={(!newComment.trim() && !commentFile) || savingComment || isRecording}
-                className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-all shrink-0">
-                <Icon name={savingComment ? 'Loader' : 'Send'} size={14} className={savingComment ? 'animate-spin' : ''} />
+            <div className="flex gap-2 mt-3">
+              <input className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-sm" placeholder="Написать комментарий..." value={newComment} onChange={e => setNewComment(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAddComment()} />
+              <button onClick={handleAddComment} disabled={!newComment.trim() || savingComment} className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50">
+                <Icon name="Send" size={14} />
               </button>
             </div>
           </div>
