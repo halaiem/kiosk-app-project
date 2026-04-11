@@ -3,7 +3,7 @@ import { OverviewView } from "./dispatcher/DispatcherOverview";
 import { NotificationsView, AlertsView } from "./dispatcher/DispatcherAlertsNotif";
 import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
 import DashMessagesView from "./shared/MessagesView";
-import ServiceRequestsPanel from "./shared/ServiceRequestsPanel";
+import TicketsPanel from "./shared/TicketsPanel";
 import VotingView from "./shared/VotingView";
 import type {
   DispatcherTab,
@@ -92,7 +92,7 @@ export default function DispatcherPanel({
     return (<>{criticalPopup}<VehicleIssuesView issues={issueReports} onResolve={onResolveIssue} /></>);
   }
   if (tab === "service_requests") {
-    return (<>{criticalPopup}<ServiceRequestsPanel role="dispatcher" vehicles={vehicles} /></>);
+    return (<>{criticalPopup}<TicketsPanel role="dispatcher" vehicles={vehicles} /></>);
   }
   if (tab === "voting") {
     return (<>{criticalPopup}<VotingView currentUserId={currentUserId || 0} /></>);

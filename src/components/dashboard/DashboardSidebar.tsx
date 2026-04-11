@@ -57,6 +57,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "ticket_archive" as DashboardTab, icon: "Archive", label: "Архив заявок" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "diagnostic_apis", icon: "Plug", label: "API" },
   { tab: "servers", icon: "Server", label: "Серверы" },

@@ -5,7 +5,7 @@ import { VehiclesView, DriversView } from "./technician/TechVehiclesDrivers";
 import { ScheduleView } from "./technician/TechSchedule";
 import { TechDiagnosticsView } from "./technician/TechDiagnosticsView";
 import { DailyAssignmentView } from "./technician/TechDailyAssignment";
-import TechServiceRequestsView from "./technician/TechServiceRequestsView";
+import TicketsPanel from "./shared/TicketsPanel";
 import { NotificationsView } from "./technician/TechNotificationsView";
 import MessagesView from "./shared/MessagesView";
 import VotingView from "./shared/VotingView";
@@ -54,7 +54,7 @@ export default function TechnicianPanel({
     setLocalNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   }, [onMarkReadProp]);
 
-  if (tab === "service_requests") return <TechServiceRequestsView vehicles={vehicles} onReload={onReload} />;
+  if (tab === "service_requests") return <TicketsPanel role="technician" vehicles={vehicles} onReload={onReload} />;
   if (tab === "routes") return <RoutesView routes={routes} onReload={onReload} />;
   if (tab === "documents") return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus} onReload={onReload} />;
   if (tab === "vehicles") return <VehiclesView vehicles={vehicles} onReload={onReload} />;

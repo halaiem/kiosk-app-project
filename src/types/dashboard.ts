@@ -11,7 +11,7 @@ export interface DashboardUser {
 
 export type DispatcherTab = 'overview' | 'messages' | 'notifications' | 'alerts' | 'vehicle_issues' | 'dash_messages' | 'service_requests' | 'voting';
 export type TechnicianTab = 'service_requests' | 'routes' | 'documents' | 'vehicles' | 'drivers' | 'schedule' | 'daily_assignment' | 'diagnostics' | 'notifications' | 'dash_messages' | 'voting';
-export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles' | 'notifications' | 'dash_messages' | 'service_requests' | 'voting';
+export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles' | 'notifications' | 'dash_messages' | 'service_requests' | 'ticket_archive' | 'ticket_settings' | 'voting';
 export type IridaToolsTab = 'cities' | 'it_settings' | 'ui_design' | 'software' | 'connection' | 'server' | 'equipment' | 'instructions' | 'database' | 'it_logs' | 'code_editor' | 'terminal';
 export type MechanicTab = 'service_requests' | 'auto_diagnostics' | 'service_log' | 'ts_docs' | 'email' | 'notifications' | 'dash_messages' | 'voting';
 export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab | IridaToolsTab | MechanicTab;

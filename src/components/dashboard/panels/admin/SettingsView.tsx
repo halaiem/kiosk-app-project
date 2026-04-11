@@ -10,6 +10,7 @@ import NotificationTemplateSettings from "./settings/NotificationTemplateSetting
 import RatingsView from "./settings/RatingsView";
 import NotificationDesignSettings from "./settings/NotificationDesignSettings";
 import MessengerSettings from "./settings/MessengerSettings";
+import TicketSettingsView from "./settings/TicketSettingsView";
 
 const GeoTargetingSettings = lazy(() => import("./settings/GeoTargetingSettings"));
 
@@ -24,7 +25,8 @@ type SettingsTab =
   | 'notif_design'
   | 'messenger'
   | 'geo_targeting'
-  | 'ratings';
+  | 'ratings'
+  | 'tickets';
 
 export function SettingsView() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('interface');
@@ -55,6 +57,7 @@ export function SettingsView() {
             { key: 'messenger', label: 'Мессенджер', icon: 'MessageSquare' },
             { key: 'geo_targeting', label: 'Гео-таргетинг', icon: 'MapPin' },
             { key: 'ratings', label: 'Рейтинги', icon: 'Star' },
+            { key: 'tickets', label: 'Заявки', icon: 'ClipboardList' },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -87,6 +90,7 @@ export function SettingsView() {
         </Suspense>
       )}
       {settingsTab === 'ratings' && <RatingsView />}
+      {settingsTab === 'tickets' && <TicketSettingsView />}
     </div>
   );
 }

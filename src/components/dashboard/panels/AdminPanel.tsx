@@ -8,7 +8,9 @@ import { DiagnosticApisView } from "./admin/DiagnosticApisView";
 import { AdminVehiclesView } from "./admin/AdminVehiclesView";
 import { AdminNotificationsView } from "./admin/AdminNotificationsView";
 import MessagesView from "./shared/MessagesView";
-import ServiceRequestsPanel from "./shared/ServiceRequestsPanel";
+import TicketsPanel from "./shared/TicketsPanel";
+import TicketArchiveView from "./admin/TicketArchiveView";
+import TicketSettingsView from "./admin/settings/TicketSettingsView";
 import VotingView from "./shared/VotingView";
 
 interface AdminPanelProps {
@@ -38,7 +40,9 @@ export default function AdminPanel({ tab, servers, logs, drivers = [], notificat
   if (tab === "admin_vehicles") return <AdminVehiclesView />;
   if (tab === "notifications") return <AdminNotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
-  if (tab === "service_requests") return <ServiceRequestsPanel role="admin" canResolve={true} canTakeWork={true} />;
+  if (tab === "service_requests") return <TicketsPanel role="admin" />;
+  if (tab === "ticket_archive") return <TicketArchiveView />;
+  if (tab === "ticket_settings") return <TicketSettingsView />;
   if (tab === "voting") return <VotingView currentUserId={currentUserId} />;
   return null;
 }
