@@ -175,9 +175,9 @@ def build_email_html(title, request_number, status_label, message, extra_rows=No
 </body></html>"""
 
 
-def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_number='', sr_title='', extra_rows=None):
+def _send_to_user(cur, user_id, notif_type, title, message, request_id, sr_number, sr_title, extra_rows, email_allowed, push_allowed):
     cur.execute(
-        "SELECT email, full_name, notify_email, notify_push, notify_on_status_change, "
+        "SELECT id, role, email, full_name, notify_email, notify_push, notify_on_status_change, "
         "notify_on_new_request, notify_on_comment, notify_on_forward "
         "FROM dashboard_users WHERE id = %s", (user_id,))
     user = cur.fetchone()
@@ -197,12 +197,6 @@ def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_nu
     if not user.get(pref_key, True):
         return
 
-    events = get_notif_events(cur)
-    event_key = NOTIF_TYPE_TO_EVENT.get(notif_type, 'on_status_change')
-    event_cfg = events.get(event_key, {})
-    email_allowed = event_cfg.get('email', True) if event_cfg else True
-    push_allowed = event_cfg.get('push', True) if event_cfg else True
-
     if email_allowed and user.get('notify_email') and user.get('email'):
         html = build_email_html(title, sr_number, sr_title, message, extra_rows)
         text = f"{title}\n\nЗаявка: {sr_number}\n{sr_title}\n\n{message}"
@@ -212,12 +206,65 @@ def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_nu
         send_push_to_user(cur, user_id, title, message, request_id)
 
 
+def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_number='', sr_title='', extra_rows=None):
+    events = get_notif_events(cur)
+    event_key = NOTIF_TYPE_TO_EVENT.get(notif_type, 'on_status_change')
+    event_cfg = events.get(event_key, {})
+    email_allowed = event_cfg.get('email', True) if isinstance(event_cfg, dict) else True
+    push_allowed = event_cfg.get('push', True) if isinstance(event_cfg, dict) else True
+    _send_to_user(cur, user_id, notif_type, title, message, request_id, sr_number, sr_title, extra_rows, email_allowed, push_allowed)
+
+
 def notify_creator_full(cur, request_id, notif_type, title, message, sr_number='', sr_title='', extra_rows=None):
     cur.execute("SELECT created_by_user_id FROM service_requests WHERE id = %s", (request_id,))
     row = cur.fetchone()
     if row and row['created_by_user_id']:
         notify_user_full(cur, row['created_by_user_id'], notif_type, title, message,
                          request_id, sr_number, sr_title, extra_rows)
+
+
+def notify_by_recipients(cur, request_id, notif_type, title, message, sr_number='', sr_title='', extra_rows=None, exclude_user_id=None):
+    """Отправляет уведомление согласно настройкам recipients из ticket_settings."""
+    events = get_notif_events(cur)
+    event_key = NOTIF_TYPE_TO_EVENT.get(notif_type, 'on_status_change')
+    event_cfg = events.get(event_key, {}) if isinstance(events, dict) else {}
+    if not isinstance(event_cfg, dict):
+        event_cfg = {}
+
+    email_allowed = event_cfg.get('email', True)
+    push_allowed = event_cfg.get('push', True)
+    recipients_cfg = event_cfg.get('recipients', {})
+    if not isinstance(recipients_cfg, dict):
+        recipients_cfg = {'creator': True, 'assignee': True}
+
+    cur.execute("""
+        SELECT created_by_user_id, assigned_to_user_id, target_role
+        FROM service_requests WHERE id = %s
+    """, (request_id,))
+    sr = cur.fetchone()
+    if not sr:
+        return
+
+    notified = set()
+
+    def _notify(uid):
+        if uid and uid != exclude_user_id and uid not in notified:
+            notified.add(uid)
+            _send_to_user(cur, uid, notif_type, title, message, request_id, sr_number, sr_title, extra_rows, email_allowed, push_allowed)
+
+    if recipients_cfg.get('creator') and sr['created_by_user_id']:
+        _notify(sr['created_by_user_id'])
+
+    if recipients_cfg.get('assignee') and sr['assigned_to_user_id']:
+        _notify(sr['assigned_to_user_id'])
+
+    role_keys = ['dispatcher', 'technician', 'mechanic', 'admin']
+    extra_roles = [r for r in role_keys if recipients_cfg.get(r)]
+    if extra_roles:
+        placeholders = ','.join(['%s'] * len(extra_roles))
+        cur.execute(f"SELECT id FROM dashboard_users WHERE role IN ({placeholders}) AND is_active = true", extra_roles)
+        for row in cur.fetchall():
+            _notify(row['id'])
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -466,12 +513,12 @@ def handle_requests(method, qs, event, cur, conn, user):
         log_action(cur, new['id'], user, 'created', None, 'new',
                    f'Заявка {req_number} создана', {'title': title, 'vehicle': vehicle_label})
 
-        if assigned_to:
-            notify_user_full(cur, assigned_to, 'new_request',
+        notify_by_recipients(cur, new['id'], 'new_request',
                              f'Новая заявка {req_number}',
                              f'{title} — от {user["name"]} ({ROLE_LABELS.get(user["role"], user["role"])})',
-                             new['id'], req_number, title,
-                             [('ТС', vehicle_label or '—'), ('Приоритет', prio)])
+                             req_number, title,
+                             [('ТС', vehicle_label or '—'), ('Приоритет', prio)],
+                             exclude_user_id=user['id'])
 
         conn.commit()
         return resp(201, {'id': new['id'], 'request_number': new['request_number']})
@@ -534,15 +581,15 @@ def handle_requests(method, qs, event, cur, conn, user):
                 extra.append(('Причина', body['cancellation_reason']))
             elif new_status == 'resolved' and body.get('resolution_note'):
                 extra.append(('Решение', body['resolution_note'][:120]))
-            notify_creator_full(cur, int(request_id), 'status_changed',
-                                f'Заявка {sr["request_number"]}: {status_label}',
-                                body.get('comment', f'Статус изменён на «{status_label}»'),
-                                sr['request_number'], sr['title'], extra)
-            if sr.get('assigned_to_user_id') and sr['assigned_to_user_id'] != sr.get('created_by_user_id'):
-                notify_user_full(cur, sr['assigned_to_user_id'], 'status_changed',
+            notif_type_for_status = {
+                'approved': 'approved', 'rejected': 'rejected', 'resolved': 'resolved',
+                'closed': 'closed', 'cancelled': 'cancelled', 'needs_clarification': 'needs_clarification',
+            }.get(new_status, 'status_changed')
+            notify_by_recipients(cur, int(request_id), notif_type_for_status,
                                  f'Заявка {sr["request_number"]}: {status_label}',
                                  body.get('comment', f'Статус изменён на «{status_label}»'),
-                                 int(request_id), sr['request_number'], sr['title'], extra)
+                                 sr['request_number'], sr['title'], extra,
+                                 exclude_user_id=user['id'])
 
         if sets:
             sets.append("updated_at = NOW()")
@@ -585,16 +632,11 @@ def handle_comments(method, qs, event, cur, conn, user):
         cur.execute("SELECT created_by_user_id, assigned_to_user_id, request_number FROM service_requests WHERE id = %s", (int(request_id),))
         sr = cur.fetchone()
         if sr:
-            targets = set()
-            if sr['created_by_user_id'] and sr['created_by_user_id'] != user['id']:
-                targets.add(sr['created_by_user_id'])
-            if sr['assigned_to_user_id'] and sr['assigned_to_user_id'] != user['id']:
-                targets.add(sr['assigned_to_user_id'])
-            for uid in targets:
-                notify_user_full(cur, uid, 'new_comment',
+            notify_by_recipients(cur, int(request_id), 'new_comment',
                                  f'Комментарий к заявке {sr["request_number"]}',
                                  f'{user["name"]}: {message[:120]}',
-                                 int(request_id), sr['request_number'], sr.get('title', ''))
+                                 sr['request_number'], sr.get('title', ''),
+                                 exclude_user_id=user['id'])
 
         log_action(cur, int(request_id), user, 'comment_added', comment=message)
         conn.commit()
@@ -641,19 +683,12 @@ def handle_forward(method, event, cur, conn, user):
                f'Переадресовано: {role_labels.get(user["role"], user["role"])} → {role_labels.get(to_role, to_role)}. {message}',
                {'from_role': user['role'], 'to_role': to_role})
 
-    fwd_msg_creator = f'Ваша заявка переадресована роли «{ROLE_LABELS.get(to_role, to_role)}». {message}'
-    notify_creator_full(cur, int(request_id), 'forwarded',
-                        f'Заявка {sr["request_number"]} переадресована',
-                        fwd_msg_creator, sr['request_number'], sr.get('title', ''),
-                        [('Переадресовано', ROLE_LABELS.get(to_role, to_role)),
-                         ('Кем', user['name'])])
-
-    if new_assigned:
-        fwd_msg_exec = f'Заявка от {user["name"]} ({ROLE_LABELS.get(user["role"], user["role"])}). {message}'
-        notify_user_full(cur, new_assigned, 'forwarded_to_you',
-                         f'Новая заявка {sr["request_number"]} переадресована вам',
-                         fwd_msg_exec, int(request_id), sr['request_number'], sr.get('title', ''),
-                         [('От', user['name']), ('Роль', ROLE_LABELS.get(user['role'], user['role']))])
+    fwd_msg = f'Заявка переадресована роли «{ROLE_LABELS.get(to_role, to_role)}» от {user["name"]}. {message}'
+    notify_by_recipients(cur, int(request_id), 'forwarded',
+                         f'Заявка {sr["request_number"]} переадресована',
+                         fwd_msg, sr['request_number'], sr.get('title', ''),
+                         [('Переадресовано', ROLE_LABELS.get(to_role, to_role)), ('Кем', user['name'])],
+                         exclude_user_id=user['id'])
 
     if message:
         cur.execute("""

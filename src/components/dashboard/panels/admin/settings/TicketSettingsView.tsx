@@ -126,20 +126,25 @@ export default function TicketSettingsView() {
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testPushResult, setTestPushResult] = useState<{ ok: boolean; sent?: number; error?: string } | null>(null);
 
-  const [notifEvents, setNotifEvents] = useState({
-    on_new_request:         { email: true,  push: true,  label: "Новая заявка назначена исполнителю",      icon: "FilePlus" },
-    on_status_change:       { email: true,  push: true,  label: "Смена статуса заявки",                   icon: "RefreshCw" },
-    on_comment:             { email: true,  push: true,  label: "Новый комментарий / уточнение",          icon: "MessageSquare" },
-    on_forward:             { email: true,  push: true,  label: "Переадресация заявки",                   icon: "Forward" },
-    on_approved:            { email: true,  push: true,  label: "Заявка одобрена",                        icon: "CheckCircle2" },
-    on_rejected:            { email: true,  push: true,  label: "Заявка отклонена (с причиной)",          icon: "XCircle" },
-    on_resolved:            { email: true,  push: true,  label: "Заявка решена",                          icon: "BadgeCheck" },
-    on_closed:              { email: false, push: false, label: "Заявка закрыта автором",                 icon: "Archive" },
-    on_cancelled:           { email: true,  push: true,  label: "Заявка отменена (с причиной)",           icon: "Ban" },
-    on_deadline_warning:    { email: true,  push: true,  label: "Предупреждение о приближении дедлайна",  icon: "Clock" },
-    on_needs_clarification: { email: true,  push: true,  label: "Требуется уточнение",                   icon: "HelpCircle" },
+  type NotifRecipients = { creator: boolean; assignee: boolean; dispatcher: boolean; technician: boolean; mechanic: boolean; admin: boolean };
+  type NotifEvent = { email: boolean; push: boolean; label: string; icon: string; recipients: NotifRecipients };
+  const DEFAULT_RECIPIENTS: NotifRecipients = { creator: true, assignee: true, dispatcher: false, technician: false, mechanic: false, admin: false };
+
+  const [notifEvents, setNotifEvents] = useState<Record<string, NotifEvent>>({
+    on_new_request:         { email: true,  push: true,  label: "Новая заявка назначена исполнителю",     icon: "FilePlus",      recipients: { ...DEFAULT_RECIPIENTS, assignee: true } },
+    on_status_change:       { email: true,  push: true,  label: "Смена статуса заявки",                  icon: "RefreshCw",     recipients: { ...DEFAULT_RECIPIENTS } },
+    on_comment:             { email: true,  push: true,  label: "Новый комментарий / уточнение",         icon: "MessageSquare", recipients: { ...DEFAULT_RECIPIENTS } },
+    on_forward:             { email: true,  push: true,  label: "Переадресация заявки",                  icon: "Forward",       recipients: { ...DEFAULT_RECIPIENTS } },
+    on_approved:            { email: true,  push: true,  label: "Заявка одобрена",                       icon: "CheckCircle2",  recipients: { ...DEFAULT_RECIPIENTS } },
+    on_rejected:            { email: true,  push: true,  label: "Заявка отклонена (с причиной)",         icon: "XCircle",       recipients: { ...DEFAULT_RECIPIENTS } },
+    on_resolved:            { email: true,  push: true,  label: "Заявка решена",                         icon: "BadgeCheck",    recipients: { ...DEFAULT_RECIPIENTS } },
+    on_closed:              { email: false, push: false, label: "Заявка закрыта автором",                icon: "Archive",       recipients: { ...DEFAULT_RECIPIENTS, assignee: true } },
+    on_cancelled:           { email: true,  push: true,  label: "Заявка отменена (с причиной)",          icon: "Ban",           recipients: { ...DEFAULT_RECIPIENTS } },
+    on_deadline_warning:    { email: true,  push: true,  label: "Предупреждение о приближении дедлайна", icon: "Clock",         recipients: { ...DEFAULT_RECIPIENTS } },
+    on_needs_clarification: { email: true,  push: true,  label: "Требуется уточнение",                  icon: "HelpCircle",    recipients: { ...DEFAULT_RECIPIENTS } },
   });
   const [savingNotifEvents, setSavingNotifEvents] = useState(false);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
 
   const showToast = useCallback((text: string, type: "success" | "error") => {
     const id = ++toastCounter;
@@ -205,8 +210,15 @@ export default function TicketSettingsView() {
           const parsed = typeof s.notif_events === "string" ? JSON.parse(s.notif_events) : s.notif_events;
           setNotifEvents((prev) => {
             const next = { ...prev };
-            for (const k of Object.keys(prev) as (keyof typeof prev)[]) {
-              if (parsed[k]) next[k] = { ...next[k], ...parsed[k] };
+            for (const k of Object.keys(prev)) {
+              if (parsed[k]) {
+                next[k] = {
+                  ...next[k],
+                  email: parsed[k].email ?? next[k].email,
+                  push: parsed[k].push ?? next[k].push,
+                  recipients: parsed[k].recipients ? { ...next[k].recipients, ...parsed[k].recipients } : next[k].recipients,
+                };
+              }
             }
             return next;
           });
@@ -366,9 +378,9 @@ export default function TicketSettingsView() {
 
   const handleSaveNotifEvents = async () => {
     setSavingNotifEvents(true);
-    const payload: Record<string, { email: boolean; push: boolean }> = {};
+    const payload: Record<string, { email: boolean; push: boolean; recipients: Record<string, boolean> }> = {};
     for (const [k, v] of Object.entries(notifEvents)) {
-      payload[k] = { email: v.email, push: v.push };
+      payload[k] = { email: v.email, push: v.push, recipients: v.recipients };
     }
     await saveSetting("notif_events", payload);
     setSavingNotifEvents(false);
@@ -1026,66 +1038,120 @@ export default function TicketSettingsView() {
                   <Icon name="ListChecks" className="w-4 h-4 text-cyan-500" />
                   <span className="text-sm font-semibold text-foreground">Какие события отправлять</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium pr-1">
                   <span className="w-16 text-center">Email</span>
                   <span className="w-16 text-center">Push</span>
+                  <span className="w-28 text-center">Кому</span>
                 </div>
               </div>
 
               <div className="divide-y divide-border">
-                {(Object.entries(notifEvents) as [keyof typeof notifEvents, typeof notifEvents[keyof typeof notifEvents]][]).map(([key, ev]) => (
-                  <div key={key} className="flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <Icon name={ev.icon} className="w-3.5 h-3.5 text-muted-foreground" />
+                {Object.entries(notifEvents).map(([key, ev]) => {
+                  const activeCount = Object.values(ev.recipients).filter(Boolean).length;
+                  const recipientLabels: Record<string, string> = { creator: "Автор", assignee: "Исполнитель", dispatcher: "Диспетчер", technician: "Технолог", mechanic: "Механик", admin: "Администратор" };
+                  const recipientColors: Record<string, string> = { creator: "bg-blue-500/15 text-blue-400", assignee: "bg-green-500/15 text-green-400", dispatcher: "bg-orange-500/15 text-orange-400", technician: "bg-indigo-500/15 text-indigo-400", mechanic: "bg-amber-500/15 text-amber-400", admin: "bg-red-500/15 text-red-400" };
+                  const isExpanded = expandedEvent === key;
+
+                  return (
+                    <div key={key} className="border-b border-border last:border-0">
+                      {/* Основная строка */}
+                      <div className="flex items-center px-4 py-3 hover:bg-muted/20 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                            <Icon name={ev.icon} className="w-3.5 h-3.5 text-muted-foreground" />
+                          </div>
+                          <span className="text-sm text-foreground truncate">{ev.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-3">
+                          {/* Email */}
+                          <div className="w-16 flex justify-center">
+                            <button role="switch" aria-checked={ev.email}
+                              onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], email: !prev[key].email } }))}
+                              className={`relative w-9 h-5 rounded-full transition-colors ${ev.email ? "bg-blue-500" : "bg-muted-foreground/30"}`}>
+                              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.email ? "translate-x-4" : "translate-x-0"}`} />
+                            </button>
+                          </div>
+                          {/* Push */}
+                          <div className="w-16 flex justify-center">
+                            <button role="switch" aria-checked={ev.push}
+                              onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], push: !prev[key].push } }))}
+                              className={`relative w-9 h-5 rounded-full transition-colors ${ev.push ? "bg-purple-500" : "bg-muted-foreground/30"}`}>
+                              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.push ? "translate-x-4" : "translate-x-0"}`} />
+                            </button>
+                          </div>
+                          {/* Кому — кнопка раскрытия */}
+                          <div className="w-28 flex justify-center">
+                            <button
+                              onClick={() => setExpandedEvent(isExpanded ? null : key)}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${isExpanded ? "bg-cyan-500/15 text-cyan-400" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+                            >
+                              <Icon name="Users" className="w-3 h-3 shrink-0" />
+                              <span>{activeCount > 0 ? `${activeCount} роли` : "Никто"}</span>
+                              <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} className="w-3 h-3 shrink-0" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-sm text-foreground truncate">{ev.label}</span>
+
+                      {/* Раскрывающаяся панель получателей */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 bg-muted/10">
+                          <div className="rounded-xl border border-border bg-card overflow-hidden">
+                            <div className="px-3 py-2 border-b border-border bg-muted/30">
+                              <p className="text-xs font-medium text-muted-foreground">Кому отправлять уведомление о событии «{ev.label}»</p>
+                            </div>
+                            <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {(Object.keys(ev.recipients) as (keyof NotifRecipients)[]).map(role => (
+                                <label key={role} className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={ev.recipients[role]}
+                                    onChange={() => setNotifEvents(prev => ({
+                                      ...prev,
+                                      [key]: { ...prev[key], recipients: { ...prev[key].recipients, [role]: !prev[key].recipients[role] } }
+                                    }))}
+                                    className="w-4 h-4 rounded accent-primary cursor-pointer"
+                                  />
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${recipientColors[role] || "bg-muted text-muted-foreground"}`}>
+                                    {recipientLabels[role]}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                            <div className="px-3 py-2 border-t border-border bg-muted/20 flex items-center gap-2">
+                              <button onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], recipients: { creator: true, assignee: true, dispatcher: true, technician: true, mechanic: true, admin: true } } }))}
+                                className="h-6 px-2.5 rounded text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">Все</button>
+                              <button onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], recipients: { creator: false, assignee: false, dispatcher: false, technician: false, mechanic: false, admin: false } } }))}
+                                className="h-6 px-2.5 rounded text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">Никто</button>
+                              <button onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], recipients: { ...DEFAULT_RECIPIENTS } } }))}
+                                className="h-6 px-2.5 rounded text-[11px] font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">По умолчанию</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                      {/* Email toggle */}
-                      <div className="w-16 flex justify-center">
-                        <button
-                          role="switch"
-                          aria-checked={ev.email}
-                          onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], email: !prev[key].email } }))}
-                          className={`relative w-9 h-5 rounded-full transition-colors ${ev.email ? "bg-blue-500" : "bg-muted-foreground/30"}`}
-                        >
-                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.email ? "translate-x-4" : "translate-x-0"}`} />
-                        </button>
-                      </div>
-                      {/* Push toggle */}
-                      <div className="w-16 flex justify-center">
-                        <button
-                          role="switch"
-                          aria-checked={ev.push}
-                          onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], push: !prev[key].push } }))}
-                          className={`relative w-9 h-5 rounded-full transition-colors ${ev.push ? "bg-purple-500" : "bg-muted-foreground/30"}`}
-                        >
-                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.push ? "translate-x-4" : "translate-x-0"}`} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="px-4 py-3 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500/80 inline-block" />Email</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500/80 inline-block" />Push</span>
+                  <span className="flex items-center gap-1.5"><Icon name="Users" className="w-3 h-3" />Получатели</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: true, push: true }])) as typeof prev)}
+                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: true, push: true }])))}
                     className="h-7 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    Все
+                    Всё включить
                   </button>
                   <button
-                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: false, push: false }])) as typeof prev)}
+                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: false, push: false }])))}
                     className="h-7 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    Ничего
+                    Всё выключить
                   </button>
                   <button
                     onClick={handleSaveNotifEvents}
