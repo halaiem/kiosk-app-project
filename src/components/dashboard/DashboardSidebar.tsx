@@ -268,14 +268,33 @@ export default function DashboardSidebar({
           }} />
       )}
       {/* BG pattern layer */}
-      {!collapsed && sidebarCfg.bgPattern && PATTERNS_CSS[sidebarCfg.bgPattern] && (
+      {!collapsed && sidebarCfg.bgPattern && (PATTERNS_CSS[sidebarCfg.bgPattern] || sidebarCfg.bgPattern.startsWith('data:')) && (
         <div className="absolute inset-0 pointer-events-none z-0"
-          style={{
+          style={sidebarCfg.bgPattern.startsWith('data:') ? {
+            backgroundImage: `url(${sidebarCfg.bgPattern})`,
+            backgroundSize: `${sidebarCfg.bgPatternScale * 60}px`,
+            backgroundRepeat: 'repeat',
+            opacity: sidebarCfg.bgPatternOpacity,
+          } : {
             backgroundImage: PATTERNS_CSS[sidebarCfg.bgPattern],
             backgroundSize: `${sidebarCfg.bgPatternScale * 20}px ${sidebarCfg.bgPatternScale * 20}px`,
             opacity: sidebarCfg.bgPatternOpacity,
             color: sidebarCfg.bgPatternColor,
           }} />
+      )}
+      {/* Overlay image / second logo */}
+      {!collapsed && sidebarCfg.overlayImage && (
+        <div className="absolute pointer-events-none z-0"
+          style={{
+            left: `${sidebarCfg.overlayX}%`,
+            top: `${sidebarCfg.overlayY}%`,
+            transform: 'translate(-50%, -50%)',
+            width: sidebarCfg.overlaySize,
+            height: sidebarCfg.overlaySize,
+            opacity: sidebarCfg.overlayOpacity,
+          }}>
+          <img src={sidebarCfg.overlayImage} alt="" className="w-full h-full object-contain" />
+        </div>
       )}
       {/* Header */}
       <div className={`relative z-10 flex items-center px-3 ${collapsed ? "justify-center pt-4 pb-3" : "justify-between"}`}

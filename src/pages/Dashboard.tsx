@@ -132,7 +132,21 @@ export default function Dashboard() {
   const isLight = settings.dashboardTheme === 'light';
 
   return (
-    <div className="flex h-full bg-background text-foreground overflow-hidden">
+    <div className="flex h-full bg-background text-foreground overflow-hidden relative">
+      {/* Dashboard background image */}
+      {settings.dashboardBgImage && (
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: `url(${settings.dashboardBgImage})`,
+            backgroundSize: `${(settings.dashboardBgImageScale ?? 1) * 100}%`,
+            backgroundPosition: 'center',
+            backgroundRepeat: settings.dashboardBgImageFixed ? 'no-repeat' : 'repeat',
+            backgroundAttachment: settings.dashboardBgImageFixed ? 'fixed' : 'scroll',
+            opacity: settings.dashboardBgImageOpacity ?? 0.08,
+          }}
+        />
+      )}
       <DashboardSidebar
         user={activeUser}
         activeTab={activeTab}

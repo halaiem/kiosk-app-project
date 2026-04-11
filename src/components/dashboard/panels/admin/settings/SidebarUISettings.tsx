@@ -125,12 +125,13 @@ function Slider({ label, value, min, max, step = 1, unit = '', onChange }: {
 }
 
 export default function SidebarUISettings() {
-  const { settings, updateSidebarConfig, updateSettings } = useAppSettings();
+  const { settings, updateSidebarConfig } = useAppSettings();
   const [role, setRole] = useState<SidebarRoleKey>('dispatcher');
   const [saved, setSaved] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const patternSvgRef = useRef<HTMLInputElement>(null);
+  const overlayImgRef = useRef<HTMLInputElement>(null);
 
   const configKey = SIDEBAR_CONFIG_KEY[role] as keyof typeof settings;
   const cfg = settings[configKey] as SidebarConfig;
@@ -172,16 +173,12 @@ export default function SidebarUISettings() {
     setDragIndex(null); setDragOver(null);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => upd({ bgImage: reader.result as string });
-    reader.readAsDataURL(file);
-  };
+  const readFile = (file: File): Promise<string> => new Promise((res, rej) => {
+    const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file);
+  });
 
-  const patternCss = cfg.bgPattern
-    ? PATTERNS.find(p => p.key === cfg.bgPattern)?.svg.replace('%23COLOR', cfg.bgPatternColor.replace('#', '')) ?? null
+  const patternCss = cfg.bgPattern && !cfg.bgPattern.startsWith('data:')
+    ? (PATTERNS.find(p => p.key === cfg.bgPattern)?.svg.replace('%23COLOR', cfg.bgPatternColor.replace('#', '')) ?? null)
     : null;
 
   return (
@@ -229,32 +226,10 @@ export default function SidebarUISettings() {
           </div>
         </div>
 
-        {/* CENTER: Background */}
+        {/* CENTER: Pattern + Overlay */}
         <div className="space-y-4">
-          <div className="bg-muted/30 rounded-xl p-4 space-y-4 border border-border">
-            <h4 className="text-sm font-semibold flex items-center gap-2"><Icon name="Image" size={14} />Фоновое изображение</h4>
-            <div className="flex items-center gap-2">
-              <button onClick={() => imageInputRef.current?.click()}
-                className="flex-1 py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
-                <Icon name="Upload" size={13} />Загрузить картинку
-              </button>
-              {cfg.bgImage && (
-                <button onClick={() => upd({ bgImage: null })} title="Удалить"
-                  className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center">
-                  <Icon name="X" size={13} />
-                </button>
-              )}
-            </div>
-            <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            {cfg.bgImage && (
-              <div className="relative h-20 rounded-lg overflow-hidden border border-border">
-                <img src={cfg.bgImage} alt="" className="w-full h-full object-cover" />
-              </div>
-            )}
-            <Slider label="Масштаб" value={Math.round(cfg.bgImageScale * 100)} min={50} max={200} unit="%" onChange={v => upd({ bgImageScale: v / 100 })} />
-            <Slider label="Прозрачность" value={Math.round(cfg.bgImageOpacity * 100)} min={0} max={100} unit="%" onChange={v => upd({ bgImageOpacity: v / 100 })} />
-          </div>
 
+          {/* Pattern block */}
           <div className="bg-muted/30 rounded-xl p-4 space-y-4 border border-border">
             <h4 className="text-sm font-semibold flex items-center gap-2"><Icon name="Grid3x3" size={14} />Паттерн фона</h4>
             <div className="grid grid-cols-3 gap-1.5">
@@ -268,16 +243,79 @@ export default function SidebarUISettings() {
                   {p.label}
                 </button>
               ))}
+              {/* SVG custom pattern */}
+              <button
+                onClick={() => patternSvgRef.current?.click()}
+                className={`py-1.5 rounded-lg text-[10px] border transition-all flex items-center justify-center gap-1 ${cfg.bgPattern?.startsWith('data:') ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/50'}`}>
+                <Icon name="Upload" size={10} />SVG
+              </button>
+              <input ref={patternSvgRef} type="file" accept=".svg,image/svg+xml" className="hidden"
+                onChange={async e => {
+                  const f = e.target.files?.[0]; e.target.value = '';
+                  if (!f) return;
+                  upd({ bgPattern: await readFile(f) });
+                }} />
             </div>
+            {/* Custom SVG preview */}
+            {cfg.bgPattern?.startsWith('data:') && (
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded border border-border overflow-hidden bg-muted/50"
+                  style={{ backgroundImage: `url(${cfg.bgPattern})`, backgroundSize: '20px', backgroundRepeat: 'repeat' }} />
+                <span className="text-xs text-muted-foreground flex-1">Свой SVG-паттерн</span>
+                <button onClick={() => upd({ bgPattern: null })} className="w-7 h-7 rounded bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20">
+                  <Icon name="X" size={12} />
+                </button>
+              </div>
+            )}
             {cfg.bgPattern && (
               <>
-                <div className="flex items-center gap-3">
-                  <label className="text-xs text-muted-foreground">Цвет паттерна</label>
-                  <input type="color" value={cfg.bgPatternColor} onChange={e => upd({ bgPatternColor: e.target.value })}
-                    className="w-8 h-8 rounded-lg cursor-pointer border border-border" />
-                </div>
+                {!cfg.bgPattern.startsWith('data:') && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-muted-foreground">Цвет паттерна</label>
+                    <input type="color" value={cfg.bgPatternColor} onChange={e => upd({ bgPatternColor: e.target.value })}
+                      className="w-8 h-8 rounded-lg cursor-pointer border border-border" />
+                  </div>
+                )}
                 <Slider label="Масштаб паттерна" value={Math.round(cfg.bgPatternScale * 100)} min={25} max={300} unit="%" onChange={v => upd({ bgPatternScale: v / 100 })} />
                 <Slider label="Прозрачность" value={Math.round(cfg.bgPatternOpacity * 100)} min={0} max={100} unit="%" onChange={v => upd({ bgPatternOpacity: v / 100 })} />
+              </>
+            )}
+          </div>
+
+          {/* Overlay / second logo block */}
+          <div className="bg-muted/30 rounded-xl p-4 space-y-4 border border-border">
+            <h4 className="text-sm font-semibold flex items-center gap-2"><Icon name="Layers" size={14} />Второй логотип / оверлей</h4>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">SVG или изображение поверх sidebar. Можно двигать по горизонтали и вертикали.</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => overlayImgRef.current?.click()}
+                className="flex-1 py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors flex items-center justify-center gap-2">
+                <Icon name="Upload" size={13} />Загрузить SVG / картинку
+              </button>
+              {cfg.overlayImage && (
+                <button onClick={() => upd({ overlayImage: null })} title="Удалить"
+                  className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 flex items-center justify-center">
+                  <Icon name="X" size={13} />
+                </button>
+              )}
+            </div>
+            <input ref={overlayImgRef} type="file" accept="image/*,.svg" className="hidden"
+              onChange={async e => {
+                const f = e.target.files?.[0]; e.target.value = '';
+                if (!f) return;
+                upd({ overlayImage: await readFile(f) });
+              }} />
+            {cfg.overlayImage && (
+              <div className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg border border-border">
+                <img src={cfg.overlayImage} alt="" className="w-10 h-10 object-contain" />
+                <span className="text-xs text-muted-foreground">Загружено</span>
+              </div>
+            )}
+            {cfg.overlayImage && (
+              <>
+                <Slider label="Размер" value={cfg.overlaySize ?? 80} min={20} max={240} unit="px" onChange={v => upd({ overlaySize: v })} />
+                <Slider label="Позиция X (лево ↔ право)" value={cfg.overlayX ?? 50} min={0} max={100} unit="%" onChange={v => upd({ overlayX: v })} />
+                <Slider label="Позиция Y (верх ↕ низ)" value={cfg.overlayY ?? 50} min={0} max={100} unit="%" onChange={v => upd({ overlayY: v })} />
+                <Slider label="Прозрачность" value={Math.round((cfg.overlayOpacity ?? 0.15) * 100)} min={0} max={100} unit="%" onChange={v => upd({ overlayOpacity: v / 100 })} />
               </>
             )}
           </div>
@@ -340,14 +378,35 @@ export default function SidebarUISettings() {
                 }} />
             )}
             {/* BG pattern */}
-            {patternCss && (
+            {(patternCss || cfg.bgPattern?.startsWith('data:')) && (
               <div className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundImage: patternCss,
+                style={cfg.bgPattern?.startsWith('data:') ? {
+                  backgroundImage: `url(${cfg.bgPattern})`,
+                  backgroundSize: `${cfg.bgPatternScale * 20}px`,
+                  backgroundRepeat: 'repeat',
+                  opacity: cfg.bgPatternOpacity,
+                  zIndex: 1,
+                } : {
+                  backgroundImage: patternCss!,
                   backgroundSize: `${cfg.bgPatternScale * 20}px`,
                   opacity: cfg.bgPatternOpacity,
                   zIndex: 1,
                 }} />
+            )}
+            {/* Overlay image */}
+            {cfg.overlayImage && (
+              <div className="absolute pointer-events-none"
+                style={{
+                  left: `${cfg.overlayX ?? 50}%`,
+                  top: `${cfg.overlayY ?? 50}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: cfg.overlaySize ?? 80,
+                  height: cfg.overlaySize ?? 80,
+                  opacity: cfg.overlayOpacity ?? 0.15,
+                  zIndex: 2,
+                }}>
+                <img src={cfg.overlayImage} alt="" className="w-full h-full object-contain" />
+              </div>
             )}
             {/* Header */}
             <div className="relative z-10 px-3 flex items-center gap-2.5 border-b border-white/10"

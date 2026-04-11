@@ -83,14 +83,20 @@ export interface SidebarConfig {
   logoSize: number;        // px, default 32
   navItemHeight: number;   // px, default 36
   navFontSize: number;     // px, default 13
-  bgImage: string | null;  // URL or null
+  bgImage: string | null;  // URL or null (sidebar background)
   bgImageScale: number;    // 1.0 = 100%
   bgImageOpacity: number;  // 0-1
-  bgPattern: string | null; // pattern name
+  bgPattern: string | null; // pattern name or custom SVG data-url
   bgPatternScale: number;
   bgPatternOpacity: number;
   bgPatternColor: string;
   navOrder: SidebarNavItem[]; // custom order/visibility
+  // second logo / overlay inside sidebar
+  overlayImage: string | null; // SVG or image data-url
+  overlaySize: number;         // px, default 80
+  overlayX: number;            // % from left, default 50
+  overlayY: number;            // % from top, default 50
+  overlayOpacity: number;      // 0-1, default 0.15
 }
 
 export function defaultSidebarConfig(): SidebarConfig {
@@ -109,6 +115,11 @@ export function defaultSidebarConfig(): SidebarConfig {
     bgPatternOpacity: 0.08,
     bgPatternColor: '#ffffff',
     navOrder: [],
+    overlayImage: null,
+    overlaySize: 80,
+    overlayX: 50,
+    overlayY: 50,
+    overlayOpacity: 0.15,
   };
 }
 
@@ -157,6 +168,12 @@ export interface AppSettings {
   brandColors: BrandColors;
   brandFont: BrandFont | null;
   fontSize: FontSize;
+
+  /* dashboard background */
+  dashboardBgImage: string | null;
+  dashboardBgImageScale: number;
+  dashboardBgImageOpacity: number;
+  dashboardBgImageFixed: boolean;
 
   /* sidebar UI per role */
   sidebarDispatcher: SidebarConfig;
@@ -256,6 +273,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   brandColors: { ...DEFAULT_BRAND_COLORS },
   brandFont: null,
   fontSize: 'md',
+
+  dashboardBgImage: null,
+  dashboardBgImageScale: 1,
+  dashboardBgImageOpacity: 0.08,
+  dashboardBgImageFixed: true,
 
   sidebarDispatcher: defaultSidebarConfig(),
   sidebarTechnician: defaultSidebarConfig(),
