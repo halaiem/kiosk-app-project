@@ -11,12 +11,14 @@ import RatingsView from "./settings/RatingsView";
 import NotificationDesignSettings from "./settings/NotificationDesignSettings";
 import MessengerSettings from "./settings/MessengerSettings";
 import TicketSettingsView from "./settings/TicketSettingsView";
+import SidebarUISettings from "./settings/SidebarUISettings";
 
 const GeoTargetingSettings = lazy(() => import("./settings/GeoTargetingSettings"));
 
 type SettingsTab =
   | 'system'
   | 'interface'
+  | 'sidebar_ui'
   | 'vehicle_icons'
   | 'request_routing'
   | 'chat_visibility'
@@ -47,6 +49,7 @@ export function SettingsView() {
         <div className="flex flex-nowrap gap-2">
           {([
             { key: 'interface', label: 'Настройки интерфейса', icon: 'Palette' },
+            { key: 'sidebar_ui', label: 'Sidebar UI', icon: 'PanelLeft' },
             { key: 'system', label: 'Система и безопасность', icon: 'Shield' },
             { key: 'vehicle_icons', label: 'Иконки транспорта', icon: 'Bus' },
             { key: 'request_routing', label: 'Маршрутизация заявок', icon: 'Route' },
@@ -76,6 +79,7 @@ export function SettingsView() {
       </div>
 
       {settingsTab === 'interface' && <InterfaceSettingsView />}
+      {settingsTab === 'sidebar_ui' && <SidebarUISettings />}
       {settingsTab === 'system' && <SystemSettingsView />}
       {settingsTab === 'vehicle_icons' && <VehicleIconSettings />}
       {settingsTab === 'request_routing' && <RequestRoutingSettings />}

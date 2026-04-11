@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab, EngineerTab, ManagerTab } from "@/types/dashboard";
-import { useAppSettings, type FeatureFlags, type AppSettings } from '@/context/AppSettingsContext';
+import { useAppSettings, type FeatureFlags, type AppSettings, type SidebarRoleKey, type SidebarConfig, SIDEBAR_CONFIG_KEY, defaultSidebarConfig } from '@/context/AppSettingsContext';
 import { fetchDriverUnread } from '@/api/chatApi';
 import NotificationPreferences from "./NotificationPreferences";
 
@@ -188,11 +188,36 @@ export default function DashboardSidebar({
   const navItems = NAV_BY_ROLE[user.role];
   const featureKey = `features${user.role.charAt(0).toUpperCase() + user.role.slice(1)}` as keyof AppSettings;
   const roleFeatures = (settings[featureKey] as FeatureFlags | undefined);
-  const filteredNav = navItems.filter(item => {
-    if (item.tab === 'tasks' && roleFeatures && roleFeatures.showTasks === false) return false;
-    if (item.tab === 'depot_park' && roleFeatures && roleFeatures.showDepot === false) return false;
-    return true;
-  });
+
+  // Sidebar UI config for this role
+  const sidebarCfgKey = SIDEBAR_CONFIG_KEY[user.role as SidebarRoleKey];
+  const sidebarCfg: SidebarConfig = sidebarCfgKey
+    ? ({ ...defaultSidebarConfig(), ...(settings[sidebarCfgKey as keyof AppSettings] as Partial<SidebarConfig> | undefined) })
+    : defaultSidebarConfig();
+
+  // Nav order from config (if set), else default filtered list
+  const hasCustomOrder = sidebarCfg.navOrder && sidebarCfg.navOrder.length > 0;
+  const filteredNav = hasCustomOrder
+    ? sidebarCfg.navOrder!.filter(item => {
+        if (item.hidden) return false;
+        if (item.tab === 'tasks' && roleFeatures && roleFeatures.showTasks === false) return false;
+        if (item.tab === 'depot_park' && roleFeatures && roleFeatures.showDepot === false) return false;
+        return true;
+      })
+    : navItems.filter(item => {
+        if (item.tab === 'tasks' && roleFeatures && roleFeatures.showTasks === false) return false;
+        if (item.tab === 'depot_park' && roleFeatures && roleFeatures.showDepot === false) return false;
+        return true;
+      });
+
+  const PATTERNS_CSS: Record<string, string> = {
+    dots: `radial-gradient(circle, currentColor 1.5px, transparent 1.5px)`,
+    grid: `linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)`,
+    diagonal: `repeating-linear-gradient(45deg, currentColor, currentColor 1px, transparent 1px, transparent 14px)`,
+    crosshatch: `repeating-linear-gradient(0deg, currentColor, currentColor 1px, transparent 1px, transparent 14px), repeating-linear-gradient(90deg, currentColor, currentColor 1px, transparent 1px, transparent 14px)`,
+    waves: `repeating-linear-gradient(-45deg, transparent, transparent 4px, currentColor 4px, currentColor 5px)`,
+    hexagons: `radial-gradient(circle at 50% 50%, currentColor 2px, transparent 2px)`,
+  };
 
   const canSeeDriverUnread =
     user.role === 'dispatcher' || user.role === 'admin' || user.role === 'technician' || user.role === 'engineer' || user.role === 'manager';
@@ -224,21 +249,42 @@ export default function DashboardSidebar({
   return (
     <>
     <div
-      className="h-full flex flex-col shrink-0 transition-all duration-300"
+      className="h-full flex flex-col shrink-0 transition-all duration-300 relative overflow-hidden"
       style={{
-        width: collapsed ? "60px" : "240px",
+        width: collapsed ? "60px" : `${sidebarCfg.width}px`,
         backgroundColor: "hsl(var(--sidebar-background))",
         color: "hsl(var(--sidebar-foreground))",
       }}
     >
+      {/* BG image layer */}
+      {!collapsed && sidebarCfg.bgImage && (
+        <div className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: `url(${sidebarCfg.bgImage})`,
+            backgroundSize: `${sidebarCfg.bgImageScale * 100}%`,
+            backgroundPosition: 'center top',
+            backgroundRepeat: 'no-repeat',
+            opacity: sidebarCfg.bgImageOpacity,
+          }} />
+      )}
+      {/* BG pattern layer */}
+      {!collapsed && sidebarCfg.bgPattern && PATTERNS_CSS[sidebarCfg.bgPattern] && (
+        <div className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: PATTERNS_CSS[sidebarCfg.bgPattern],
+            backgroundSize: `${sidebarCfg.bgPatternScale * 20}px ${sidebarCfg.bgPatternScale * 20}px`,
+            opacity: sidebarCfg.bgPatternOpacity,
+            color: sidebarCfg.bgPatternColor,
+          }} />
+      )}
       {/* Header */}
-      <div className={`flex items-center pt-4 pb-3 px-3 ${collapsed ? "justify-center" : "justify-between"}`}
-        style={{ borderBottom: "1px solid hsl(var(--sidebar-border))" }}
+      <div className={`relative z-10 flex items-center px-3 ${collapsed ? "justify-center pt-4 pb-3" : "justify-between"}`}
+        style={{ borderBottom: "1px solid hsl(var(--sidebar-border))", minHeight: collapsed ? undefined : sidebarCfg.headerHeight }}
       >
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
-              style={{ backgroundColor: 'hsl(24 88% 49%)' }}>
+            <div className="rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+              style={{ width: sidebarCfg.logoSize, height: sidebarCfg.logoSize, backgroundColor: 'hsl(24 88% 49%)' }}>
               {settings.carrierLogo ? (
                 <img src={settings.carrierLogo} alt={settings.carrierName} className="w-6 h-6 object-contain" />
               ) : (
@@ -269,7 +315,7 @@ export default function DashboardSidebar({
 
       {/* User info */}
       {!collapsed && (
-        <div className="mx-3 mt-3 mb-1 flex items-center gap-2.5 px-3 py-2 rounded-lg"
+        <div className="relative z-10 mx-3 mt-3 mb-1 flex items-center gap-2.5 px-3 py-2 rounded-lg"
           style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}>
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
             {user.name.charAt(0)}
@@ -290,7 +336,7 @@ export default function DashboardSidebar({
       )}
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+      <nav className="relative z-10 flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {filteredNav.map((item) => {
           const isActive = activeTab === item.tab;
           const baseCount = counts?.[item.tab] || 0;
@@ -306,8 +352,9 @@ export default function DashboardSidebar({
               <button
                 onClick={() => onTabChange(item.tab)}
                 title={collapsed ? item.label : undefined}
-                className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors relative
-                  ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"}
+                style={collapsed ? undefined : { minHeight: sidebarCfg.navItemHeight, fontSize: sidebarCfg.navFontSize }}
+                className={`w-full flex items-center rounded-lg font-medium transition-colors relative
+                  ${collapsed ? "justify-center px-0 py-2.5 text-sm" : "gap-3 px-3"}
                   ${isActive ? "text-white" : "opacity-70 hover:opacity-100"}`}
                 style={isActive ? { backgroundColor: "hsl(var(--sidebar-primary))" } : undefined}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
@@ -344,7 +391,7 @@ export default function DashboardSidebar({
       </nav>
 
       {/* Refresh + Logout + theme toggle */}
-      <div className="px-2 pb-4 pt-2 space-y-0.5" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
+      <div className="relative z-10 px-2 pb-4 pt-2 space-y-0.5" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
         {onReload && (
           <button
             onClick={handleReload}
