@@ -5,6 +5,7 @@ import { VehicleIssuesView } from "./dispatcher/VehicleIssuesView";
 import DashMessagesView from "./shared/MessagesView";
 import TicketsPanel from "./shared/TicketsPanel";
 import VotingView from "./shared/VotingView";
+import TasksView from "./shared/TasksView";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -93,6 +94,9 @@ export default function DispatcherPanel({
   }
   if (tab === "service_requests") {
     return (<>{criticalPopup}<TicketsPanel role="dispatcher" vehicles={vehicles} /></>);
+  }
+  if (tab === "tasks") {
+    return (<>{criticalPopup}<TasksView currentUserId={currentUserId} /></>);
   }
   if (tab === "voting") {
     return (<>{criticalPopup}<VotingView currentUserId={currentUserId || 0} /></>);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab, EngineerTab, ManagerTab } from "@/types/dashboard";
-import { useAppSettings } from '@/context/AppSettingsContext';
+import { useAppSettings, type FeatureFlags, type AppSettings } from '@/context/AppSettingsContext';
 import { fetchDriverUnread } from '@/api/chatApi';
 import NotificationPreferences from "./NotificationPreferences";
 
@@ -33,6 +33,7 @@ interface NavItem {
 const DISPATCHER_NAV: NavItem[] = [
   { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "dash_messages" as DashboardTab, icon: "MessagesSquare", label: "Мессенджер" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
@@ -41,6 +42,7 @@ const DISPATCHER_NAV: NavItem[] = [
 
 const TECHNICIAN_NAV: NavItem[] = [
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "routes", icon: "Route", label: "Маршруты" },
   { tab: "documents", icon: "FileText", label: "Документы" },
   { tab: "admin_vehicles" as DashboardTab, icon: "Truck", label: "Транспортные средства" },
@@ -58,6 +60,7 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "ticket_archive" as DashboardTab, icon: "Archive", label: "Архив заявок" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "diagnostic_apis", icon: "Plug", label: "API" },
@@ -82,6 +85,7 @@ const IRIDA_TOOLS_NAV: NavItem[] = [
 
 const MECHANIC_NAV: NavItem[] = [
   { tab: "service_requests" as MechanicTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "auto_diagnostics" as MechanicTab, icon: "Activity", label: "Диагностика" },
   { tab: "service_log" as MechanicTab, icon: "BookOpen", label: "Журнал" },
   { tab: "ts_docs" as MechanicTab, icon: "FolderOpen", label: "Документация ТС" },
@@ -92,6 +96,7 @@ const MECHANIC_NAV: NavItem[] = [
 
 const ENGINEER_NAV: NavItem[] = [
   { tab: "service_requests" as EngineerTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "documents" as DashboardTab, icon: "FileText", label: "Документы" },
   { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
   { tab: "diagnostics" as DashboardTab, icon: "Activity", label: "Диагностика" },
@@ -171,6 +176,12 @@ export default function DashboardSidebar({
   const sidebarIsLight = useSidebarLight();
   const { settings } = useAppSettings();
   const navItems = NAV_BY_ROLE[user.role];
+  const featureKey = `features${user.role.charAt(0).toUpperCase() + user.role.slice(1)}` as keyof AppSettings;
+  const roleFeatures = (settings[featureKey] as FeatureFlags | undefined);
+  const filteredNav = navItems.filter(item => {
+    if (item.tab === 'tasks' && roleFeatures && roleFeatures.showTasks === false) return false;
+    return true;
+  });
 
   const canSeeDriverUnread =
     user.role === 'dispatcher' || user.role === 'admin' || user.role === 'technician' || user.role === 'engineer' || user.role === 'manager';
@@ -269,7 +280,7 @@ export default function DashboardSidebar({
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {filteredNav.map((item) => {
           const isActive = activeTab === item.tab;
           const baseCount = counts?.[item.tab] || 0;
           const isMessenger = item.tab === ('dash_messages' as DashboardTab);

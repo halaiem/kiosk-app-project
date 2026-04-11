@@ -9,6 +9,7 @@ import EmailView from './mechanic/EmailView';
 import { MechNotificationsView } from './mechanic/MechNotificationsView';
 import MessagesView from './shared/MessagesView';
 import VotingView from './shared/VotingView';
+import TasksView from './shared/TasksView';
 
 interface MechanicPanelProps {
   tab: MechanicTab;
@@ -34,6 +35,7 @@ export default function MechanicPanel({ tab, vehicles = [], notifications: notif
   if (tab === 'email') return <EmailView vehicles={vehicles} />;
   if (tab === 'notifications') return <MechNotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === 'dash_messages') return <MessagesView currentUserId={currentUserId || 0} />;
+  if (tab === 'tasks') return <TasksView currentUserId={currentUserId} />;
   if (tab === 'voting') return <VotingView currentUserId={currentUserId || 0} />;
   return null;
 }

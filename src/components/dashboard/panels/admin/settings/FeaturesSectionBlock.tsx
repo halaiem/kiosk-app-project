@@ -25,6 +25,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
   dispatcher: [
     { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
     { tab: "dash_messages", icon: "MessagesSquare", label: "Мессенджер" },
     { tab: "notifications", icon: "Bell", label: "Уведомления" },
     { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
@@ -32,6 +33,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
   ],
   technician: [
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
     { tab: "routes", icon: "Route", label: "Маршруты" },
     { tab: "documents", icon: "FileText", label: "Документы" },
     { tab: "vehicles", icon: "Bus", label: "Транспорт" },
@@ -46,6 +48,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
     { tab: "users", icon: "Users", label: "Пользователи" },
     { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
     { tab: "settings", icon: "Settings", label: "Настройки" },
     { tab: "servers", icon: "Server", label: "Серверы" },
     { tab: "logs", icon: "ScrollText", label: "Логи" },
@@ -55,12 +58,33 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
   ],
   mechanic: [
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
     { tab: "auto_diagnostics", icon: "Activity", label: "Диагностика" },
     { tab: "service_log", icon: "BookOpen", label: "Журнал" },
     { tab: "ts_docs", icon: "FolderOpen", label: "Документация ТС" },
     { tab: "email", icon: "Mail", label: "Email" },
     { tab: "notifications", icon: "Bell", label: "Уведомления" },
     { tab: "dash_messages", icon: "MessageSquare", label: "Мессенджер" },
+  ],
+  engineer: [
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "documents", icon: "FileText", label: "Документы" },
+    { tab: "vehicles", icon: "Bus", label: "Транспорт" },
+    { tab: "diagnostics", icon: "Activity", label: "Диагностика" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "dash_messages", icon: "MessageSquare", label: "Сообщения" },
+  ],
+  manager: [
+    { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
+    { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "vehicles", icon: "Bus", label: "Транспорт" },
+    { tab: "drivers", icon: "Users", label: "Персонал" },
+    { tab: "schedule", icon: "Calendar", label: "Расписание" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
+    { tab: "notifications", icon: "Bell", label: "Уведомления" },
+    { tab: "dash_messages", icon: "MessageSquare", label: "Сообщения" },
   ],
 };
 
@@ -86,15 +110,19 @@ const ROLE_META: Record<string, { label: string; icon: string }> = {
   technician: { label: "Техник", icon: "Wrench" },
   admin: { label: "Администратор", icon: "ShieldCheck" },
   mechanic: { label: "Механик", icon: "Settings" },
+  engineer: { label: "Инженер", icon: "Zap" },
+  manager: { label: "Управляющий", icon: "Briefcase" },
 };
 
-type FeatureRoleKey = "tablet" | "dispatcher" | "technician" | "admin" | "mechanic";
+type FeatureRoleKey = "tablet" | "dispatcher" | "technician" | "admin" | "mechanic" | "engineer" | "manager";
 
 const ROLE_FEATURE_KEY: Record<string, FeatureRoleKey> = {
   dispatcher: "dispatcher",
   technician: "technician",
   admin: "admin",
   mechanic: "mechanic",
+  engineer: "engineer",
+  manager: "manager",
 };
 
 const SETTINGS_FEATURE_KEY: Record<string, keyof AppSettings> = {
@@ -102,6 +130,8 @@ const SETTINGS_FEATURE_KEY: Record<string, keyof AppSettings> = {
   technician: "featuresTechnician",
   admin: "featuresAdmin",
   mechanic: "featuresMechanic",
+  engineer: "featuresEngineer",
+  manager: "featuresManager",
 };
 
 const DEFAULT_CUSTOM_FEATURES: FeatureFlags = {
@@ -119,6 +149,8 @@ const DEFAULT_CUSTOM_FEATURES: FeatureFlags = {
   showDrivers: false,
   showRatings: false,
   showNotifications: false,
+  showVoting: false,
+  showTasks: false,
 };
 
 function loadCustomSections(role: string): SectionItem[] {
@@ -607,7 +639,7 @@ export function FeaturesSection({
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    const roles = ["dispatcher", "technician", "admin", "mechanic", "tablet"];
+    const roles = ["dispatcher", "technician", "admin", "mechanic", "engineer", "manager", "tablet"];
     const map: Record<string, SectionItem[]> = {};
     for (const r of roles) {
       map[r] = loadCustomSections(r);
@@ -669,7 +701,7 @@ export function FeaturesSection({
     });
   }, []);
 
-  const builtInRoleKeys = ["dispatcher", "technician", "admin", "mechanic"];
+  const builtInRoleKeys = ["dispatcher", "technician", "admin", "mechanic", "engineer", "manager"];
   const allRoleEntries = [
     ...builtInRoleKeys.map((k) => ({ key: k, label: ROLE_META[k].label })),
     ...customRoles.map((c) => ({ key: c.key, label: c.label })),

@@ -9,6 +9,7 @@ import TicketsPanel from "./shared/TicketsPanel";
 import { NotificationsView } from "./technician/TechNotificationsView";
 import MessagesView from "./shared/MessagesView";
 import VotingView from "./shared/VotingView";
+import TasksView from "./shared/TasksView";
 import { AdminVehiclesView } from "./admin/AdminVehiclesView";
 import type {
   TechnicianTab,
@@ -65,6 +66,7 @@ export default function TechnicianPanel({
   if (tab === "notifications") return <NotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === "dash_messages") return <MessagesView currentUserId={currentUserId || 0} />;
   if (tab === "admin_vehicles") return <AdminVehiclesView />;
+  if (tab === "tasks") return <TasksView currentUserId={currentUserId} />;
   if (tab === "voting") return <VotingView currentUserId={currentUserId || 0} />;
   return null;
 }

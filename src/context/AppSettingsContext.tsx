@@ -33,6 +33,7 @@ export interface FeatureFlags {
   showRatings: boolean;
   showNotifications: boolean;
   showVoting: boolean;
+  showTasks: boolean;
 }
 
 /* ── Brand colors ── */
@@ -65,7 +66,7 @@ export type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 /* ── Feature role type ── */
 
-export type FeatureRole = 'tablet' | 'dispatcher' | 'technician' | 'admin' | 'mechanic';
+export type FeatureRole = 'tablet' | 'dispatcher' | 'technician' | 'admin' | 'mechanic' | 'engineer' | 'manager';
 
 /* ── Main settings interface ── */
 
@@ -97,6 +98,8 @@ export interface AppSettings {
   featuresTechnician: FeatureFlags;
   featuresAdmin: FeatureFlags;
   featuresMechanic: FeatureFlags;
+  featuresEngineer: FeatureFlags;
+  featuresManager: FeatureFlags;
 
   /* appearance */
   dashboardTheme: 'dark' | 'light';
@@ -126,6 +129,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
   showRatings: false,
   showNotifications: true,
   showVoting: true,
+  showTasks: true,
 };
 
 const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
@@ -144,6 +148,7 @@ const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
   showRatings: true,
   showNotifications: true,
   showVoting: true,
+  showTasks: true,
 };
 
 const DEFAULT_BRAND_COLORS: BrandColors = {
@@ -184,6 +189,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   featuresTechnician: { ...DEFAULT_FEATURES },
   featuresAdmin: { ...DEFAULT_ADMIN_FEATURES },
   featuresMechanic: { ...DEFAULT_FEATURES, showServiceRequests: true, showDiagnostics: true },
+  featuresEngineer: { ...DEFAULT_FEATURES },
+  featuresManager: { ...DEFAULT_FEATURES },
 
   dashboardTheme: 'dark',
   brandColorsDashboard: { ...DEFAULT_BRAND_COLORS },
@@ -226,6 +233,8 @@ function loadSettings(): AppSettings {
         featuresTechnician: mergeFeatures(DEFAULT_SETTINGS.featuresTechnician, parsed.featuresTechnician),
         featuresAdmin: mergeFeatures(DEFAULT_SETTINGS.featuresAdmin, parsed.featuresAdmin),
         featuresMechanic: mergeFeatures(DEFAULT_SETTINGS.featuresMechanic, parsed.featuresMechanic),
+        featuresEngineer: mergeFeatures(DEFAULT_SETTINGS.featuresEngineer, parsed.featuresEngineer),
+        featuresManager: mergeFeatures(DEFAULT_SETTINGS.featuresManager, parsed.featuresManager),
 
         // deep-merge brand colors
         brandColorsDashboard: mergeBrandColors(
@@ -292,6 +301,8 @@ const FEATURE_KEY_MAP: Record<FeatureRole, keyof AppSettings> = {
   technician: 'featuresTechnician',
   admin: 'featuresAdmin',
   mechanic: 'featuresMechanic',
+  engineer: 'featuresEngineer',
+  manager: 'featuresManager',
 };
 
 /* ── Provider ── */
@@ -539,6 +550,7 @@ export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {
   showRatings: 'Рейтинги',
   showNotifications: 'Уведомления',
   showVoting: 'Голосование',
+  showTasks: 'Задачи',
 };
 
 /* ── Font sizes ── */

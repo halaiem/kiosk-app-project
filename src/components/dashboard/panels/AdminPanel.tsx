@@ -12,6 +12,7 @@ import TicketsPanel from "./shared/TicketsPanel";
 import TicketArchiveView from "./admin/TicketArchiveView";
 import TicketSettingsView from "./admin/settings/TicketSettingsView";
 import VotingView from "./shared/VotingView";
+import TasksView from "./shared/TasksView";
 
 interface AdminPanelProps {
   tab: AdminTab;
@@ -43,6 +44,7 @@ export default function AdminPanel({ tab, servers, logs, drivers = [], notificat
   if (tab === "service_requests") return <TicketsPanel role="admin" />;
   if (tab === "ticket_archive") return <TicketArchiveView />;
   if (tab === "ticket_settings") return <TicketSettingsView />;
+  if (tab === "tasks") return <TasksView currentUserId={currentUserId} />;
   if (tab === "voting") return <VotingView currentUserId={currentUserId} />;
   return null;
 }

@@ -7,7 +7,7 @@ import psycopg2.extras
 DSN = os.environ.get('DATABASE_URL', '')
 CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Token',
     'Access-Control-Max-Age': '86400',
 }
@@ -199,6 +199,19 @@ def handler(event, context):
         cur.execute("UPDATE tasks SET updated_at = NOW() WHERE id = %s", (task_id,))
         cur.close(); conn.close()
         return resp(201, {'id': comment_id, 'message': 'Комментарий добавлен'})
+
+    if action == 'delete' and method == 'POST':
+        body = json.loads(event.get('body') or '{}')
+        ids = body.get('ids', [])
+        if not ids or not isinstance(ids, list):
+            cur.close(); conn.close()
+            return resp(400, {'error': 'Укажите ids (список id задач)'})
+        placeholders = ','.join(['%s'] * len(ids))
+        cur.execute(f"DELETE FROM task_comments WHERE task_id IN ({placeholders})", ids)
+        cur.execute(f"DELETE FROM tasks WHERE id IN ({placeholders})", ids)
+        deleted = cur.rowcount
+        cur.close(); conn.close()
+        return resp(200, {'message': f'Удалено задач: {deleted}', 'deleted': deleted})
 
     cur.close(); conn.close()
     return resp(400, {'error': 'Неизвестное действие'})
