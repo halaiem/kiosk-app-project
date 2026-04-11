@@ -8,6 +8,7 @@ import {
   SIDEBAR_CONFIG_KEY,
   defaultSidebarConfig,
 } from '@/context/AppSettingsContext';
+import IconPickerModal from './IconPickerModal';
 
 const ROLES: { key: SidebarRoleKey; label: string; icon: string }[] = [
   { key: 'dispatcher', label: 'Диспетчер', icon: 'Radio' },
@@ -132,6 +133,8 @@ export default function SidebarUISettings() {
   const [dragOver, setDragOver] = useState<number | null>(null);
   const patternSvgRef = useRef<HTMLInputElement>(null);
   const overlayImgRef = useRef<HTMLInputElement>(null);
+  // Icon picker
+  const [iconPickerTab, setIconPickerTab] = useState<string | null>(null); // tab key being edited
 
   const configKey = SIDEBAR_CONFIG_KEY[role] as keyof typeof settings;
   const cfg = settings[configKey] as SidebarConfig;
@@ -171,6 +174,12 @@ export default function SidebarUISettings() {
     items.splice(i, 0, moved);
     upd({ navOrder: items });
     setDragIndex(null); setDragOver(null);
+  };
+
+  const changeNavIcon = (tab: string, iconName: string) => {
+    initNav();
+    const items = getNavItems();
+    upd({ navOrder: items.map(i => i.tab === tab ? { ...i, icon: iconName } : i) });
   };
 
   const readFile = (file: File): Promise<string> => new Promise((res, rej) => {
@@ -324,32 +333,52 @@ export default function SidebarUISettings() {
         {/* RIGHT: Nav order */}
         <div className="space-y-4">
           <div className="bg-muted/30 rounded-xl p-4 border border-border">
-            <h4 className="text-sm font-semibold flex items-center gap-2 mb-3"><Icon name="GripVertical" size={14} />Порядок разделов</h4>
-            <p className="text-xs text-muted-foreground mb-3">Перетащите для изменения порядка. Нажмите глаз — скрыть/показать.</p>
-            <div className="space-y-1 max-h-[380px] overflow-y-auto">
+            <h4 className="text-sm font-semibold flex items-center gap-2 mb-1"><Icon name="GripVertical" size={14} />Порядок разделов</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              Перетащите — порядок. <Icon name="Pencil" size={10} className="inline mx-0.5" /> — иконка.
+              <Icon name="Eye" size={10} className="inline mx-0.5" /> — скрыть/показать.
+            </p>
+            <div className="space-y-1 max-h-[420px] overflow-y-auto">
               {navItems.map((item, i) => (
                 <div key={item.tab}
                   draggable
                   onDragStart={() => handleDragStart(i)}
                   onDragOver={e => handleDragOver(e, i)}
                   onDrop={() => handleDrop(i)}
-                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border cursor-grab active:cursor-grabbing transition-all select-none ${
+                  className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border cursor-grab active:cursor-grabbing transition-all select-none ${
                     dragOver === i ? 'border-primary bg-primary/10' :
                     item.hidden ? 'border-border/50 bg-muted/20 opacity-40' :
                     'border-border bg-muted/40 hover:bg-muted/60'
                   }`}>
-                  <Icon name="GripVertical" size={12} className="text-muted-foreground shrink-0" />
-                  <Icon name={item.icon} size={13} className={item.hidden ? 'text-muted-foreground/50' : 'text-muted-foreground'} />
-                  <span className={`flex-1 text-xs ${item.hidden ? 'line-through text-muted-foreground/50' : ''}`}>{item.label}</span>
+                  <Icon name="GripVertical" size={11} className="text-muted-foreground shrink-0" />
+
+                  {/* Icon button — click to change */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setIconPickerTab(item.tab); }}
+                    title="Изменить иконку"
+                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all group relative
+                      ${item.hidden ? 'text-muted-foreground/50' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                    <Icon name={item.icon} size={13} />
+                    {/* pencil badge on hover */}
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary text-white hidden group-hover:flex items-center justify-center">
+                      <Icon name="Pencil" size={7} />
+                    </span>
+                  </button>
+
+                  <span className={`flex-1 text-xs min-w-0 truncate ${item.hidden ? 'line-through text-muted-foreground/50' : ''}`}>
+                    {item.label}
+                  </span>
+
+                  {/* Hide/show */}
                   <button onClick={() => toggleNavItem(item.tab)} title={item.hidden ? 'Показать' : 'Скрыть'}
-                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0">
                     <Icon name={item.hidden ? 'EyeOff' : 'Eye'} size={12} />
                   </button>
                 </div>
               ))}
             </div>
             <button onClick={() => upd({ navOrder: [] })} className="mt-2 w-full py-1.5 rounded-lg text-[10px] text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/50 transition-colors">
-              Сбросить порядок
+              Сбросить порядок и иконки
             </button>
           </div>
         </div>
@@ -445,6 +474,16 @@ export default function SidebarUISettings() {
           </div>
         </div>
       </div>
+
+      {/* Icon picker modal */}
+      <IconPickerModal
+        open={iconPickerTab !== null}
+        onClose={() => setIconPickerTab(null)}
+        selected={iconPickerTab ? (navItems.find(i => i.tab === iconPickerTab)?.icon ?? '') : ''}
+        onSelect={iconName => {
+          if (iconPickerTab) changeNavIcon(iconPickerTab, iconName);
+        }}
+      />
     </div>
   );
 }
