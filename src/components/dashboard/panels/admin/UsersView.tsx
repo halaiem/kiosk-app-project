@@ -48,6 +48,8 @@ const ROLE_STYLES: Record<string, string> = {
   admin:       "bg-red-500/15 text-red-500",
   irida_tools: "bg-purple-500/15 text-purple-500",
   mechanic:    "bg-orange-500/15 text-orange-500",
+  engineer:    "bg-teal-500/15 text-teal-500",
+  manager:     "bg-cyan-500/15 text-cyan-500",
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -56,6 +58,8 @@ const ROLE_LABELS: Record<string, string> = {
   admin:       "Администратор",
   irida_tools: "Irida-Tools",
   mechanic:    "Механик",
+  engineer:    "Инженер",
+  manager:     "Управляющий",
 };
 
 // ── Custom roles helpers ──────────────────────────────────────────────────────
@@ -86,6 +90,8 @@ const BUILTIN_ROLES: { key: string; label: string; icon: string; color: string }
   { key: "technician",  label: "Технолог",        icon: "Wrench",      color: "bg-green-500/15 text-green-500" },
   { key: "admin",       label: "Администратор",   icon: "ShieldCheck", color: "bg-red-500/15 text-red-500" },
   { key: "mechanic",    label: "Механик",         icon: "Settings",    color: "bg-orange-500/15 text-orange-500" },
+  { key: "engineer",    label: "Инженер",         icon: "Zap",         color: "bg-teal-500/15 text-teal-500" },
+  { key: "manager",     label: "Управляющий",     icon: "Briefcase",   color: "bg-cyan-500/15 text-cyan-500" },
 ];
 
 const ROLE_ICON_OPTIONS = [

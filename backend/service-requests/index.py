@@ -25,6 +25,7 @@ STATUS_LABELS = {
 ROLE_LABELS = {
     'admin': 'Администратор', 'dispatcher': 'Диспетчер',
     'technician': 'Технолог', 'mechanic': 'Механик',
+    'engineer': 'Инженер', 'manager': 'Управляющий',
 }
 
 
@@ -422,7 +423,7 @@ def handle_requests(method, qs, event, cur, conn, user):
                 where.append("(sr.assigned_to_user_id = %s OR sr.target_role = %s OR sr.assigned_to_user_id IS NULL)")
                 params.extend([user['id'], role])
         else:
-            if role in ('mechanic', 'technician', 'dispatcher'):
+            if role in ('mechanic', 'technician', 'dispatcher', 'engineer', 'manager'):
                 where.append("(sr.assigned_to_user_id = %s OR sr.target_role = %s OR sr.created_by_user_id = %s OR sr.assigned_to_user_id IS NULL)")
                 params.extend([user['id'], role, user['id']])
 

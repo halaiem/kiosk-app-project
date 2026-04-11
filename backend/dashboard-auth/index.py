@@ -152,8 +152,8 @@ def handler(event, context):
 
             if not emp_id or not name or not role or not password:
                 return resp(400, {'error': 'employee_id, full_name, role, password обязательны'})
-            if role not in ('dispatcher', 'technician', 'admin'):
-                return resp(400, {'error': 'role должен быть dispatcher, technician или admin'})
+            if role not in ('dispatcher', 'technician', 'admin', 'mechanic', 'engineer', 'manager'):
+                return resp(400, {'error': 'role должен быть dispatcher, technician, admin, mechanic, engineer или manager'})
 
             cur.execute("SELECT id FROM dashboard_users WHERE employee_id = %s", (emp_id,))
             if cur.fetchone():

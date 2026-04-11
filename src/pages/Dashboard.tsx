@@ -12,13 +12,15 @@ import DispatcherPanel from '@/components/dashboard/panels/DispatcherPanel';
 import TechnicianPanel from '@/components/dashboard/panels/TechnicianPanel';
 import AdminPanel from '@/components/dashboard/panels/AdminPanel';
 import MechanicPanel from '@/components/dashboard/panels/MechanicPanel';
+import EngineerPanel from '@/components/dashboard/panels/EngineerPanel';
+import ManagerPanel from '@/components/dashboard/panels/ManagerPanel';
 import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import MessagesView from '@/components/dashboard/panels/shared/MessagesView';
 import Icon from '@/components/ui/icon';
 import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
 import TicketNotificationBell from '@/components/dashboard/TicketNotificationBell';
 import TicketNotificationToast from '@/components/dashboard/TicketNotificationToast';
-import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab } from '@/types/dashboard';
+import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab, EngineerTab, ManagerTab } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
   dispatcher: 'overview',
@@ -26,6 +28,8 @@ const DEFAULT_TABS: Record<string, DashboardTab> = {
   admin: 'settings',
   irida_tools: 'cities',
   mechanic: 'service_requests',
+  engineer: 'service_requests',
+  manager: 'service_requests',
 };
 
 export default function Dashboard() {
@@ -211,6 +215,28 @@ export default function Dashboard() {
           <MechanicPanel
             tab={activeTab as MechanicTab}
             vehicles={data.vehicles}
+            currentUserId={Number(activeUser.id)}
+            onReload={data.reload}
+          />
+        )}
+        {activeUser.role === 'engineer' && (
+          <EngineerPanel
+            tab={activeTab as EngineerTab}
+            vehicles={data.vehicles}
+            documents={data.documents}
+            currentUserId={Number(activeUser.id)}
+            onReload={data.reload}
+            onUpdateDocumentStatus={data.updateDocumentStatus}
+          />
+        )}
+        {activeUser.role === 'manager' && (
+          <ManagerPanel
+            tab={activeTab as ManagerTab}
+            vehicles={data.vehicles}
+            drivers={data.drivers}
+            schedule={data.schedule}
+            routes={data.routes}
+            documents={data.documents}
             currentUserId={Number(activeUser.id)}
             onReload={data.reload}
           />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab } from "@/types/dashboard";
+import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab, EngineerTab, ManagerTab } from "@/types/dashboard";
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { fetchDriverUnread } from '@/api/chatApi';
 import NotificationPreferences from "./NotificationPreferences";
@@ -90,12 +90,32 @@ const MECHANIC_NAV: NavItem[] = [
   { tab: "dash_messages" as MechanicTab, icon: "MessageSquare", label: "Мессенджер" },
 ];
 
+const ENGINEER_NAV: NavItem[] = [
+  { tab: "service_requests" as EngineerTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "documents" as DashboardTab, icon: "FileText", label: "Документы" },
+  { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
+  { tab: "diagnostics" as DashboardTab, icon: "Activity", label: "Диагностика" },
+  { tab: "notifications" as DashboardTab, icon: "Bell", label: "Уведомления" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
+];
+
+const MANAGER_NAV: NavItem[] = [
+  { tab: "service_requests" as ManagerTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
+  { tab: "drivers" as DashboardTab, icon: "Users", label: "Персонал" },
+  { tab: "schedule" as DashboardTab, icon: "Calendar", label: "Расписание" },
+  { tab: "notifications" as DashboardTab, icon: "Bell", label: "Уведомления" },
+  { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
+];
+
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   dispatcher: DISPATCHER_NAV,
   technician: TECHNICIAN_NAV,
   admin: ADMIN_NAV,
   irida_tools: IRIDA_TOOLS_NAV,
   mechanic: MECHANIC_NAV,
+  engineer: ENGINEER_NAV,
+  manager: MANAGER_NAV,
 };
 
 const ROLE_BADGE_BG: Record<UserRole, string> = {
@@ -104,6 +124,8 @@ const ROLE_BADGE_BG: Record<UserRole, string> = {
   admin: "bg-black/15",
   irida_tools: "bg-black/15",
   mechanic: "bg-black/15",
+  engineer: "bg-black/15",
+  manager: "bg-black/15",
 };
 
 interface DashboardSidebarProps {
@@ -148,7 +170,7 @@ export default function DashboardSidebar({
   const navItems = NAV_BY_ROLE[user.role];
 
   const canSeeDriverUnread =
-    user.role === 'dispatcher' || user.role === 'admin' || user.role === 'technician';
+    user.role === 'dispatcher' || user.role === 'admin' || user.role === 'technician' || user.role === 'engineer' || user.role === 'manager';
 
   useEffect(() => {
     if (!canSeeDriverUnread) return;
@@ -325,7 +347,7 @@ export default function DashboardSidebar({
             {!collapsed && <span>{isDark ? "Светлая тема" : "Тёмная тема"}</span>}
           </button>
         )}
-        {["dispatcher", "technician", "admin", "mechanic"].includes(user.role) && (
+        {["dispatcher", "technician", "admin", "mechanic", "engineer", "manager"].includes(user.role) && (
           <button
             onClick={() => onTabChange("voting" as DashboardTab)}
             title={collapsed ? "Голосование" : undefined}

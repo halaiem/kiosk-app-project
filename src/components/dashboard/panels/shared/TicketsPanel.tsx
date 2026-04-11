@@ -21,6 +21,8 @@ const ROLE_LABELS: Record<string, string> = {
   dispatcher: "Диспетчер",
   technician: "Технолог",
   mechanic: "Механик",
+  engineer: "Инженер",
+  manager: "Управляющий",
 };
 
 const FORWARD_ROLES = [
@@ -28,6 +30,8 @@ const FORWARD_ROLES = [
   { key: "technician", label: "Технолог" },
   { key: "mechanic", label: "Механик" },
   { key: "admin", label: "Администратор" },
+  { key: "engineer", label: "Инженер" },
+  { key: "manager", label: "Управляющий" },
 ];
 
 const STATUS_LABELS: Record<string, string> = {

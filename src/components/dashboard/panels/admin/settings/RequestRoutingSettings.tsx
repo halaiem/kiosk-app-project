@@ -16,13 +16,15 @@ function hdrs(): Record<string, string> {
   return h;
 }
 
-const ROLES = ["dispatcher", "technician", "mechanic", "admin"] as const;
+const ROLES = ["dispatcher", "technician", "mechanic", "admin", "engineer", "manager"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   dispatcher: "Диспетчер",
   technician: "Технолог",
   mechanic: "Механик",
   admin: "Администратор",
+  engineer: "Инженер",
+  manager: "Управляющий",
 };
 
 interface RoutingRule {

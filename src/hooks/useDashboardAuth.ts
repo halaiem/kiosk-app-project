@@ -60,6 +60,8 @@ export function useDashboardAuth() {
       admin: 'Администратор',
       irida_tools: 'Irida-Tools',
       mechanic: 'Механик',
+      engineer: 'Инженер',
+      manager: 'Управляющий',
     };
     return names[role];
   }, []);

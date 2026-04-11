@@ -17,13 +17,15 @@ function hdrs(): Record<string, string> {
   return h;
 }
 
-const ROLES = ["dispatcher", "technician", "mechanic", "admin"] as const;
+const ROLES = ["dispatcher", "technician", "mechanic", "admin", "engineer", "manager"] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   dispatcher: "Диспетчер",
   technician: "Технолог",
   mechanic: "Механик",
   admin: "Администратор",
+  engineer: "Инженер",
+  manager: "Управляющий",
 };
 
 const PRIORITY_KEYS = ["low", "normal", "high", "critical"] as const;
@@ -67,6 +69,8 @@ export default function TicketSettingsView() {
     technician: "ТЕХ",
     mechanic: "МЕХ",
     admin: "АДМ",
+    engineer: "ИНЖ",
+    manager: "УПР",
   });
   const [savingPrefixes, setSavingPrefixes] = useState(false);
 
@@ -102,6 +106,8 @@ export default function TicketSettingsView() {
     technician: { can_create: true, can_resolve: false, can_forward: true, can_close: false },
     mechanic: { can_create: true, can_resolve: true, can_forward: true, can_close: false },
     admin: { can_create: true, can_resolve: true, can_forward: true, can_close: true },
+    engineer: { can_create: true, can_resolve: false, can_forward: true, can_close: false },
+    manager: { can_create: true, can_resolve: false, can_forward: true, can_close: false },
   });
   const [savingAccess, setSavingAccess] = useState(false);
 

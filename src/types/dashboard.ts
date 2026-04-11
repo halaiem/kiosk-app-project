@@ -1,4 +1,4 @@
-export type UserRole = 'dispatcher' | 'technician' | 'admin' | 'irida_tools' | 'mechanic';
+export type UserRole = 'dispatcher' | 'technician' | 'admin' | 'irida_tools' | 'mechanic' | 'engineer' | 'manager';
 
 export interface DashboardUser {
   id: string;
@@ -14,7 +14,9 @@ export type TechnicianTab = 'service_requests' | 'routes' | 'documents' | 'vehic
 export type AdminTab = 'users' | 'settings' | 'servers' | 'logs' | 'diagnostic_apis' | 'admin_vehicles' | 'notifications' | 'dash_messages' | 'service_requests' | 'ticket_archive' | 'ticket_settings' | 'voting';
 export type IridaToolsTab = 'cities' | 'it_settings' | 'ui_design' | 'software' | 'connection' | 'server' | 'equipment' | 'instructions' | 'database' | 'it_logs' | 'code_editor' | 'terminal';
 export type MechanicTab = 'service_requests' | 'auto_diagnostics' | 'service_log' | 'ts_docs' | 'email' | 'notifications' | 'dash_messages' | 'voting';
-export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab | IridaToolsTab | MechanicTab;
+export type EngineerTab = 'service_requests' | 'documents' | 'vehicles' | 'diagnostics' | 'notifications' | 'dash_messages' | 'voting';
+export type ManagerTab = 'service_requests' | 'vehicles' | 'drivers' | 'schedule' | 'notifications' | 'dash_messages' | 'voting';
+export type DashboardTab = DispatcherTab | TechnicianTab | AdminTab | IridaToolsTab | MechanicTab | EngineerTab | ManagerTab;
 
 export type AlertLevel = 'info' | 'warning' | 'critical';
 export type VehicleStatus = 'active' | 'maintenance' | 'idle' | 'offline';

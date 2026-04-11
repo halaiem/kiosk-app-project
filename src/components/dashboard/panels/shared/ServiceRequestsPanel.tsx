@@ -21,6 +21,8 @@ const ROLE_LABELS: Record<string, string> = {
   dispatcher: "Диспетчер",
   technician: "Технолог",
   mechanic: "Механик",
+  engineer: "Инженер",
+  manager: "Управляющий",
 };
 
 interface ServiceRequest {
