@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import urls from "@/api/config";
 
 const API_URL = urls["service-requests"];
+const PUSH_API = urls["push-notifications"];
 const TOKEN_KEY = "dashboard_token";
 
 function getToken(): string | null {
@@ -112,6 +113,19 @@ export default function TicketSettingsView() {
   });
   const [savingPrint, setSavingPrint] = useState(false);
 
+  interface NotifConfig {
+    smtp: { configured: boolean; host: string; port: string; user: string; pass_set: boolean; pass_masked: string; from: string; connection_ok?: boolean; connection_error?: string };
+    vapid: { configured: boolean; public_key: string; private_key_set: boolean; private_key_masked: string; email: string };
+    stats: { total_push_subscriptions: number };
+  }
+  const [notifConfig, setNotifConfig] = useState<NotifConfig | null>(null);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [testSmtpEmail, setTestSmtpEmail] = useState("");
+  const [testSmtpLoading, setTestSmtpLoading] = useState(false);
+  const [testSmtpResult, setTestSmtpResult] = useState<{ ok: boolean; message?: string; error?: string } | null>(null);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testPushResult, setTestPushResult] = useState<{ ok: boolean; sent?: number; error?: string } | null>(null);
+
   const showToast = useCallback((text: string, type: "success" | "error") => {
     const id = ++toastCounter;
     setToasts((prev) => [...prev, { id, text, type }]);
@@ -184,14 +198,24 @@ export default function TicketSettingsView() {
     } catch { void 0; }
   }, []);
 
+  const fetchNotifConfig = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await fetch(`${PUSH_API}?action=admin-config`, { headers: hdrs() });
+      const data = await res.json();
+      setNotifConfig(data);
+    } catch { void 0; }
+    setNotifLoading(false);
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await Promise.all([fetchSettings(), fetchRouting()]);
+      await Promise.all([fetchSettings(), fetchRouting(), fetchNotifConfig()]);
       setLoading(false);
     };
     load();
-  }, [fetchSettings, fetchRouting]);
+  }, [fetchSettings, fetchRouting, fetchNotifConfig]);
 
   const saveSetting = async (key: string, value: unknown): Promise<boolean> => {
     try {
@@ -311,6 +335,45 @@ export default function TicketSettingsView() {
     setSavingPrint(true);
     await saveSetting("print_template", printTemplate);
     setSavingPrint(false);
+  };
+
+  const handleTestSmtp = async () => {
+    if (!testSmtpEmail.trim()) return;
+    setTestSmtpLoading(true);
+    setTestSmtpResult(null);
+    try {
+      const res = await fetch(`${PUSH_API}?action=admin-config`, {
+        method: "POST",
+        headers: hdrs(),
+        body: JSON.stringify({ type: "test_smtp", to_email: testSmtpEmail.trim() }),
+      });
+      const data = await res.json();
+      setTestSmtpResult(data);
+      if (data.ok) showToast("Письмо отправлено", "success");
+      else showToast(data.error || "Ошибка отправки", "error");
+    } catch {
+      setTestSmtpResult({ ok: false, error: "Ошибка сети" });
+    }
+    setTestSmtpLoading(false);
+  };
+
+  const handleTestPushBroadcast = async () => {
+    setTestPushLoading(true);
+    setTestPushResult(null);
+    try {
+      const res = await fetch(`${PUSH_API}?action=admin-config`, {
+        method: "POST",
+        headers: hdrs(),
+        body: JSON.stringify({ type: "test_push_broadcast" }),
+      });
+      const data = await res.json();
+      setTestPushResult(data);
+      if (data.ok) showToast(`Push отправлен: ${data.sent} устройств`, "success");
+      else showToast(data.error || "Ошибка", "error");
+    } catch {
+      setTestPushResult({ ok: false, error: "Ошибка сети" });
+    }
+    setTestPushLoading(false);
   };
 
   const inputCls = "w-full px-3 py-2 rounded-lg text-sm bg-background border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary";
@@ -717,6 +780,218 @@ export default function TicketSettingsView() {
             {savingPrint ? "Сохранение..." : "Сохранить"}
           </button>
         </div>
+      </div>
+
+      {/* ── БЛОК УВЕДОМЛЕНИЙ ────────────────────────────────────── */}
+      <div className={cardCls}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <Icon name="BellRing" className="w-5 h-5 text-cyan-500" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Push-уведомления и Email</h3>
+              <p className="text-xs text-muted-foreground">Автоматические уведомления при смене статуса заявок</p>
+            </div>
+          </div>
+          <button onClick={fetchNotifConfig} disabled={notifLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+            <Icon name="RefreshCw" className={`w-3.5 h-3.5 ${notifLoading ? "animate-spin" : ""}`} />
+            Обновить
+          </button>
+        </div>
+
+        {notifLoading && !notifConfig && (
+          <div className="text-center py-6 text-muted-foreground text-sm">Загрузка конфигурации...</div>
+        )}
+
+        {notifConfig && (
+          <div className="space-y-5">
+            {/* SMTP секция */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Icon name="Mail" className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-semibold text-foreground">Email (SMTP)</span>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${notifConfig.smtp.configured && notifConfig.smtp.connection_ok ? "bg-green-500/15 text-green-500" : notifConfig.smtp.configured ? "bg-yellow-500/15 text-yellow-600" : "bg-zinc-500/15 text-zinc-400"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${notifConfig.smtp.configured && notifConfig.smtp.connection_ok ? "bg-green-500" : notifConfig.smtp.configured ? "bg-yellow-500" : "bg-zinc-400"}`} />
+                  {notifConfig.smtp.configured && notifConfig.smtp.connection_ok ? "Подключено" : notifConfig.smtp.configured ? "Ошибка подключения" : "Не настроен"}
+                </span>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">SMTP сервер (SMTP_HOST)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="Server" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.smtp.host || <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Порт (SMTP_PORT)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <span className="text-sm font-mono text-foreground">{notifConfig.smtp.port || "587"}</span>
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">Логин (SMTP_USER)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="User" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.smtp.user || <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Пароль (SMTP_PASS)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="KeyRound" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.smtp.pass_set ? notifConfig.smtp.pass_masked : <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                  <div className="md:col-span-3">
+                    <p className="text-xs text-muted-foreground mb-1">Адрес отправителя (SMTP_FROM)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="AtSign" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.smtp.from || <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {notifConfig.smtp.connection_error && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <Icon name="AlertCircle" className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <span className="text-xs text-red-500">{notifConfig.smtp.connection_error}</span>
+                  </div>
+                )}
+
+                {!notifConfig.smtp.configured && (
+                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-blue-500/8 border border-blue-500/20">
+                    <Icon name="Info" className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <div className="text-xs text-blue-400 space-y-1">
+                      <p className="font-medium text-blue-300">Как настроить SMTP:</p>
+                      <p>1. Перейдите в <span className="font-mono bg-blue-500/15 px-1 rounded">Ядро → Секреты</span></p>
+                      <p>2. Добавьте секреты: <span className="font-mono bg-blue-500/15 px-1 rounded">SMTP_HOST</span>, <span className="font-mono bg-blue-500/15 px-1 rounded">SMTP_USER</span>, <span className="font-mono bg-blue-500/15 px-1 rounded">SMTP_PASS</span>, <span className="font-mono bg-blue-500/15 px-1 rounded">SMTP_PORT</span> (587), <span className="font-mono bg-blue-500/15 px-1 rounded">SMTP_FROM</span></p>
+                      <p>Пример для Яндекс: host = <span className="font-mono bg-blue-500/15 px-1 rounded">smtp.yandex.ru</span>, port = <span className="font-mono bg-blue-500/15 px-1 rounded">587</span>, пароль приложения из настроек почты</p>
+                    </div>
+                  </div>
+                )}
+
+                {notifConfig.smtp.configured && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <input
+                      type="email"
+                      value={testSmtpEmail}
+                      onChange={e => setTestSmtpEmail(e.target.value)}
+                      placeholder="Тест: введите email для проверки..."
+                      className="flex-1 h-8 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      onKeyDown={e => { if (e.key === "Enter") handleTestSmtp(); }}
+                    />
+                    <button
+                      onClick={handleTestSmtp}
+                      disabled={testSmtpLoading || !testSmtpEmail.trim()}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    >
+                      <Icon name="Send" className="w-3.5 h-3.5" />
+                      {testSmtpLoading ? "Отправляю..." : "Тест"}
+                    </button>
+                  </div>
+                )}
+
+                {testSmtpResult && (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${testSmtpResult.ok ? "bg-green-500/15 text-green-500" : "bg-red-500/15 text-red-500"}`}>
+                    <Icon name={testSmtpResult.ok ? "CheckCircle2" : "XCircle"} className="w-3.5 h-3.5 shrink-0" />
+                    {testSmtpResult.ok ? testSmtpResult.message : testSmtpResult.error}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* VAPID / Web Push секция */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Icon name="Smartphone" className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-semibold text-foreground">Web Push (браузер)</span>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${notifConfig.vapid.configured ? "bg-green-500/15 text-green-500" : "bg-zinc-500/15 text-zinc-400"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${notifConfig.vapid.configured ? "bg-green-500" : "bg-zinc-400"}`} />
+                  {notifConfig.vapid.configured ? "Настроен" : "Не настроен"}
+                </span>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">Публичный ключ (VAPID_PUBLIC_KEY)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border overflow-hidden">
+                      <Icon name="Key" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-mono text-foreground truncate">{notifConfig.vapid.public_key || <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Приватный ключ (VAPID_PRIVATE_KEY)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="KeyRound" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.vapid.private_key_set ? notifConfig.vapid.private_key_masked : <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Email (VAPID_EMAIL)</p>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                      <Icon name="AtSign" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-mono text-foreground">{notifConfig.vapid.email || <span className="text-muted-foreground italic">не задан</span>}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {!notifConfig.vapid.configured && (
+                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-purple-500/8 border border-purple-500/20">
+                    <Icon name="Info" className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-purple-300 space-y-1">
+                      <p className="font-medium">Как сгенерировать VAPID-ключи:</p>
+                      <p>1. Установите Node.js и выполните: <span className="font-mono bg-purple-500/15 px-1 rounded">npx web-push generate-vapid-keys</span></p>
+                      <p>2. Скопируйт�� Public Key → секрет <span className="font-mono bg-purple-500/15 px-1 rounded">VAPID_PUBLIC_KEY</span></p>
+                      <p>3. Скопируйте Private Key → секрет <span className="font-mono bg-purple-500/15 px-1 rounded">VAPID_PRIVATE_KEY</span></p>
+                      <p>4. Добавьте секрет <span className="font-mono bg-purple-500/15 px-1 rounded">VAPID_EMAIL</span> = <span className="font-mono bg-purple-500/15 px-1 rounded">mailto:admin@ваш-домен.ru</span></p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Icon name="Users" className="w-4 h-4" />
+                    <span>Активных подписок: <span className="font-semibold text-foreground">{notifConfig.stats.total_push_subscriptions}</span></span>
+                  </div>
+                  {notifConfig.vapid.configured && (
+                    <button
+                      onClick={handleTestPushBroadcast}
+                      disabled={testPushLoading || notifConfig.stats.total_push_subscriptions === 0}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 transition-colors"
+                    >
+                      <Icon name="Send" className="w-3.5 h-3.5" />
+                      {testPushLoading ? "Отправляю..." : "Тест всем"}
+                    </button>
+                  )}
+                </div>
+
+                {testPushResult && (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${testPushResult.ok ? "bg-green-500/15 text-green-500" : "bg-red-500/15 text-red-500"}`}>
+                    <Icon name={testPushResult.ok ? "CheckCircle2" : "XCircle"} className="w-3.5 h-3.5 shrink-0" />
+                    {testPushResult.ok ? `Отправлено на ${testPushResult.sent} устройств` : testPushResult.error}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Как это работает */}
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-muted/30 border border-border">
+              <Icon name="Zap" className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Как работают автоматические уведомления:</p>
+                <p>При каждом изменении статуса заявки система автоматически отправляет уведомление автору заявки и исполнителю — по email и/или push (в зависимости от настроек каждого пользователя). Пользователи управляют своими подписками через кнопку «Уведомления» в боковом меню дашборда.</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={cardCls}>

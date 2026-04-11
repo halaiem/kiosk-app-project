@@ -63,6 +63,8 @@ def handler(event, context):
             result = handle_preferences(method, event, cur, conn, user)
         elif action == 'test':
             result = handle_test(cur, user)
+        elif action == 'admin-config':
+            result = handle_admin_config(method, event, cur, conn, user)
         else:
             result = resp(400, {'error': 'Неизвестное действие'})
 
@@ -222,3 +224,139 @@ def handle_test(cur, user):
         return resp(500, {'error': 'pywebpush не установлен'})
 
     return resp(200, {'sent': sent, 'errors': errors})
+
+
+# ═══════════════════════════════════════════════════════════════
+# КОНФИГУРАЦИЯ УВЕДОМЛЕНИЙ (ТОЛЬКО ДЛЯ АДМИНИСТРАТОРА)
+# ════════════════════════════════���══════════════════════════════
+def mask(val: str) -> str:
+    if not val or len(val) < 4:
+        return '****'
+    return val[:3] + '*' * (len(val) - 3)
+
+
+def handle_admin_config(method, event, cur, conn, user):
+    if user['role'] != 'admin':
+        return resp(403, {'error': 'Только администратор'})
+
+    if method == 'GET':
+        smtp_host = os.environ.get('SMTP_HOST', '')
+        smtp_port = os.environ.get('SMTP_PORT', '')
+        smtp_user = os.environ.get('SMTP_USER', '')
+        smtp_pass = os.environ.get('SMTP_PASS', '')
+        smtp_from = os.environ.get('SMTP_FROM', '')
+        vapid_public = os.environ.get('VAPID_PUBLIC_KEY', '')
+        vapid_private = os.environ.get('VAPID_PRIVATE_KEY', '')
+        vapid_email = os.environ.get('VAPID_EMAIL', '')
+
+        cur.execute("SELECT COUNT(*) as cnt FROM push_subscriptions")
+        total_subs = cur.fetchone()['cnt']
+
+        smtp_ok = bool(smtp_host and smtp_user and smtp_pass)
+        vapid_ok = bool(vapid_public and vapid_private)
+
+        result = {
+            'smtp': {
+                'configured': smtp_ok,
+                'host': smtp_host,
+                'port': smtp_port or '587',
+                'user': smtp_user,
+                'pass_set': bool(smtp_pass),
+                'pass_masked': mask(smtp_pass),
+                'from': smtp_from,
+            },
+            'vapid': {
+                'configured': vapid_ok,
+                'public_key': vapid_public,
+                'private_key_set': bool(vapid_private),
+                'private_key_masked': mask(vapid_private),
+                'email': vapid_email,
+            },
+            'stats': {
+                'total_push_subscriptions': total_subs,
+            },
+        }
+
+        try:
+            if smtp_ok:
+                import smtplib
+                with smtplib.SMTP(smtp_host, int(smtp_port or 587), timeout=5) as s:
+                    s.starttls()
+                    s.login(smtp_user, smtp_pass)
+                result['smtp']['connection_ok'] = True
+            else:
+                result['smtp']['connection_ok'] = False
+        except Exception as e:
+            result['smtp']['connection_ok'] = False
+            result['smtp']['connection_error'] = str(e)[:120]
+
+        return resp(200, result)
+
+    if method == 'POST':
+        body = json.loads(event.get('body') or '{}')
+        action_type = body.get('type', '')
+
+        if action_type == 'test_smtp':
+            to_email = body.get('to_email', '')
+            if not to_email:
+                return resp(400, {'error': 'Укажите email для теста'})
+            smtp_host = os.environ.get('SMTP_HOST', '')
+            smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+            smtp_user = os.environ.get('SMTP_USER', '')
+            smtp_pass = os.environ.get('SMTP_PASS', '')
+            smtp_from = os.environ.get('SMTP_FROM', smtp_user)
+            if not smtp_host or not smtp_user or not smtp_pass:
+                return resp(400, {'error': 'SMTP не настроен. Добавьте SMTP_HOST, SMTP_USER, SMTP_PASS в секреты.'})
+            try:
+                import smtplib
+                from email.mime.text import MIMEText
+                from email.mime.multipart import MIMEMultipart
+                msg = MIMEMultipart('alternative')
+                msg['From'] = f"Система заявок <{smtp_from}>"
+                msg['To'] = to_email
+                msg['Subject'] = 'Тест SMTP — Система управления заявками'
+                msg.attach(MIMEText(
+                    'Тестовое письмо от системы управления заявками.\n\nESMTP настроен корректно.',
+                    'plain', 'utf-8'))
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                return resp(200, {'ok': True, 'message': f'Письмо отправлено на {to_email}'})
+            except Exception as e:
+                return resp(200, {'ok': False, 'error': str(e)})
+
+        if action_type == 'test_push_broadcast':
+            vapid_private = os.environ.get('VAPID_PRIVATE_KEY', '')
+            vapid_public = os.environ.get('VAPID_PUBLIC_KEY', '')
+            vapid_email_env = os.environ.get('VAPID_EMAIL', '')
+            if not vapid_private or not vapid_public:
+                return resp(400, {'error': 'VAPID ключи не настроены. Добавьте VAPID_PUBLIC_KEY и VAPID_PRIVATE_KEY в секреты.'})
+            cur.execute("SELECT ps.endpoint, ps.p256dh, ps.auth FROM push_subscriptions ps LIMIT 50")
+            subs = cur.fetchall()
+            if not subs:
+                return resp(400, {'error': 'Нет активных push-подписок'})
+            sent = 0
+            try:
+                from pywebpush import webpush, WebPushException
+                payload = json.dumps({
+                    'title': 'Тест от администратора',
+                    'body': 'Проверка push-уведомлений системы заявок.',
+                    'icon': '/favicon.ico',
+                })
+                for sub in subs:
+                    try:
+                        webpush(
+                            subscription_info={'endpoint': sub['endpoint'], 'keys': {'p256dh': sub['p256dh'], 'auth': sub['auth']}},
+                            data=payload,
+                            vapid_private_key=vapid_private,
+                            vapid_claims={'sub': vapid_email_env or 'mailto:admin@example.com'},
+                        )
+                        sent += 1
+                    except WebPushException:
+                        pass
+            except ImportError:
+                return resp(500, {'error': 'pywebpush не установлен'})
+            return resp(200, {'ok': True, 'sent': sent})
+
+        return resp(400, {'error': 'Неизвестный тип действия'})
