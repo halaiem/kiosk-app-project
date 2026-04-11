@@ -116,107 +116,140 @@ function BrandColorsBlock({
   );
 }
 
-function MiniPreview({
-  title,
-  variant,
-  colors,
-  carrierName,
-  carrierLogo,
-  slogan,
-}: {
-  title: string;
-  variant: "dashboard" | "tablet";
-  colors: BrandColors;
-  carrierName: string;
-  carrierLogo: string | null;
-  slogan: string;
-}) {
-  const isDashboard = variant === "dashboard";
+/* ── Dashboard Preview ─────────────────────────────────────────── */
+function DashboardPreview({
+  colors, carrierName, carrierLogo,
+}: { colors: BrandColors; carrierName: string; carrierLogo: string | null }) {
+  const NAV_ITEMS = ['Обзор', 'Заявки', 'Задачи', 'Сообщения', 'Уведомления', 'Настройки'];
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <div className="px-5 py-3 border-b border-border flex items-center gap-2">
-        <Icon name={isDashboard ? "Monitor" : "Tablet"} className="w-4 h-4 text-orange-500" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <Icon name="Monitor" className="w-4 h-4 text-orange-500" />
+        <h3 className="text-sm font-semibold text-foreground">Превью дашборда</h3>
+        <span className="ml-auto text-[10px] text-muted-foreground">точная копия интерфейса</span>
       </div>
-      <div className="p-4 space-y-3">
-        {/* Login mock */}
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground px-3 py-1.5 bg-muted/40">
-            Авторизация
-          </div>
-          <div
-            className="p-4 flex flex-col items-center gap-2"
-            style={{ backgroundColor: colors.cardBg }}
-          >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden"
-              style={{ backgroundColor: colors.sidebarBg }}
-            >
-              {carrierLogo ? (
-                <img src={carrierLogo} alt="" className="w-full h-full object-contain" />
-              ) : (
-                <Icon name="Building2" className="w-5 h-5" style={{ color: colors.sidebarTextColor }} />
-              )}
-            </div>
-            <p className="text-[11px] font-bold" style={{ color: colors.textColor }}>
-              {carrierName || "ИРИДА"}
-            </p>
-            {slogan && (
-              <p className="text-[9px] opacity-60" style={{ color: colors.textColor }}>
-                {slogan}
-              </p>
-            )}
-            <div
-              className="w-full h-6 rounded-md mt-1 flex items-center justify-center"
-              style={{ backgroundColor: colors.primaryBtn }}
-            >
-              <span className="text-[9px] font-medium text-white">Войти</span>
-            </div>
-          </div>
-        </div>
-        {/* Main layout mock */}
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="text-[9px] uppercase tracking-wider text-muted-foreground px-3 py-1.5 bg-muted/40">
-            {isDashboard ? "Рабочий стол" : "Главный экран"}
-          </div>
-          <div className="flex h-28">
-            {/* Sidebar */}
-            <div
-              className="w-12 shrink-0 flex flex-col items-center gap-1.5 py-2"
-              style={{ backgroundColor: colors.sidebarBg }}
-            >
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="w-6 h-1.5 rounded-full opacity-60"
-                  style={{ backgroundColor: colors.sidebarTextColor }}
-                />
-              ))}
-            </div>
-            {/* Content */}
-            <div className="flex-1 flex flex-col" style={{ backgroundColor: colors.widgetBg }}>
-              {/* Header */}
-              <div
-                className="h-6 shrink-0 flex items-center px-2"
-                style={{ backgroundColor: colors.headerBg }}
-              >
-                <div
-                  className="w-12 h-2 rounded-full opacity-60"
-                  style={{ backgroundColor: colors.sidebarTextColor }}
-                />
+      {/* Scale wrapper */}
+      <div className="p-3">
+        <div className="rounded-xl overflow-hidden border border-border/50" style={{ height: 260 }}>
+          {/* Full dashboard layout */}
+          <div className="flex h-full" style={{ backgroundColor: colors.widgetBg }}>
+
+            {/* ── Sidebar ── */}
+            <div className="w-[120px] shrink-0 flex flex-col h-full" style={{ backgroundColor: colors.sidebarBg }}>
+              {/* Sidebar header */}
+              <div className="px-2 py-2 flex items-center gap-1.5 border-b" style={{ borderColor: `${colors.sidebarTextColor}20`, minHeight: 42 }}>
+                <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 overflow-hidden"
+                  style={{ backgroundColor: colors.primaryBtn }}>
+                  {carrierLogo
+                    ? <img src={carrierLogo} alt="" className="w-full h-full object-contain" />
+                    : <Icon name="Building2" size={12} style={{ color: '#fff' }} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[8px] font-bold truncate leading-tight" style={{ color: colors.sidebarTextColor }}>
+                    {carrierName || 'ИРИДА'}
+                  </div>
+                  <div className="text-[6px] opacity-50 leading-tight" style={{ color: colors.sidebarTextColor }}>Диспетчер</div>
+                </div>
               </div>
-              {/* Widgets */}
-              <div className="flex-1 p-1.5 grid grid-cols-2 gap-1">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="rounded"
+              {/* User block */}
+              <div className="mx-1.5 mt-1.5 mb-0.5 px-1.5 py-1 rounded-md flex items-center gap-1"
+                style={{ backgroundColor: `${colors.sidebarTextColor}15` }}>
+                <div className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #60a5fa, #3b82f6)' }}>И</div>
+                <div className="text-[7px] truncate" style={{ color: colors.sidebarTextColor, opacity: 0.7 }}>Иванов И.И.</div>
+              </div>
+              {/* Nav items */}
+              <div className="flex-1 px-1.5 py-1 space-y-0.5 overflow-hidden">
+                {NAV_ITEMS.map((item, i) => (
+                  <div key={item} className="flex items-center gap-1.5 px-1.5 py-1 rounded-md"
                     style={{
-                      backgroundColor: colors.cardBg,
-                      border: `1px solid ${colors.widgetBorder}`,
-                    }}
-                  />
+                      backgroundColor: i === 0 ? colors.sidebarTextColor : 'transparent',
+                      opacity: i === 0 ? 1 : 0.6,
+                    }}>
+                    <div className="w-2 h-2 rounded-sm shrink-0" style={{
+                      backgroundColor: i === 0 ? colors.sidebarBg : colors.sidebarTextColor,
+                      opacity: 0.8,
+                    }} />
+                    <span className="text-[7px] truncate leading-none" style={{
+                      color: i === 0 ? colors.sidebarBg : colors.sidebarTextColor,
+                    }}>{item}</span>
+                  </div>
                 ))}
+              </div>
+              {/* Footer nav */}
+              <div className="px-1.5 pb-2 pt-1 border-t space-y-0.5" style={{ borderColor: `${colors.sidebarTextColor}20` }}>
+                {['Обновить', 'Тема', 'Выйти'].map(lbl => (
+                  <div key={lbl} className="flex items-center gap-1.5 px-1.5 py-0.5 opacity-50">
+                    <div className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: colors.sidebarTextColor }} />
+                    <span className="text-[6px]" style={{ color: colors.sidebarTextColor }}>{lbl}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Main content ── */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Top header bar */}
+              <div className="px-3 py-1.5 flex items-center justify-between shrink-0"
+                style={{ backgroundColor: colors.headerBg, minHeight: 32 }}>
+                <span className="text-[8px] font-semibold" style={{ color: '#fff', opacity: 0.9 }}>Обзор</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-5 h-5 rounded-md border flex items-center justify-center"
+                    style={{ borderColor: `${colors.sidebarTextColor}30`, backgroundColor: colors.cardBg }}>
+                    <Icon name="Bell" size={9} style={{ color: colors.textColor }} />
+                  </div>
+                  <div className="w-5 h-5 rounded-md border flex items-center justify-center"
+                    style={{ borderColor: `${colors.sidebarTextColor}30`, backgroundColor: colors.cardBg }}>
+                    <Icon name="Sun" size={9} style={{ color: colors.textColor }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Widgets grid */}
+              <div className="flex-1 p-2 overflow-hidden">
+                {/* Stats row */}
+                <div className="grid grid-cols-4 gap-1 mb-1.5">
+                  {[
+                    { label: 'Водители', val: '24', icon: 'Users' },
+                    { label: 'Маршруты', val: '12', icon: 'Route' },
+                    { label: 'ТС', val: '18', icon: 'Bus' },
+                    { label: 'Тревоги', val: '3', icon: 'AlertTriangle' },
+                  ].map(w => (
+                    <div key={w.label} className="rounded-md p-1.5 flex flex-col gap-0.5"
+                      style={{ backgroundColor: colors.cardBg, border: `1px solid ${colors.widgetBorder}` }}>
+                      <div className="text-[10px] font-bold leading-none" style={{ color: colors.textColor }}>{w.val}</div>
+                      <div className="text-[6px] opacity-50 leading-none" style={{ color: colors.textColor }}>{w.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Main widgets */}
+                <div className="grid grid-cols-2 gap-1 h-[calc(100%-28px)]">
+                  {[
+                    { label: 'Карта маршрутов', icon: 'Map' },
+                    { label: 'Заявки', icon: 'ClipboardList' },
+                    { label: 'Сообщения', icon: 'MessagesSquare' },
+                    { label: 'Уведомления', icon: 'Bell' },
+                  ].map(w => (
+                    <div key={w.label} className="rounded-md p-1.5 flex flex-col gap-0.5 overflow-hidden"
+                      style={{ backgroundColor: colors.cardBg, border: `1px solid ${colors.widgetBorder}` }}>
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <Icon name={w.icon} size={8} style={{ color: colors.primaryBtn }} />
+                        <span className="text-[7px] font-semibold" style={{ color: colors.textColor }}>{w.label}</span>
+                      </div>
+                      <div className="space-y-0.5 flex-1">
+                        {[1, 2, 3].map(j => (
+                          <div key={j} className="h-1 rounded-full"
+                            style={{ backgroundColor: colors.widgetBorder, width: `${90 - j * 15}%` }} />
+                        ))}
+                      </div>
+                      {/* Primary button */}
+                      <div className="mt-0.5 h-2.5 rounded flex items-center justify-center"
+                        style={{ backgroundColor: colors.primaryBtn }}>
+                        <span className="text-[5px] text-white font-medium">Открыть</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -224,6 +257,168 @@ function MiniPreview({
       </div>
     </div>
   );
+}
+
+/* ── Tablet Preview ─────────────────────────────────────────────── */
+function TabletPreview({
+  colors, carrierName, carrierLogo,
+}: { colors: BrandColors; carrierName: string; carrierLogo: string | null }) {
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+        <Icon name="Tablet" className="w-4 h-4 text-orange-500" />
+        <h3 className="text-sm font-semibold text-foreground">Превью планшета</h3>
+        <span className="ml-auto text-[10px] text-muted-foreground">экран водителя</span>
+      </div>
+      <div className="p-3">
+        <div className="rounded-xl overflow-hidden border border-border/50" style={{ height: 260 }}>
+          {/* Tablet layout: flex-col, dark/kiosk bg */}
+          <div className="flex flex-col h-full" style={{ backgroundColor: '#0f1e35' }}>
+
+            {/* ── Top bar (always visible header) ── */}
+            <div className="flex items-center gap-2 px-3 py-2 shrink-0"
+              style={{ backgroundColor: colors.headerBg }}>
+              {/* Menu button */}
+              <div className="w-7 h-7 flex items-center justify-center">
+                <Icon name="Menu" size={14} className="text-white" />
+              </div>
+              {/* Route info card */}
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg flex-1 min-w-0"
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                <div className="flex flex-col items-center shrink-0">
+                  <span className="text-white/50 leading-none" style={{ fontSize: 6 }}>маршрут</span>
+                  <span className="text-white font-black leading-none" style={{ fontSize: 12 }}>№5</span>
+                </div>
+                <div className="w-px h-5 bg-white/20 shrink-0" />
+                <div className="flex items-center gap-1 text-white/80 min-w-0" style={{ fontSize: 7 }}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                  <span className="truncate">Депо Северное</span>
+                  <Icon name="ArrowRight" size={8} className="text-white/40 shrink-0" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  <span className="truncate">Депо Южное</span>
+                </div>
+                {/* Vehicle number */}
+                <div className="px-1.5 py-0.5 rounded-md ml-1 shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                  <span className="text-white/80 font-bold" style={{ fontSize: 7 }}>А001</span>
+                </div>
+              </div>
+              {/* Right: time + status */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="px-1.5 py-0.5 rounded-md" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                  <span className="text-white/70 font-mono" style={{ fontSize: 7 }}>●Онлайн</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-white font-mono font-bold leading-none" style={{ fontSize: 10 }}>09:41</span>
+                  <span className="text-white/50 leading-none" style={{ fontSize: 6 }}>пн, 12 апр</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Main content grid ── */}
+            <div className="flex-1 grid overflow-hidden" style={{ gridTemplateColumns: '1fr 160px', gridTemplateRows: '1fr 80px' }}>
+
+              {/* Map widget */}
+              <div className="relative overflow-hidden m-1 rounded-lg row-span-1"
+                style={{ backgroundColor: '#1a2f4a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {/* Map placeholder */}
+                <div className="absolute inset-0 opacity-20">
+                  {[0,1,2,3].map(i => (
+                    <div key={i} className="absolute h-px bg-blue-300" style={{ top: `${25 + i*18}%`, left: 0, right: 0 }} />
+                  ))}
+                  {[0,1,2].map(i => (
+                    <div key={i} className="absolute w-px bg-blue-300" style={{ left: `${20 + i*25}%`, top: 0, bottom: 0 }} />
+                  ))}
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                  <Icon name="Map" size={24} className="text-blue-300" />
+                </div>
+                <div className="absolute bottom-1 left-1 text-white/50 font-mono" style={{ fontSize: 6 }}>Карта маршрута</div>
+                {/* Route line */}
+                <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.5 }}>
+                  <polyline points="20,60 50,40 80,50 110,30 130,45" stroke={colors.primaryBtn} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                  <circle cx="20" cy="60" r="2.5" fill="#4ade80" />
+                  <circle cx="130" cy="45" r="2.5" fill="#f87171" />
+                </svg>
+              </div>
+
+              {/* Stops widget */}
+              <div className="m-1 ml-0 rounded-lg flex flex-col overflow-hidden"
+                style={{ backgroundColor: '#1a2f4a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="px-2 py-1 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <span className="text-white/60 font-medium" style={{ fontSize: 7 }}>Маршрут / Остановки</span>
+                </div>
+                <div className="flex-1 p-1 space-y-0.5 overflow-hidden">
+                  {['Вокзал', 'Ул. Ленина', '▶ Площадь', 'Парк', 'Конечная'].map((stop, i) => (
+                    <div key={stop} className="flex items-center gap-1 px-1 py-0.5 rounded"
+                      style={{ backgroundColor: i === 2 ? `${colors.primaryBtn}30` : 'transparent' }}>
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${i < 2 ? 'bg-white/20' : i === 2 ? 'bg-green-400' : 'bg-white/30'}`} />
+                      <span style={{ color: i === 2 ? colors.primaryBtn : 'rgba(255,255,255,0.5)', fontSize: 6 }}>{stop}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Messenger widget */}
+              <div className="m-1 mt-0 rounded-lg flex flex-col overflow-hidden"
+                style={{ backgroundColor: '#1a2f4a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="px-2 py-1 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <span className="text-white/60 font-medium" style={{ fontSize: 7 }}>Мессенджер</span>
+                  <span className="rounded-full px-1 text-white font-bold" style={{ fontSize: 6, backgroundColor: colors.primaryBtn }}>2</span>
+                </div>
+                <div className="flex-1 p-1.5 space-y-1 overflow-hidden">
+                  {['Диспетчер: Выходите на смену', 'Сис: Маршрут обновлён'].map((msg, i) => (
+                    <div key={i} className="px-1.5 py-1 rounded" style={{ backgroundColor: 'rgba(255,255,255,0.06)', fontSize: 6, color: 'rgba(255,255,255,0.6)' }}>
+                      {msg}
+                    </div>
+                  ))}
+                </div>
+                <div className="px-1.5 pb-1.5 flex gap-1">
+                  <div className="flex-1 h-4 rounded-md" style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }} />
+                  <div className="w-4 h-4 rounded-md flex items-center justify-center" style={{ backgroundColor: colors.primaryBtn }}>
+                    <Icon name="Send" size={7} className="text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status widget */}
+              <div className="m-1 mt-0 ml-0 rounded-lg flex flex-col overflow-hidden"
+                style={{ backgroundColor: '#1a2f4a', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="px-2 py-1 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <span className="text-white/60 font-medium" style={{ fontSize: 7 }}>Статус ТС</span>
+                </div>
+                <div className="flex-1 p-1 flex flex-col justify-around">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-white/40" style={{ fontSize: 6 }}>Скорость</span>
+                    <span className="text-white font-bold" style={{ fontSize: 8 }}>42 км/ч</span>
+                  </div>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-white/40" style={{ fontSize: 6 }}>Интервал</span>
+                    <span className="text-green-400 font-bold" style={{ fontSize: 8 }}>+2 мин</span>
+                  </div>
+                  <div className="h-1 rounded-full mx-1" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                    <div className="h-full rounded-full w-2/3" style={{ backgroundColor: colors.primaryBtn }} />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Legacy MiniPreview kept for any other usages
+function MiniPreview({
+  title, variant, colors, carrierName, carrierLogo, slogan,
+}: {
+  title: string; variant: "dashboard" | "tablet";
+  colors: BrandColors; carrierName: string; carrierLogo: string | null; slogan: string;
+}) {
+  return variant === "dashboard"
+    ? <DashboardPreview colors={colors} carrierName={carrierName} carrierLogo={carrierLogo} />
+    : <TabletPreview colors={colors} carrierName={carrierName} carrierLogo={carrierLogo} />;
 }
 
 export function BrandColorsPreviewCards() {

@@ -259,6 +259,17 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
+  // ── Edit task form ──
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editPriority, setEditPriority] = useState<TaskPriority>('medium');
+  const [editCategory, setEditCategory] = useState<TaskCategory>('other');
+  const [editAssignee, setEditAssignee] = useState<number | ''>('');
+  const [editDue, setEditDue] = useState('');
+  const [editLifetime, setEditLifetime] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
   // ── Attachments for new task ──
   const [newAttachments, setNewAttachments] = useState<AttachFile[]>([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
@@ -359,6 +370,41 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
     } catch { setError('Ошибка создания задачи'); }
     setSaving(false);
   }, [newTitle, newDesc, newPriority, newCategory, newAssignee, newDue, newLifetime, newAttachments, loadTasks]);
+
+  const handleEditOpen = useCallback((task: Task) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditDesc(task.description || '');
+    setEditPriority(task.priority);
+    setEditCategory(task.category);
+    setEditAssignee(task.assignee_user_id ?? '');
+    setEditDue(task.due_date ? task.due_date.slice(0, 10) : '');
+    setEditLifetime(task.lifetime_hours ? String(task.lifetime_hours) : '');
+  }, []);
+
+  const handleEditSave = useCallback(async () => {
+    if (!editingTask || !editTitle.trim()) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`${API_URL}?action=update`, {
+        method: 'PUT', headers: hdrs(),
+        body: JSON.stringify({
+          id: editingTask.id,
+          title: editTitle,
+          description: editDesc,
+          priority: editPriority,
+          category: editCategory,
+          assignee_user_id: editAssignee || null,
+          due_date: editDue || null,
+          lifetime_hours: editLifetime ? parseInt(editLifetime) : null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setEditingTask(null);
+      await loadTasks();
+    } catch { setError('Ошибка сохранения'); }
+    setEditSaving(false);
+  }, [editingTask, editTitle, editDesc, editPriority, editCategory, editAssignee, editDue, editLifetime, loadTasks]);
 
   const handleStatusChange = useCallback(async (taskId: number, newStatus: TaskStatus) => {
     try {
@@ -655,7 +701,7 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                       </div>
                     </div>
                   </button>
-                  <TaskActions task={task} onStatusChange={handleStatusChange} onArchive={handleArchive} onDelete={handleDelete} onSelect={handleSelectTask} currentUserId={currentUserId} />
+                  <TaskActions task={task} onStatusChange={handleStatusChange} onArchive={handleArchive} onDelete={handleDelete} onSelect={handleSelectTask} onEdit={handleEditOpen} currentUserId={currentUserId} />
                 </div>
               );
             })}
@@ -881,6 +927,131 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                 className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 transition-all shrink-0">
                 <Icon name={savingComment ? 'Loader' : 'Send'} size={14} className={savingComment ? 'animate-spin' : ''} />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit task modal ── */}
+      {editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${PRIORITY_STYLES[editingTask.priority]}`}>
+                  <Icon name={PRIORITY_ICONS[editingTask.priority]} size={15} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Редактировать задачу</h3>
+                  <p className="text-xs text-muted-foreground">#{editingTask.id} · только вы как создатель</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingTask(null)} className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-all">
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-5 space-y-4">
+              {/* Title */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block font-medium">Название *</label>
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  placeholder="Название задачи..."
+                />
+              </div>
+
+              {/* Description */}
+              {ts.showFieldDescription && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block font-medium">Описание</label>
+                  <textarea
+                    className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm resize-none focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                    rows={3}
+                    value={editDesc}
+                    onChange={e => setEditDesc(e.target.value)}
+                    placeholder="Описание задачи..."
+                  />
+                </div>
+              )}
+
+              {/* Priority + Category */}
+              <div className="grid grid-cols-2 gap-3">
+                {ts.showFieldPriority && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block font-medium">Приоритет</label>
+                    <select className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={editPriority} onChange={e => setEditPriority(e.target.value as TaskPriority)}>
+                      {Object.entries(PRIORITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                )}
+                {ts.showFieldCategory && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block font-medium">Категория</label>
+                    <select className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={editCategory} onChange={e => setEditCategory(e.target.value as TaskCategory)}>
+                      {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Assignee */}
+              {ts.showFieldAssignee && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block font-medium">Исполнитель</label>
+                  <select className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={editAssignee} onChange={e => setEditAssignee(e.target.value ? Number(e.target.value) : '')}>
+                    <option value="">Не назначен</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_LABELS[u.role] || u.role})</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Due date + Lifetime */}
+              <div className="grid grid-cols-2 gap-3">
+                {ts.showFieldDueDate && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block font-medium">Срок исполнения</label>
+                    <input type="date" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={editDue} onChange={e => setEditDue(e.target.value)} />
+                  </div>
+                )}
+                {ts.showFieldLifetime && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block font-medium">Время жизни (ч)</label>
+                    <input type="number" min={1} placeholder="напр. 24" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={editLifetime} onChange={e => setEditLifetime(e.target.value)} />
+                  </div>
+                )}
+              </div>
+
+              {/* Priority visual indicator */}
+              <div className="flex items-center gap-2 pt-1">
+                {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+                  <button key={k} onClick={() => setEditPriority(k as TaskPriority)}
+                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${editPriority === k ? PRIORITY_STYLES[k as TaskPriority] + ' border-current' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-5 py-4 border-t border-border bg-muted/20">
+              <div className="text-xs text-muted-foreground">
+                Создал: {editingTask.creator_name} · {formatDate(editingTask.created_at)}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingTask(null)} className="px-4 py-2 rounded-lg text-sm bg-muted hover:bg-muted/80 transition-all">
+                  Отмена
+                </button>
+                <button onClick={handleEditSave} disabled={!editTitle.trim() || editSaving}
+                  className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-1.5">
+                  <Icon name={editSaving ? 'Loader' : 'Check'} size={14} className={editSaving ? 'animate-spin' : ''} />
+                  {editSaving ? 'Сохранение...' : 'Сохранить'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
