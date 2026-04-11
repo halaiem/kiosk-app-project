@@ -40,7 +40,7 @@ export default function LoginPage({ onLogin, onLoginMrm, error, loading }: Props
   const displayError = localError || error;
 
   return (
-    <div className="flex h-full w-full kiosk-bg relative overflow-hidden">
+    <div id="kiosk-login" className="flex h-full w-full kiosk-bg relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-primary via-accent to-primary" />
         <div className="absolute top-20 -left-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />

@@ -132,7 +132,7 @@ export default function Dashboard() {
   const isLight = settings.dashboardTheme === 'light';
 
   return (
-    <div className="flex h-full bg-background text-foreground overflow-hidden relative">
+    <div id="dashboard-root" className="flex h-full bg-background text-foreground overflow-hidden relative">
       {/* Dashboard background image */}
       {settings.dashboardBgImage && (
         <div
@@ -165,7 +165,7 @@ export default function Dashboard() {
         userRole={activeUser.role}
         userName={activeUser.name}
       />
-      <main className="flex-1 overflow-auto p-6 relative">
+      <main id="dashboard-main" className="flex-1 overflow-auto p-6 relative">
         {activeUser.role !== 'irida_tools' && (
           <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
             <TicketNotificationBell

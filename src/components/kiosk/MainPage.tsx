@@ -101,7 +101,7 @@ export default function MainPage({
   const devSign = deviation >= 0 ? '+' : '';
 
   return (
-    <div className="flex flex-col h-full w-full kiosk-bg overflow-hidden" onClick={showHeader}>
+    <div id="kiosk-main" className="flex flex-col h-full w-full kiosk-bg overflow-hidden" onClick={showHeader}>
 
       {/* ═══ TOP BAR ═══ */}
       <div

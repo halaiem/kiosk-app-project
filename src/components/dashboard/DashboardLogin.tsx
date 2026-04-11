@@ -89,7 +89,7 @@ export default function DashboardLogin({ onLogin, onIridaToolsLogin, error }: Da
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#152d52" }}>
+    <div id="dashboard-login" className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#152d52" }}>
       <div className="w-full max-w-sm mx-4">
         <div className="bg-card text-card-foreground rounded-2xl elevation-3 p-8">
           <div className="flex flex-col items-center mb-8">

@@ -65,7 +65,7 @@ export default function SidebarMenu({ isOpen, onClose, driver, mrmAdmin, unreadC
         />
       )}
 
-      <div className={`fixed top-0 left-0 h-full z-50 w-80 max-w-[85vw] flex flex-col`}
+      <div id="kiosk-menu" className={`fixed top-0 left-0 h-full z-50 w-80 max-w-[85vw] flex flex-col`}
         style={{
           background: 'hsl(var(--sidebar-background))',
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',

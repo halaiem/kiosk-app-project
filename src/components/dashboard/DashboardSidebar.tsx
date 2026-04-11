@@ -249,6 +249,7 @@ export default function DashboardSidebar({
   return (
     <>
     <div
+      id="dashboard-sidebar"
       className="h-full flex flex-col shrink-0 transition-all duration-300 relative overflow-hidden"
       style={{
         width: collapsed ? "60px" : `${sidebarCfg.width}px`,

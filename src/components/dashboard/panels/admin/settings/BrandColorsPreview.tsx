@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import {
   useAppSettings,
@@ -409,16 +410,162 @@ function TabletPreview({
   );
 }
 
-// Legacy MiniPreview kept for any other usages
-function MiniPreview({
-  title, variant, colors, carrierName, carrierLogo, slogan,
-}: {
-  title: string; variant: "dashboard" | "tablet";
-  colors: BrandColors; carrierName: string; carrierLogo: string | null; slogan: string;
+/* ── Live Screenshot Preview ────────────────────────────────────── */
+type ScreenshotSlot = {
+  id: string;          // DOM id to capture
+  label: string;
+  icon: string;
+  hint: string;
+};
+
+const DASHBOARD_SLOTS: ScreenshotSlot[] = [
+  { id: 'dashboard-login',   label: 'Экран авторизации',      icon: 'LogIn',   hint: 'Откройте страницу входа' },
+  { id: 'dashboard-root',    label: 'Дашборд целиком',        icon: 'Monitor', hint: 'Откройте дашборд' },
+  { id: 'dashboard-sidebar', label: 'Sidebar (раскрытый)',    icon: 'PanelLeft', hint: 'Sidebar должен быть виден' },
+];
+
+const TABLET_SLOTS: ScreenshotSlot[] = [
+  { id: 'kiosk-login',  label: 'Авторизация планшет',  icon: 'Tablet',  hint: 'Откройте приложение водителя' },
+  { id: 'kiosk-main',   label: 'Главный экран',         icon: 'LayoutGrid', hint: 'Войдите в приложение водителя' },
+  { id: 'kiosk-menu',   label: 'Меню (sidebar)',        icon: 'Menu',    hint: 'Откройте боковое меню' },
+];
+
+function LiveScreenshotPreview({ title, icon, slots }: {
+  title: string; icon: string; slots: ScreenshotSlot[];
 }) {
-  return variant === "dashboard"
-    ? <DashboardPreview colors={colors} carrierName={carrierName} carrierLogo={carrierLogo} />
-    : <TabletPreview colors={colors} carrierName={carrierName} carrierLogo={carrierLogo} />;
+  const [screenshots, setScreenshots] = useState<Record<string, string>>({});
+  const [capturing, setCapturing] = useState<string | null>(null);
+  const [captureAll, setCaptureAll] = useState(false);
+
+  const captureSlot = useCallback(async (slot: ScreenshotSlot) => {
+    setCapturing(slot.id);
+    try {
+      const el = document.getElementById(slot.id);
+      if (!el) {
+        // Element not found — show placeholder
+        setScreenshots(prev => ({ ...prev, [slot.id]: '__not_found__' }));
+        setCapturing(null);
+        return;
+      }
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(el, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 0.5,
+        logging: false,
+        backgroundColor: null,
+        ignoreElements: (el) => el.classList?.contains('screenshot-ignore'),
+      });
+      setScreenshots(prev => ({ ...prev, [slot.id]: canvas.toDataURL('image/jpeg', 0.85) }));
+    } catch (e) {
+      setScreenshots(prev => ({ ...prev, [slot.id]: '__error__' }));
+    }
+    setCapturing(null);
+  }, []);
+
+  const captureAllSlots = useCallback(async () => {
+    setCaptureAll(true);
+    for (const slot of slots) {
+      await captureSlot(slot);
+    }
+    setCaptureAll(false);
+  }, [slots, captureSlot]);
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+        <Icon name={icon} className="w-4 h-4 text-orange-500" />
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">Скриншот реального интерфейса</span>
+          <button
+            onClick={captureAllSlots}
+            disabled={captureAll}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-all">
+            <Icon name={captureAll ? 'Loader' : 'RefreshCw'} size={12} className={captureAll ? 'animate-spin' : ''} />
+            {captureAll ? 'Снимаем...' : 'Обновить все'}
+          </button>
+        </div>
+      </div>
+      <div className="p-4 grid grid-cols-3 gap-3">
+        {slots.map(slot => {
+          const img = screenshots[slot.id];
+          const isCapturing = capturing === slot.id;
+          return (
+            <div key={slot.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                  <Icon name={slot.icon} size={11} className="text-muted-foreground" />
+                  {slot.label}
+                </span>
+                <button
+                  onClick={() => captureSlot(slot)}
+                  disabled={isCapturing}
+                  title="Обновить превью"
+                  className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all disabled:opacity-50">
+                  <Icon name={isCapturing ? 'Loader' : 'RefreshCw'} size={11} className={isCapturing ? 'animate-spin' : ''} />
+                </button>
+              </div>
+              <div
+                className="relative rounded-xl overflow-hidden border border-border cursor-pointer group"
+                style={{ height: 160 }}
+                onClick={() => !isCapturing && captureSlot(slot)}>
+                {isCapturing ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 gap-2">
+                    <Icon name="Loader" size={20} className="animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground">Снимаем скриншот...</span>
+                  </div>
+                ) : img === '__not_found__' ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/30 gap-2 p-3">
+                    <Icon name="AlertCircle" size={20} className="text-amber-500" />
+                    <span className="text-[10px] text-center text-muted-foreground leading-snug">
+                      Элемент не найден.<br />{slot.hint}
+                    </span>
+                    <button onClick={(e) => { e.stopPropagation(); captureSlot(slot); }}
+                      className="text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground">
+                      Попробовать
+                    </button>
+                  </div>
+                ) : img === '__error__' ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-500/10 gap-2">
+                    <Icon name="X" size={20} className="text-red-500" />
+                    <span className="text-[10px] text-red-500">Ошибка снимка</span>
+                  </div>
+                ) : img ? (
+                  <>
+                    <img src={img} alt={slot.label} className="w-full h-full object-cover object-top" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white text-[10px] bg-black/60 px-2 py-0.5 rounded">Обновить</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/30 gap-2 p-3">
+                    <Icon name="Camera" size={20} className="text-muted-foreground" />
+                    <span className="text-[10px] text-center text-muted-foreground leading-snug">
+                      Нажмите чтобы сделать скриншот
+                    </span>
+                    <span className="text-[9px] text-center text-muted-foreground/60 leading-snug">
+                      {slot.hint}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="px-4 pb-3">
+        <div className="text-[10px] text-muted-foreground/70 bg-muted/30 rounded-lg px-3 py-2 flex items-start gap-2">
+          <Icon name="Info" size={11} className="shrink-0 mt-0.5 text-blue-400" />
+          <span>
+            Скриншоты снимаются с реального интерфейса прямо сейчас.
+            Перейдите к нужному экрану (авторизация, дашборд, планшет), затем вернитесь сюда и нажмите «Обновить».
+            Изменения настроек отразятся мгновенно.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function BrandColorsPreviewCards() {
@@ -501,24 +648,18 @@ export function BrandColorsPreviewCards() {
         </div>
       </div>
 
-      {/* ════════ 7. PREVIEW DASHBOARD ════════ */}
-      <MiniPreview
-        title="Превью: Дашборд"
-        variant="dashboard"
-        colors={settings.brandColorsDashboard}
-        carrierName={settings.carrierName}
-        carrierLogo={settings.carrierLogo}
-        slogan={settings.carrierSlogan}
+      {/* ════════ 7. LIVE PREVIEW DASHBOARD ════════ */}
+      <LiveScreenshotPreview
+        title="Превью дашборда — живые скриншоты"
+        icon="Monitor"
+        slots={DASHBOARD_SLOTS}
       />
 
-      {/* ════════ 8. PREVIEW TABLET ════════ */}
-      <MiniPreview
-        title="Превью: Планшет"
-        variant="tablet"
-        colors={settings.brandColorsTablet}
-        carrierName={settings.carrierName}
-        carrierLogo={settings.carrierLogo}
-        slogan={settings.carrierSlogan}
+      {/* ════════ 8. LIVE PREVIEW TABLET ════════ */}
+      <LiveScreenshotPreview
+        title="Превью планшета — живые скриншоты"
+        icon="Tablet"
+        slots={TABLET_SLOTS}
       />
     </>
   );

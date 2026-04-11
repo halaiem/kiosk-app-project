@@ -269,6 +269,10 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
   const [editDue, setEditDue] = useState('');
   const [editLifetime, setEditLifetime] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const [editAttachments, setEditAttachments] = useState<AttachFile[]>([]);
+  const [editExistingAttachments, setEditExistingAttachments] = useState<UploadedAttach[]>([]);
+  const [editAttachLoading, setEditAttachLoading] = useState(false);
+  const editAttachInputRef = useRef<HTMLInputElement>(null);
 
   // ── Attachments for new task ──
   const [newAttachments, setNewAttachments] = useState<AttachFile[]>([]);
@@ -371,7 +375,7 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
     setSaving(false);
   }, [newTitle, newDesc, newPriority, newCategory, newAssignee, newDue, newLifetime, newAttachments, loadTasks]);
 
-  const handleEditOpen = useCallback((task: Task) => {
+  const handleEditOpen = useCallback(async (task: Task) => {
     setEditingTask(task);
     setEditTitle(task.title);
     setEditDesc(task.description || '');
@@ -380,12 +384,21 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
     setEditAssignee(task.assignee_user_id ?? '');
     setEditDue(task.due_date ? task.due_date.slice(0, 10) : '');
     setEditLifetime(task.lifetime_hours ? String(task.lifetime_hours) : '');
+    setEditAttachments([]);
+    // Load existing attachments
+    setEditAttachLoading(true);
+    try {
+      const res = await fetch(`${API_URL}?action=attachments&task_id=${task.id}`, { headers: hdrs() });
+      if (res.ok) { const d = await res.json(); setEditExistingAttachments(d.attachments || []); }
+    } catch { setEditExistingAttachments([]); }
+    setEditAttachLoading(false);
   }, []);
 
   const handleEditSave = useCallback(async () => {
     if (!editingTask || !editTitle.trim()) return;
     setEditSaving(true);
     try {
+      // 1. Update task fields
       const res = await fetch(`${API_URL}?action=update`, {
         method: 'PUT', headers: hdrs(),
         body: JSON.stringify({
@@ -400,11 +413,20 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
         }),
       });
       if (!res.ok) throw new Error();
+      // 2. Upload new attachments
+      for (const att of editAttachments) {
+        const b64 = await fileToBase64(att.file);
+        await fetch(`${API_URL}?action=upload_attachment`, {
+          method: 'POST', headers: hdrs(),
+          body: JSON.stringify({ task_id: editingTask.id, data: b64, name: att.file.name, type: att.file.type }),
+        });
+      }
       setEditingTask(null);
+      setEditAttachments([]);
       await loadTasks();
     } catch { setError('Ошибка сохранения'); }
     setEditSaving(false);
-  }, [editingTask, editTitle, editDesc, editPriority, editCategory, editAssignee, editDue, editLifetime, loadTasks]);
+  }, [editingTask, editTitle, editDesc, editPriority, editCategory, editAssignee, editDue, editLifetime, editAttachments, loadTasks]);
 
   const handleStatusChange = useCallback(async (taskId: number, newStatus: TaskStatus) => {
     try {
@@ -1035,6 +1057,72 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                   </button>
                 ))}
               </div>
+
+              {/* ── Attachments ── */}
+              {ts.showFieldAttachments && (
+                <div className="space-y-2 pt-1 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Icon name="Paperclip" size={12} />Вложения
+                    </span>
+                    <button type="button" onClick={() => editAttachInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-xs text-muted-foreground hover:text-foreground transition-all">
+                      <Icon name="Upload" size={12} />Прикрепить / заменить
+                    </button>
+                    <input ref={editAttachInputRef} type="file" multiple accept="*/*" className="hidden"
+                      onChange={e => {
+                        if (!e.target.files) return;
+                        for (const f of Array.from(e.target.files)) {
+                          if (f.size > MAX_BYTES) { setError(`Файл "${f.name}" больше 20 МБ`); continue; }
+                          const preview = isImageType(f.type) ? URL.createObjectURL(f) : undefined;
+                          setEditAttachments(prev => [...prev, { file: f, preview }].slice(0, 10));
+                        }
+                        e.target.value = '';
+                      }} />
+                  </div>
+
+                  {/* Existing attachments */}
+                  {editAttachLoading ? (
+                    <div className="text-xs text-muted-foreground">Загрузка вложений...</div>
+                  ) : editExistingAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {editExistingAttachments.map((a, i) => (
+                        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2 py-1 bg-muted/60 rounded-lg text-xs border border-border hover:bg-muted transition-all group">
+                          {isImageType(a.type)
+                            ? <img src={a.url} alt="" className="w-6 h-6 rounded object-cover" />
+                            : <Icon name="File" size={13} className="text-muted-foreground" />}
+                          <span className="max-w-[90px] truncate group-hover:text-primary">{a.name}</span>
+                          <span className="text-muted-foreground">{formatBytes(a.size)}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* New attachments to upload */}
+                  {editAttachments.length > 0 && (
+                    <div>
+                      <div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
+                        <Icon name="Plus" size={10} />{editAttachments.length} новых файла для загрузки
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {editAttachments.map((a, i) => (
+                          <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 border border-primary/30 rounded-lg text-xs">
+                            {a.preview
+                              ? <img src={a.preview} alt="" className="w-6 h-6 rounded object-cover" />
+                              : <Icon name="File" size={12} className="text-primary" />}
+                            <span className="max-w-[80px] truncate">{a.file.name}</span>
+                            <button onClick={() => setEditAttachments(prev => prev.filter((_, j) => j !== i))}
+                              className="text-red-500 hover:text-red-400 ml-0.5">
+                              <Icon name="X" size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
