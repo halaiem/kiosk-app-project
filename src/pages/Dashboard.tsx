@@ -17,6 +17,7 @@ import MessagesView from '@/components/dashboard/panels/shared/MessagesView';
 import Icon from '@/components/ui/icon';
 import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
 import TicketNotificationBell from '@/components/dashboard/TicketNotificationBell';
+import TicketNotificationToast from '@/components/dashboard/TicketNotificationToast';
 import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
@@ -219,10 +220,13 @@ export default function Dashboard() {
         )}
       </main>
       {activeUser.role !== 'irida_tools' && (
-        <ChatNotificationToast
-          currentUserId={Number(activeUser.id)}
-          onOpenChat={() => setActiveTab('dash_messages' as DashboardTab)}
-        />
+        <>
+          <TicketNotificationToast onNavigate={setActiveTab} />
+          <ChatNotificationToast
+            currentUserId={Number(activeUser.id)}
+            onOpenChat={() => setActiveTab('dash_messages' as DashboardTab)}
+          />
+        </>
       )}
     </div>
   );
