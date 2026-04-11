@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import SortableTh from "@/components/ui/SortableTh";
@@ -28,6 +28,16 @@ interface EditState {
   password: string;
   kioskExitPassword: string;
   adminPin: string;
+}
+
+interface BulkMrmRow {
+  fullName: string;
+  login: string;
+  password: string;
+  kioskExitPassword: string;
+  adminPin: string;
+  status: 'pending' | 'ok' | 'error';
+  error?: string;
 }
 
 // ── MrmAdminDetailPopup ──────────────────────────────────────────────────────
@@ -111,6 +121,20 @@ export default function MrmAdminsBlock() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
+
+  // Bulk creation state
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkMrmRow[]>(() =>
+    Array.from({ length: 2 }, (_, i) => ({
+      fullName: "", login: `admin_mrm_${i + 1}`,
+      password: generatePassword(), kioskExitPassword: generatePassword(8), adminPin: generatePin(6),
+      status: 'pending' as const,
+    }))
+  );
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDone, setBulkDone] = useState<BulkMrmRow[]>([]);
+  const [showBulkExport, setShowBulkExport] = useState(false);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -240,6 +264,97 @@ export default function MrmAdminsBlock() {
     el.click(); URL.revokeObjectURL(url);
   }, []);
 
+  // ── Bulk MRM helpers ────────────────────────────────────────────────────────
+  const addBulkMrmRow = useCallback(() => {
+    const n = bulkRows.length + 1;
+    setBulkRows(prev => [...prev, { fullName: "", login: `admin_mrm_${n}`, password: generatePassword(), kioskExitPassword: generatePassword(8), adminPin: generatePin(6), status: 'pending' }]);
+  }, [bulkRows.length]);
+
+  const removeBulkMrmRow = useCallback((idx: number) => {
+    setBulkRows(prev => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const updateBulkMrmRow = useCallback((idx: number, field: string, value: string) => {
+    setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, status: 'pending', error: undefined } : r));
+  }, []);
+
+  const genAllMrmCreds = useCallback(() => {
+    setBulkRows(prev => prev.map(r => ({ ...r, password: generatePassword(), kioskExitPassword: generatePassword(8), adminPin: generatePin(6), status: 'pending', error: undefined })));
+  }, []);
+
+  const handleBulkMrmCreate = useCallback(async () => {
+    const toCreate = bulkRows.filter(r => r.fullName.trim() && r.login.trim() && r.password.trim() && r.kioskExitPassword.trim() && r.adminPin.trim() && r.status !== 'ok');
+    if (toCreate.length === 0) return;
+    setBulkSaving(true);
+    const results: BulkMrmRow[] = [...bulkRows];
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      if (!row.fullName.trim() || !row.login.trim() || !row.password.trim() || !row.kioskExitPassword.trim() || !row.adminPin.trim() || row.status === 'ok') continue;
+      try {
+        await createMrmAdmin({ fullName: row.fullName.trim(), login: row.login.trim(), password: row.password.trim(), kioskExitPassword: row.kioskExitPassword.trim(), adminPin: row.adminPin.trim() });
+        results[i] = { ...row, status: 'ok' };
+      } catch (e) {
+        results[i] = { ...row, status: 'error', error: e instanceof Error ? e.message : 'Ошибка' };
+      }
+    }
+    setBulkDone(results);
+    setShowBulkExport(true);
+    await load();
+    setBulkSaving(false);
+    const failed = results.filter(r => r.status === 'error');
+    setBulkRows(failed.length > 0
+      ? failed.map(r => ({ ...r, status: 'pending' as const }))
+      : [{ fullName: "", login: `admin_mrm_new`, password: generatePassword(), kioskExitPassword: generatePassword(8), adminPin: generatePin(6), status: 'pending' as const }]
+    );
+  }, [bulkRows]);
+
+  const exportBulkMrmCsv = useCallback((rows: BulkMrmRow[]) => {
+    const header = "ФИО;Логин;Пароль;Служебный пароль;PIN-код";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [`"${r.fullName.replace(/"/g, '""')}"`, r.login, r.password, r.kioskExitPassword, r.adminPin].join(";")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `mrm_admins_credentials_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const exportBulkMrmExcel = useCallback((rows: BulkMrmRow[]) => {
+    const header = "ФИО\tЛогин\tПароль\tСлужебный пароль\tPIN-код";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [r.fullName, r.login, r.password, r.kioskExitPassword, r.adminPin].join("\t")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `mrm_admins_credentials_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleBulkMrmImportCsv = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string) || "";
+      const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
+      const start = lines[0]?.toLowerCase().includes("фио") || lines[0]?.toLowerCase().includes("логин") ? 1 : 0;
+      const parsed: BulkMrmRow[] = lines.slice(start).map(line => {
+        const cols = line.split(/[;,\t]/);
+        return {
+          fullName: (cols[0] || "").replace(/^"|"$/g, "").trim(),
+          login: (cols[1] || "").trim(),
+          password: (cols[2] || generatePassword()).trim() || generatePassword(),
+          kioskExitPassword: (cols[3] || generatePassword(8)).trim() || generatePassword(8),
+          adminPin: (cols[4] || generatePin(6)).trim() || generatePin(6),
+          status: 'pending' as const,
+        };
+      }).filter(r => r.fullName || r.login);
+      if (parsed.length > 0) setBulkRows(parsed);
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  }, []);
+
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       {/* Header */}
@@ -287,12 +402,172 @@ export default function MrmAdminsBlock() {
             </button>
           )}
           <button
-            onClick={() => { setShowForm(true); setEditId(null); setDeleteConfirmId(null); }}
+            onClick={() => { setShowBulkForm(v => !v); setShowForm(false); }}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors ${showBulkForm ? "bg-indigo-500/15 text-indigo-500 border-indigo-500/30" : "bg-muted text-muted-foreground hover:text-foreground border-border"}`}>
+            <Icon name="Users" className="w-3.5 h-3.5" />Массово
+          </button>
+          <button
+            onClick={() => { setShowForm(true); setShowBulkForm(false); setEditId(null); setDeleteConfirmId(null); }}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
             <Icon name="UserPlus" className="w-3.5 h-3.5" />Создать
           </button>
         </div>
       </div>
+
+      {/* Bulk create panel */}
+      {showBulkForm && (
+        <div className="px-5 py-4 border-b border-border bg-indigo-500/5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+              <Icon name="Users" className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-foreground">Массовое создание администраторов МРМ</span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Пароли и PIN-коды генерируются автоматически. После создания скачайте защищённый файл с учётными данными.</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <input ref={bulkFileRef} type="file" accept=".csv,.txt" onChange={handleBulkMrmImportCsv} className="hidden" />
+              <button onClick={() => bulkFileRef.current?.click()}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Upload" className="w-3.5 h-3.5" />Импорт CSV
+              </button>
+              <button onClick={genAllMrmCreds}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="RefreshCw" className="w-3.5 h-3.5" />Обновить пароли
+              </button>
+              <button onClick={() => { setShowBulkForm(false); setBulkDone([]); setShowBulkExport(false); }}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-3.5 h-3.5" />Закрыть
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-xl border border-border overflow-hidden mb-3">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-8">#</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">ФИО</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-36">Логин</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-36">Пароль</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-36">
+                    <span className="text-orange-500">Служебный</span> пароль
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-28">
+                    <span className="text-blue-500">PIN-код</span>
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-20">Статус</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRows.map((row, idx) => (
+                  <tr key={idx} className={`border-b border-border last:border-0 ${row.status === 'ok' ? 'bg-green-500/5' : row.status === 'error' ? 'bg-red-500/5' : ''}`}>
+                    <td className="px-3 py-1.5 text-muted-foreground">{idx + 1}</td>
+                    <td className="px-3 py-1.5">
+                      <input value={row.fullName} onChange={e => updateBulkMrmRow(idx, 'fullName', e.target.value)}
+                        disabled={row.status === 'ok'} placeholder="Иванов И.И."
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <input value={row.login} onChange={e => updateBulkMrmRow(idx, 'login', e.target.value)}
+                        disabled={row.status === 'ok'} placeholder="admin_mrm"
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-1">
+                        <input value={row.password} onChange={e => updateBulkMrmRow(idx, 'password', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          className="flex-1 h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 min-w-0" />
+                        {row.status !== 'ok' && (
+                          <button onClick={() => updateBulkMrmRow(idx, 'password', generatePassword())}
+                            className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 transition-colors">
+                            <Icon name="RefreshCw" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-1">
+                        <input value={row.kioskExitPassword} onChange={e => updateBulkMrmRow(idx, 'kioskExitPassword', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          className="flex-1 h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 min-w-0" />
+                        {row.status !== 'ok' && (
+                          <button onClick={() => updateBulkMrmRow(idx, 'kioskExitPassword', generatePassword(8))}
+                            className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 transition-colors">
+                            <Icon name="RefreshCw" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-1">
+                        <input value={row.adminPin} onChange={e => updateBulkMrmRow(idx, 'adminPin', e.target.value)}
+                          disabled={row.status === 'ok'} maxLength={10}
+                          className="flex-1 h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono tracking-widest text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 min-w-0" />
+                        {row.status !== 'ok' && (
+                          <button onClick={() => updateBulkMrmRow(idx, 'adminPin', generatePin(6))}
+                            className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 transition-colors">
+                            <Icon name="RefreshCw" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {row.status === 'ok' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-500/15 text-green-500">Создан</span>}
+                      {row.status === 'error' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-red-500/15 text-red-500" title={row.error}>Ошибка</span>}
+                      {row.status === 'pending' && <span className="text-[11px] text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.status !== 'ok' && (
+                        <button onClick={() => removeBulkMrmRow(idx)}
+                          className="w-6 h-6 rounded text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors">
+                          <Icon name="X" className="w-3 h-3" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={addBulkMrmRow}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+              <Icon name="Plus" className="w-3.5 h-3.5" />Добавить строку
+            </button>
+            <button onClick={handleBulkMrmCreate}
+              disabled={bulkSaving || bulkRows.filter(r => r.fullName.trim() && r.login.trim() && r.password.trim() && r.kioskExitPassword.trim() && r.adminPin.trim() && r.status !== 'ok').length === 0}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <Icon name="UserPlus" className="w-3.5 h-3.5" />
+              {bulkSaving ? 'Создаю...' : `Создать (${bulkRows.filter(r => r.fullName.trim() && r.login.trim() && r.password.trim() && r.kioskExitPassword.trim() && r.adminPin.trim() && r.status !== 'ok').length})`}
+            </button>
+
+            {showBulkExport && bulkDone.filter(r => r.status === 'ok').length > 0 && (
+              <div className="flex items-center gap-2 ml-auto p-2 rounded-xl bg-green-500/10 border border-green-500/20">
+                <Icon name="ShieldCheck" className="w-4 h-4 text-green-500 shrink-0" />
+                <span className="text-xs text-green-600 font-medium">
+                  Создано: {bulkDone.filter(r => r.status === 'ok').length} — скачайте учётные данные
+                </span>
+                <button onClick={() => exportBulkMrmExcel(bulkDone)}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors">
+                  <Icon name="FileSpreadsheet" className="w-3 h-3" />Excel
+                </button>
+                <button onClick={() => exportBulkMrmCsv(bulkDone)}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-white/80 text-green-700 border border-green-500/30 hover:bg-white transition-colors">
+                  <Icon name="Download" className="w-3 h-3" />CSV
+                </button>
+                <button onClick={() => setShowBulkExport(false)} className="w-6 h-6 rounded text-green-500 hover:text-green-700 flex items-center justify-center">
+                  <Icon name="X" className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (
