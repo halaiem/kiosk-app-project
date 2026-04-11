@@ -75,6 +75,41 @@ def get_setting(cur, key, default=None):
     return row['value'] if row else default
 
 
+_NOTIF_EVENTS_CACHE = None
+_NOTIF_EVENTS_CACHE_AT = 0
+
+def get_notif_events(cur):
+    import time
+    global _NOTIF_EVENTS_CACHE, _NOTIF_EVENTS_CACHE_AT
+    now = time.time()
+    if _NOTIF_EVENTS_CACHE is not None and now - _NOTIF_EVENTS_CACHE_AT < 60:
+        return _NOTIF_EVENTS_CACHE
+    val = get_setting(cur, 'notif_events', {})
+    if isinstance(val, str):
+        try:
+            val = json.loads(val)
+        except Exception:
+            val = {}
+    _NOTIF_EVENTS_CACHE = val if isinstance(val, dict) else {}
+    _NOTIF_EVENTS_CACHE_AT = now
+    return _NOTIF_EVENTS_CACHE
+
+
+NOTIF_TYPE_TO_EVENT = {
+    'new_request':    'on_new_request',
+    'status_changed': 'on_status_change',
+    'new_comment':    'on_comment',
+    'forwarded':      'on_forward',
+    'forwarded_to_you': 'on_forward',
+    'approved':       'on_approved',
+    'rejected':       'on_rejected',
+    'resolved':       'on_resolved',
+    'closed':         'on_closed',
+    'cancelled':      'on_cancelled',
+    'needs_clarification': 'on_needs_clarification',
+}
+
+
 # ═══════════════════════════════════════════════════════════════
 # EMAIL УВЕДОМЛЕНИЯ
 # ═══════════════════════════════════════════════════════════════
@@ -162,13 +197,18 @@ def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_nu
     if not user.get(pref_key, True):
         return
 
-    if user.get('notify_email') and user.get('email'):
-        status_label = STATUS_LABELS.get(notif_type, '')
+    events = get_notif_events(cur)
+    event_key = NOTIF_TYPE_TO_EVENT.get(notif_type, 'on_status_change')
+    event_cfg = events.get(event_key, {})
+    email_allowed = event_cfg.get('email', True) if event_cfg else True
+    push_allowed = event_cfg.get('push', True) if event_cfg else True
+
+    if email_allowed and user.get('notify_email') and user.get('email'):
         html = build_email_html(title, sr_number, sr_title, message, extra_rows)
         text = f"{title}\n\nЗаявка: {sr_number}\n{sr_title}\n\n{message}"
         send_email_notification(user['email'], user['full_name'], title, html, text)
 
-    if user.get('notify_push'):
+    if push_allowed and user.get('notify_push'):
         send_push_to_user(cur, user_id, title, message, request_id)
 
 

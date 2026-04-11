@@ -126,6 +126,21 @@ export default function TicketSettingsView() {
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testPushResult, setTestPushResult] = useState<{ ok: boolean; sent?: number; error?: string } | null>(null);
 
+  const [notifEvents, setNotifEvents] = useState({
+    on_new_request:         { email: true,  push: true,  label: "Новая заявка назначена исполнителю",      icon: "FilePlus" },
+    on_status_change:       { email: true,  push: true,  label: "Смена статуса заявки",                   icon: "RefreshCw" },
+    on_comment:             { email: true,  push: true,  label: "Новый комментарий / уточнение",          icon: "MessageSquare" },
+    on_forward:             { email: true,  push: true,  label: "Переадресация заявки",                   icon: "Forward" },
+    on_approved:            { email: true,  push: true,  label: "Заявка одобрена",                        icon: "CheckCircle2" },
+    on_rejected:            { email: true,  push: true,  label: "Заявка отклонена (с причиной)",          icon: "XCircle" },
+    on_resolved:            { email: true,  push: true,  label: "Заявка решена",                          icon: "BadgeCheck" },
+    on_closed:              { email: false, push: false, label: "Заявка закрыта автором",                 icon: "Archive" },
+    on_cancelled:           { email: true,  push: true,  label: "Заявка отменена (с причиной)",           icon: "Ban" },
+    on_deadline_warning:    { email: true,  push: true,  label: "Предупреждение о приближении дедлайна",  icon: "Clock" },
+    on_needs_clarification: { email: true,  push: true,  label: "Требуется уточнение",                   icon: "HelpCircle" },
+  });
+  const [savingNotifEvents, setSavingNotifEvents] = useState(false);
+
   const showToast = useCallback((text: string, type: "success" | "error") => {
     const id = ++toastCounter;
     setToasts((prev) => [...prev, { id, text, type }]);
@@ -183,6 +198,18 @@ export default function TicketSettingsView() {
         try {
           const parsed = typeof s.print_template === "string" ? JSON.parse(s.print_template) : s.print_template;
           setPrintTemplate((prev) => ({ ...prev, ...parsed }));
+        } catch { void 0; }
+      }
+      if (s.notif_events) {
+        try {
+          const parsed = typeof s.notif_events === "string" ? JSON.parse(s.notif_events) : s.notif_events;
+          setNotifEvents((prev) => {
+            const next = { ...prev };
+            for (const k of Object.keys(prev) as (keyof typeof prev)[]) {
+              if (parsed[k]) next[k] = { ...next[k], ...parsed[k] };
+            }
+            return next;
+          });
         } catch { void 0; }
       }
     } catch {
@@ -335,6 +362,16 @@ export default function TicketSettingsView() {
     setSavingPrint(true);
     await saveSetting("print_template", printTemplate);
     setSavingPrint(false);
+  };
+
+  const handleSaveNotifEvents = async () => {
+    setSavingNotifEvents(true);
+    const payload: Record<string, { email: boolean; push: boolean }> = {};
+    for (const [k, v] of Object.entries(notifEvents)) {
+      payload[k] = { email: v.email, push: v.push };
+    }
+    await saveSetting("notif_events", payload);
+    setSavingNotifEvents(false);
   };
 
   const handleTestSmtp = async () => {
@@ -979,6 +1016,86 @@ export default function TicketSettingsView() {
                     {testPushResult.ok ? `Отправлено на ${testPushResult.sent} устройств` : testPushResult.error}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* ── СОБЫТИЯ ──────────────────────────────────────────── */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Icon name="ListChecks" className="w-4 h-4 text-cyan-500" />
+                  <span className="text-sm font-semibold text-foreground">Какие события отправлять</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                  <span className="w-16 text-center">Email</span>
+                  <span className="w-16 text-center">Push</span>
+                </div>
+              </div>
+
+              <div className="divide-y divide-border">
+                {(Object.entries(notifEvents) as [keyof typeof notifEvents, typeof notifEvents[keyof typeof notifEvents]][]).map(([key, ev]) => (
+                  <div key={key} className="flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Icon name={ev.icon} className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                      <span className="text-sm text-foreground truncate">{ev.label}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      {/* Email toggle */}
+                      <div className="w-16 flex justify-center">
+                        <button
+                          role="switch"
+                          aria-checked={ev.email}
+                          onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], email: !prev[key].email } }))}
+                          className={`relative w-9 h-5 rounded-full transition-colors ${ev.email ? "bg-blue-500" : "bg-muted-foreground/30"}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.email ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                      {/* Push toggle */}
+                      <div className="w-16 flex justify-center">
+                        <button
+                          role="switch"
+                          aria-checked={ev.push}
+                          onClick={() => setNotifEvents(prev => ({ ...prev, [key]: { ...prev[key], push: !prev[key].push } }))}
+                          className={`relative w-9 h-5 rounded-full transition-colors ${ev.push ? "bg-purple-500" : "bg-muted-foreground/30"}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${ev.push ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="px-4 py-3 border-t border-border bg-muted/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500/80 inline-block" />Email</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-500/80 inline-block" />Push</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: true, push: true }])) as typeof prev)}
+                    className="h-7 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Все
+                  </button>
+                  <button
+                    onClick={() => setNotifEvents(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, email: false, push: false }])) as typeof prev)}
+                    className="h-7 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Ничего
+                  </button>
+                  <button
+                    onClick={handleSaveNotifEvents}
+                    disabled={savingNotifEvents}
+                    className="flex items-center gap-1.5 h-7 px-4 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  >
+                    <Icon name="Save" className="w-3.5 h-3.5" />
+                    {savingNotifEvents ? "Сохранение..." : "Сохранить"}
+                  </button>
+                </div>
               </div>
             </div>
 
