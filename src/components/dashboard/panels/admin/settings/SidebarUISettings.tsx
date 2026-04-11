@@ -8,6 +8,14 @@ import {
   SIDEBAR_CONFIG_KEY,
   defaultSidebarConfig,
 } from '@/context/AppSettingsContext';
+import func2url from '../../../../../backend/func2url.json';
+
+const API_URL = func2url.tasks;
+function apiHdrs(): Record<string, string> {
+  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+  const t = localStorage.getItem('dashboard_token'); if (t) h['X-Dashboard-Token'] = t;
+  return h;
+}
 
 const ROLES: { key: SidebarRoleKey; label: string; icon: string }[] = [
   { key: 'dispatcher', label: 'Диспетчер', icon: 'Radio' },
@@ -128,6 +136,9 @@ export default function SidebarUISettings() {
   const { settings, updateSidebarConfig, updateSettings } = useAppSettings();
   const [role, setRole] = useState<SidebarRoleKey>('dispatcher');
   const [saved, setSaved] = useState(false);
+  const [serverSaving, setServerSaving] = useState(false);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverMsg, setServerMsg] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +153,33 @@ export default function SidebarUISettings() {
 
   const save = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
   const reset = () => { updateSidebarConfig(role, defaultSidebarConfig()); };
+
+  const saveToServer = useCallback(async () => {
+    setServerSaving(true); setServerMsg('');
+    try {
+      const res = await fetch(`${API_URL}?action=sidebar_config_save`, {
+        method: 'POST', headers: apiHdrs(),
+        body: JSON.stringify({ role, config: cfg }),
+      });
+      if (!res.ok) throw new Error();
+      setServerMsg('✓ Сохранено на сервер');
+    } catch { setServerMsg('✗ Ошибка сохранения'); }
+    setServerSaving(false);
+    setTimeout(() => setServerMsg(''), 3000);
+  }, [role, cfg]);
+
+  const loadFromServer = useCallback(async () => {
+    setServerLoading(true); setServerMsg('');
+    try {
+      const res = await fetch(`${API_URL}?action=sidebar_config_get&role=${role}`, { headers: apiHdrs() });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (data.config) { updateSidebarConfig(role, data.config); setServerMsg('✓ Загружено с сервера'); }
+      else setServerMsg('Конфиг для этой роли не найден');
+    } catch { setServerMsg('✗ Ошибка загрузки'); }
+    setServerLoading(false);
+    setTimeout(() => setServerMsg(''), 3000);
+  }, [role, updateSidebarConfig]);
 
   const getNavItems = (): SidebarNavItem[] => {
     if (cfg.navOrder && cfg.navOrder.length > 0) return cfg.navOrder;
@@ -191,13 +229,32 @@ export default function SidebarUISettings() {
           <h3 className="font-bold text-base">Настройка Sidebar UI</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Размеры, порядок разделов, фон — для каждой роли отдельно</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={reset} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
-            Сбросить
-          </button>
-          <button onClick={save} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5">
-            <Icon name={saved ? 'Check' : 'Save'} size={13} />{saved ? 'Сохранено!' : 'Сохранить'}
-          </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button onClick={reset}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+              Сбросить
+            </button>
+            <button onClick={save}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5">
+              <Icon name={saved ? 'Check' : 'Save'} size={13} />{saved ? 'Сохранено!' : 'Сохранить'}
+            </button>
+            <button onClick={loadFromServer} disabled={serverLoading}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors flex items-center gap-1.5">
+              <Icon name={serverLoading ? 'Loader' : 'Download'} size={13} className={serverLoading ? 'animate-spin' : ''} />
+              {serverLoading ? 'Загрузка...' : 'С сервера'}
+            </button>
+            <button onClick={saveToServer} disabled={serverSaving}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/15 text-blue-500 hover:bg-blue-500/25 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+              <Icon name={serverSaving ? 'Loader' : 'Upload'} size={13} className={serverSaving ? 'animate-spin' : ''} />
+              {serverSaving ? 'Сохранение...' : 'На сервер'}
+            </button>
+          </div>
+          {serverMsg && (
+            <span className={`text-xs ${serverMsg.startsWith('✓') ? 'text-green-500' : 'text-red-500'}`}>
+              {serverMsg}
+            </span>
+          )}
         </div>
       </div>
 
