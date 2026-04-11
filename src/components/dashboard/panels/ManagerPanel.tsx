@@ -8,6 +8,7 @@ import MessagesView from './shared/MessagesView';
 import VotingView from './shared/VotingView';
 import DepotParkView from './shared/DepotParkView';
 import TasksView from './shared/TasksView';
+import TasksArchiveView from './shared/TasksArchiveView';
 
 interface ManagerPanelProps {
   tab: ManagerTab;
@@ -43,6 +44,7 @@ export default function ManagerPanel({
 
   if (tab === 'service_requests') return <TicketsPanel role="manager" vehicles={vehicles} onReload={onReload} />;
   if (tab === 'tasks') return <TasksView currentUserId={currentUserId} />;
+  if (tab === 'tasks_archive') return <TasksArchiveView />;
   if (tab === 'vehicles') return <VehiclesView vehicles={vehicles} onReload={onReload} />;
   if (tab === 'drivers') return <DriversView drivers={drivers} onReload={onReload} schedules={schedule} vehicles={vehicles} routes={routes} documents={documents} />;
   if (tab === 'schedule') return <ScheduleView schedule={schedule} onReload={onReload} />;

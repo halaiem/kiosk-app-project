@@ -34,6 +34,8 @@ const DISPATCHER_NAV: NavItem[] = [
   { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "dash_messages" as DashboardTab, icon: "MessagesSquare", label: "Мессенджер" },
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
@@ -43,6 +45,8 @@ const DISPATCHER_NAV: NavItem[] = [
 const TECHNICIAN_NAV: NavItem[] = [
   { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "routes", icon: "Route", label: "Маршруты" },
   { tab: "documents", icon: "FileText", label: "Документы" },
   { tab: "admin_vehicles" as DashboardTab, icon: "Truck", label: "Транспортные средства" },
@@ -61,6 +65,8 @@ const ADMIN_NAV: NavItem[] = [
   { tab: "notifications", icon: "Bell", label: "Уведомления" },
   { tab: "service_requests" as DashboardTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "ticket_archive" as DashboardTab, icon: "Archive", label: "Архив заявок" },
   { tab: "settings", icon: "Settings", label: "Настройки" },
   { tab: "diagnostic_apis", icon: "Plug", label: "API" },
@@ -86,6 +92,8 @@ const IRIDA_TOOLS_NAV: NavItem[] = [
 const MECHANIC_NAV: NavItem[] = [
   { tab: "service_requests" as MechanicTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "auto_diagnostics" as MechanicTab, icon: "Activity", label: "Диагностика" },
   { tab: "service_log" as MechanicTab, icon: "BookOpen", label: "Журнал" },
   { tab: "ts_docs" as MechanicTab, icon: "FolderOpen", label: "Документация ТС" },
@@ -97,6 +105,7 @@ const MECHANIC_NAV: NavItem[] = [
 const ENGINEER_NAV: NavItem[] = [
   { tab: "service_requests" as EngineerTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
   { tab: "documents" as DashboardTab, icon: "FileText", label: "Документы" },
   { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
   { tab: "diagnostics" as DashboardTab, icon: "Activity", label: "Диагностика" },
@@ -108,6 +117,7 @@ const ENGINEER_NAV: NavItem[] = [
 const MANAGER_NAV: NavItem[] = [
   { tab: "service_requests" as ManagerTab, icon: "ClipboardList", label: "Заявки" },
   { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
+  { tab: "tasks_archive" as DashboardTab, icon: "ArchiveIcon", label: "Архив задач" },
   { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
   { tab: "drivers" as DashboardTab, icon: "Users", label: "Персонал" },
   { tab: "schedule" as DashboardTab, icon: "Calendar", label: "Расписание" },
@@ -180,6 +190,7 @@ export default function DashboardSidebar({
   const roleFeatures = (settings[featureKey] as FeatureFlags | undefined);
   const filteredNav = navItems.filter(item => {
     if (item.tab === 'tasks' && roleFeatures && roleFeatures.showTasks === false) return false;
+    if (item.tab === 'depot_park' && roleFeatures && roleFeatures.showDepot === false) return false;
     return true;
   });
 
@@ -286,6 +297,10 @@ export default function DashboardSidebar({
           const isMessenger = item.tab === ('dash_messages' as DashboardTab);
           const extra = isMessenger && canSeeDriverUnread ? driverUnread : 0;
           const count = baseCount + extra;
+          const openInNewWindow = () => {
+            const url = `${window.location.pathname}?tab=${item.tab}&role=${user.role}&popup=true`;
+            window.open(url, `tab_${item.tab}`, 'width=1100,height=800,resizable=yes,scrollbars=yes');
+          };
           return (
             <div key={item.tab} className="relative group">
               <button
@@ -301,26 +316,23 @@ export default function DashboardSidebar({
                 <span className="relative shrink-0">
                   <Icon name={item.icon} className="w-[18px] h-[18px]" />
                   {collapsed && count > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-0.5 leading-none">
+                    <span className="absolute -top-1.5 -right-1.5 bg-white text-black text-[9px] font-bold min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-0.5 leading-none border border-black/10">
                       {count > 9 ? "9+" : count}
                     </span>
                   )}
                 </span>
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {!collapsed && count > 0 && (
-                  <span className={`ml-auto ${isMessenger ? "mr-7" : ""} bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1`}>
+                  <span className={`ml-auto ${!collapsed ? "mr-7" : ""} bg-white text-black text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 border border-black/10`}>
                     {count > 99 ? "99+" : count}
                   </span>
                 )}
               </button>
-              {isMessenger && !collapsed && (
+              {!collapsed && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openMessengerWindow();
-                  }}
-                  title="Открыть в отдельном окне"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); openInNewWindow(); }}
+                  title={`Открыть «${item.label}» в отдельном окне`}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
                   style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}
                 >
                   <Icon name="ExternalLink" className="w-3 h-3" />

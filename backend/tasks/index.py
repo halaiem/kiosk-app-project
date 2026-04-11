@@ -57,8 +57,9 @@ def handler(event, context):
         category_filter = qs.get('category')
         priority_filter = qs.get('priority')
         search = qs.get('search', '').strip()
+        archived = qs.get('archived', 'false') == 'true'
 
-        where = []
+        where = ["t.is_archived = " + ("true" if archived else "false")]
         params = []
 
         if status_filter and status_filter != 'all':
@@ -75,10 +76,11 @@ def handler(event, context):
             q = f"%{search}%"
             params.extend([q, q, q, q])
 
-        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        where_sql = " WHERE " + " AND ".join(where)
 
         cur.execute(
             "SELECT t.id, t.title, t.description, t.priority, t.status, t.category, "
+            "t.is_archived, t.lifetime_hours, "
             "t.assignee_user_id, t.created_by_user_id, t.due_date, t.created_at, t.updated_at, t.completed_at, "
             "creator.full_name AS creator_name, creator.role AS creator_role, "
             "assignee.full_name AS assignee_name, assignee.role AS assignee_role, "
@@ -88,17 +90,19 @@ def handler(event, context):
             "LEFT JOIN dashboard_users assignee ON assignee.id = t.assignee_user_id"
             + where_sql +
             " ORDER BY CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, t.created_at DESC "
-            "LIMIT 200",
+            "LIMIT 300",
             params
         )
         tasks = [dict(r) for r in cur.fetchall()]
 
-        cur.execute(
-            "SELECT status, COUNT(*) AS cnt FROM tasks GROUP BY status"
-        )
-        counts = {r['status']: r['cnt'] for r in cur.fetchall()}
-        cur.execute("SELECT COUNT(*) AS total FROM tasks")
-        counts['all'] = cur.fetchone()['total']
+        if not archived:
+            cur.execute("SELECT status, COUNT(*) AS cnt FROM tasks WHERE is_archived = false GROUP BY status")
+            counts = {r['status']: r['cnt'] for r in cur.fetchall()}
+            cur.execute("SELECT COUNT(*) AS total FROM tasks WHERE is_archived = false")
+            counts['all'] = cur.fetchone()['total']
+        else:
+            cur.execute("SELECT COUNT(*) AS total FROM tasks WHERE is_archived = true")
+            counts = {'all': cur.fetchone()['total']}
 
         cur.close(); conn.close()
         return resp(200, {'tasks': tasks, 'counts': counts})
@@ -123,11 +127,12 @@ def handler(event, context):
         category = body.get('category', 'other')
         assignee_user_id = body.get('assignee_user_id')
         due_date = body.get('due_date')
+        lifetime_hours = body.get('lifetime_hours')
 
         cur.execute(
-            "INSERT INTO tasks (title, description, priority, category, assignee_user_id, created_by_user_id, due_date) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (title, description, priority, category, assignee_user_id or None, user['id'], due_date or None)
+            "INSERT INTO tasks (title, description, priority, category, assignee_user_id, created_by_user_id, due_date, lifetime_hours) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (title, description, priority, category, assignee_user_id or None, user['id'], due_date or None, lifetime_hours or None)
         )
         task_id = cur.fetchone()['id']
         cur.close(); conn.close()
@@ -199,6 +204,20 @@ def handler(event, context):
         cur.execute("UPDATE tasks SET updated_at = NOW() WHERE id = %s", (task_id,))
         cur.close(); conn.close()
         return resp(201, {'id': comment_id, 'message': 'Комментарий добавлен'})
+
+    if action == 'archive' and method == 'POST':
+        body = json.loads(event.get('body') or '{}')
+        ids = body.get('ids', [])
+        archive_val = body.get('archive', True)
+        if not ids or not isinstance(ids, list):
+            cur.close(); conn.close()
+            return resp(400, {'error': 'Укажите ids'})
+        placeholders = ','.join(['%s'] * len(ids))
+        cur.execute(f"UPDATE tasks SET is_archived = %s, updated_at = NOW() WHERE id IN ({placeholders})",
+                    [archive_val] + ids)
+        cur.close(); conn.close()
+        action_word = 'архивировано' if archive_val else 'восстановлено'
+        return resp(200, {'message': f'Задач {action_word}: {cur.rowcount}'})
 
     if action == 'delete' and method == 'POST':
         body = json.loads(event.get('body') or '{}')

@@ -1,0 +1,3 @@
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lifetime_hours INTEGER;
+CREATE INDEX IF NOT EXISTS idx_tasks_archived ON tasks(is_archived);

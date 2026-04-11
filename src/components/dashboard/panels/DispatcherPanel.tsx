@@ -6,6 +6,8 @@ import DashMessagesView from "./shared/MessagesView";
 import TicketsPanel from "./shared/TicketsPanel";
 import VotingView from "./shared/VotingView";
 import TasksView from "./shared/TasksView";
+import TasksArchiveView from "./shared/TasksArchiveView";
+import DepotParkView from "./shared/DepotParkView";
 import type {
   DispatcherTab,
   DispatchMessage,
@@ -97,6 +99,12 @@ export default function DispatcherPanel({
   }
   if (tab === "tasks") {
     return (<>{criticalPopup}<TasksView currentUserId={currentUserId} /></>);
+  }
+  if (tab === "tasks_archive") {
+    return (<>{criticalPopup}<TasksArchiveView /></>);
+  }
+  if (tab === "depot_park") {
+    return (<>{criticalPopup}<DepotParkView role="dispatcher" /></>);
   }
   if (tab === "voting") {
     return (<>{criticalPopup}<VotingView currentUserId={currentUserId || 0} /></>);

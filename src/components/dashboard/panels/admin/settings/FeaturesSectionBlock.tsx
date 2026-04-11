@@ -26,6 +26,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
     { tab: "overview", icon: "LayoutDashboard", label: "Обзор" },
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
     { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
     { tab: "dash_messages", icon: "MessagesSquare", label: "Мессенджер" },
     { tab: "notifications", icon: "Bell", label: "Уведомления" },
     { tab: "alerts", icon: "AlertTriangle", label: "Тревоги" },
@@ -34,6 +35,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
   technician: [
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
     { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
     { tab: "routes", icon: "Route", label: "Маршруты" },
     { tab: "documents", icon: "FileText", label: "Документы" },
     { tab: "vehicles", icon: "Bus", label: "Транспорт" },
@@ -49,6 +51,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
     { tab: "admin_vehicles", icon: "Truck", label: "Транспортные средства" },
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
     { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
     { tab: "settings", icon: "Settings", label: "Настройки" },
     { tab: "servers", icon: "Server", label: "Серверы" },
     { tab: "logs", icon: "ScrollText", label: "Логи" },
@@ -59,6 +62,7 @@ const DASHBOARD_SECTIONS: Record<string, SectionItem[]> = {
   mechanic: [
     { tab: "service_requests", icon: "ClipboardList", label: "Заявки" },
     { tab: "tasks", icon: "ListTodo", label: "Задачи" },
+    { tab: "depot_park", icon: "Warehouse", label: "Парк / Депо" },
     { tab: "auto_diagnostics", icon: "Activity", label: "Диагностика" },
     { tab: "service_log", icon: "BookOpen", label: "Журнал" },
     { tab: "ts_docs", icon: "FolderOpen", label: "Документация ТС" },
@@ -151,6 +155,7 @@ const DEFAULT_CUSTOM_FEATURES: FeatureFlags = {
   showNotifications: false,
   showVoting: false,
   showTasks: false,
+  showDepot: false,
 };
 
 function loadCustomSections(role: string): SectionItem[] {

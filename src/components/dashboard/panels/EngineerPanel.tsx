@@ -9,6 +9,7 @@ import MessagesView from './shared/MessagesView';
 import VotingView from './shared/VotingView';
 import DepotParkView from './shared/DepotParkView';
 import TasksView from './shared/TasksView';
+import TasksArchiveView from './shared/TasksArchiveView';
 
 interface EngineerPanelProps {
   tab: EngineerTab;
@@ -46,6 +47,7 @@ export default function EngineerPanel({
   if (tab === 'notifications') return <NotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === 'dash_messages') return <MessagesView currentUserId={currentUserId || 0} />;
   if (tab === 'tasks') return <TasksView currentUserId={currentUserId} />;
+  if (tab === 'tasks_archive') return <TasksArchiveView />;
   if (tab === 'voting') return <VotingView currentUserId={currentUserId || 0} />;
   return null;
 }

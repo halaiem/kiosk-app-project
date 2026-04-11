@@ -34,6 +34,7 @@ export interface FeatureFlags {
   showNotifications: boolean;
   showVoting: boolean;
   showTasks: boolean;
+  showDepot: boolean;
 }
 
 /* ── Brand colors ── */
@@ -130,6 +131,7 @@ const DEFAULT_FEATURES: FeatureFlags = {
   showNotifications: true,
   showVoting: true,
   showTasks: true,
+  showDepot: true,
 };
 
 const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
@@ -149,6 +151,7 @@ const DEFAULT_ADMIN_FEATURES: FeatureFlags = {
   showNotifications: true,
   showVoting: true,
   showTasks: true,
+  showDepot: true,
 };
 
 const DEFAULT_BRAND_COLORS: BrandColors = {
@@ -551,6 +554,7 @@ export const FEATURE_LABELS: Record<keyof FeatureFlags, string> = {
   showNotifications: 'Уведомления',
   showVoting: 'Голосование',
   showTasks: 'Задачи',
+  showDepot: 'Парк / Депо',
 };
 
 /* ── Font sizes ── */
