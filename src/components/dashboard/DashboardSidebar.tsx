@@ -95,15 +95,18 @@ const ENGINEER_NAV: NavItem[] = [
   { tab: "documents" as DashboardTab, icon: "FileText", label: "Документы" },
   { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
   { tab: "diagnostics" as DashboardTab, icon: "Activity", label: "Диагностика" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "notifications" as DashboardTab, icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];
 
 const MANAGER_NAV: NavItem[] = [
   { tab: "service_requests" as ManagerTab, icon: "ClipboardList", label: "Заявки" },
+  { tab: "tasks" as DashboardTab, icon: "ListTodo", label: "Задачи" },
   { tab: "vehicles" as DashboardTab, icon: "Bus", label: "Транспорт" },
   { tab: "drivers" as DashboardTab, icon: "Users", label: "Персонал" },
   { tab: "schedule" as DashboardTab, icon: "Calendar", label: "Расписание" },
+  { tab: "depot_park" as DashboardTab, icon: "Warehouse", label: "Парк / Депо" },
   { tab: "notifications" as DashboardTab, icon: "Bell", label: "Уведомления" },
   { tab: "dash_messages" as DashboardTab, icon: "MessageSquare", label: "Сообщения" },
 ];

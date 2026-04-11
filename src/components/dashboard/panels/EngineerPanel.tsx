@@ -7,6 +7,7 @@ import { TechDiagnosticsView } from './technician/TechDiagnosticsView';
 import { NotificationsView } from './technician/TechNotificationsView';
 import MessagesView from './shared/MessagesView';
 import VotingView from './shared/VotingView';
+import DepotParkView from './shared/DepotParkView';
 
 interface EngineerPanelProps {
   tab: EngineerTab;
@@ -40,6 +41,7 @@ export default function EngineerPanel({
   if (tab === 'documents') return <DocumentsView documents={documents} onUpdateDocumentStatus={onUpdateDocumentStatus || (() => {})} onReload={onReload} />;
   if (tab === 'vehicles') return <VehiclesView vehicles={vehicles} onReload={onReload} />;
   if (tab === 'diagnostics') return <TechDiagnosticsView onReload={onReload} />;
+  if (tab === 'depot_park') return <DepotParkView role="engineer" />;
   if (tab === 'notifications') return <NotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === 'dash_messages') return <MessagesView currentUserId={currentUserId || 0} />;
   if (tab === 'voting') return <VotingView currentUserId={currentUserId || 0} />;

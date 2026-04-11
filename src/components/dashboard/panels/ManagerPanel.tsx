@@ -6,6 +6,8 @@ import { ScheduleView } from './technician/TechSchedule';
 import { NotificationsView } from './technician/TechNotificationsView';
 import MessagesView from './shared/MessagesView';
 import VotingView from './shared/VotingView';
+import DepotParkView from './shared/DepotParkView';
+import TasksView from './shared/TasksView';
 
 interface ManagerPanelProps {
   tab: ManagerTab;
@@ -40,9 +42,11 @@ export default function ManagerPanel({
   }, [onMarkReadProp]);
 
   if (tab === 'service_requests') return <TicketsPanel role="manager" vehicles={vehicles} onReload={onReload} />;
+  if (tab === 'tasks') return <TasksView currentUserId={currentUserId} />;
   if (tab === 'vehicles') return <VehiclesView vehicles={vehicles} onReload={onReload} />;
   if (tab === 'drivers') return <DriversView drivers={drivers} onReload={onReload} schedules={schedule} vehicles={vehicles} routes={routes} documents={documents} />;
   if (tab === 'schedule') return <ScheduleView schedule={schedule} onReload={onReload} />;
+  if (tab === 'depot_park') return <DepotParkView role="manager" />;
   if (tab === 'notifications') return <NotificationsView notifications={notifProp || localNotifs} onMarkNotificationRead={handleMarkRead} />;
   if (tab === 'dash_messages') return <MessagesView currentUserId={currentUserId || 0} />;
   if (tab === 'voting') return <VotingView currentUserId={currentUserId || 0} />;
