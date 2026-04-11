@@ -16,6 +16,7 @@ import IridaToolsPanel from '@/components/dashboard/panels/IridaToolsPanel';
 import MessagesView from '@/components/dashboard/panels/shared/MessagesView';
 import Icon from '@/components/ui/icon';
 import ChatNotificationToast from '@/components/dashboard/ChatNotificationToast';
+import TicketNotificationBell from '@/components/dashboard/TicketNotificationBell';
 import type { DashboardTab, DispatcherTab, TechnicianTab, AdminTab, IridaToolsTab, MechanicTab } from '@/types/dashboard';
 
 const DEFAULT_TABS: Record<string, DashboardTab> = {
@@ -147,13 +148,19 @@ export default function Dashboard() {
       />
       <main className="flex-1 overflow-auto p-6 relative">
         {activeUser.role !== 'irida_tools' && (
-          <button
-            onClick={toggleTheme}
-            title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
-            className="fixed top-4 right-4 z-50 w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
-          >
-            <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
-          </button>
+          <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+            <TicketNotificationBell
+              enabled={true}
+              onNavigate={setActiveTab}
+            />
+            <button
+              onClick={toggleTheme}
+              title={isLight ? 'Переключить на тёмную тему' : 'Переключить на светлую тему'}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all shadow-md border border-border bg-card text-foreground hover:bg-muted"
+            >
+              <Icon name={isLight ? 'Moon' : 'Sun'} className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
         {activeUser.role === 'dispatcher' && (

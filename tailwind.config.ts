@@ -90,10 +90,20 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' }
         },
+        wiggle: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '15%':       { transform: 'rotate(14deg)' },
+          '30%':       { transform: 'rotate(-8deg)' },
+          '45%':       { transform: 'rotate(14deg)' },
+          '60%':       { transform: 'rotate(-4deg)' },
+          '75%':       { transform: 'rotate(10deg)' },
+          '90%':       { transform: 'rotate(-4deg)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        wiggle: 'wiggle 0.8s ease-in-out',
       },
       screens: {
         'tablet': '768px',
