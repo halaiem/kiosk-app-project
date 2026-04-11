@@ -352,11 +352,16 @@ export default function DashboardSidebar({
               <button
                 onClick={() => onTabChange(item.tab)}
                 title={collapsed ? item.label : undefined}
-                style={collapsed ? undefined : { minHeight: sidebarCfg.navItemHeight, fontSize: sidebarCfg.navFontSize }}
+                style={collapsed
+                  ? (isActive ? { backgroundColor: "hsl(var(--sidebar-primary))" } : undefined)
+                  : {
+                      minHeight: sidebarCfg.navItemHeight,
+                      fontSize: sidebarCfg.navFontSize,
+                      ...(isActive ? { backgroundColor: "hsl(var(--sidebar-primary))" } : {}),
+                    }}
                 className={`w-full flex items-center rounded-lg font-medium transition-colors relative
-                  ${collapsed ? "justify-center px-0 py-2.5 text-sm" : "gap-3 px-3"}
+                  ${collapsed ? "justify-center px-0 py-2.5 text-sm" : "gap-3 px-3 py-2"}
                   ${isActive ? "text-white" : "opacity-70 hover:opacity-100"}`}
-                style={isActive ? { backgroundColor: "hsl(var(--sidebar-primary))" } : undefined}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
               >
