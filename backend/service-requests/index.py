@@ -1,4 +1,4 @@
-"""API заявок на обслуживание ТС: полный жизненный цикл, комментарии, переадресация, уведомления, настройки, архив"""
+"""API заявок на обслуживание ТС: полный жизненный цикл, комментарии, переадресация, уведомления email+push, настройки, архив"""
 import json
 import os
 import psycopg2
@@ -20,6 +20,11 @@ STATUS_LABELS = {
     'needs_clarification': 'Требует уточнения', 'approved': 'Одобрена', 'rejected': 'Отклонена',
     'resolved': 'Решено', 'closed': 'Закрыта', 'cancelled': 'Отменена', 'expired': 'Просрочена',
     'needs_info': 'Требует информации',
+}
+
+ROLE_LABELS = {
+    'admin': 'Администратор', 'dispatcher': 'Диспетчер',
+    'technician': 'Технолог', 'mechanic': 'Механик',
 }
 
 
@@ -68,6 +73,155 @@ def get_setting(cur, key, default=None):
     cur.execute("SELECT value FROM ticket_settings WHERE key = %s", (key,))
     row = cur.fetchone()
     return row['value'] if row else default
+
+
+# ═══════════════════════════════════════════════════════════════
+# EMAIL УВЕДОМЛЕНИЯ
+# ═══════════════════════════════════════════════════════════════
+def send_email_notification(to_email, to_name, subject, html_body, text_body):
+    smtp_host = os.environ.get('SMTP_HOST', '')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    smtp_user = os.environ.get('SMTP_USER', '')
+    smtp_pass = os.environ.get('SMTP_PASS', '')
+    smtp_from = os.environ.get('SMTP_FROM', smtp_user)
+
+    if not smtp_host or not smtp_user or not smtp_pass or not to_email:
+        return False
+
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart('alternative')
+        msg['From'] = f"Система заявок <{smtp_from}>"
+        msg['To'] = f"{to_name} <{to_email}>" if to_name else to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+        return True
+    except Exception:
+        return False
+
+
+def build_email_html(title, request_number, status_label, message, extra_rows=None):
+    rows_html = ''
+    if extra_rows:
+        for label, value in extra_rows:
+            rows_html += f'<tr><td style="padding:6px 12px;color:#888;font-size:13px;width:140px">{label}</td><td style="padding:6px 12px;font-size:13px">{value}</td></tr>'
+
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
+  <div style="background:#1e293b;padding:20px 24px">
+    <p style="margin:0;color:#94a3b8;font-size:12px;letter-spacing:.5px;text-transform:uppercase">Система управления заявками</p>
+    <h1 style="margin:6px 0 0;color:#fff;font-size:20px">{title}</h1>
+  </div>
+  <div style="padding:20px 24px">
+    <table style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:8px;overflow:hidden;margin-bottom:16px">
+      <tr><td style="padding:6px 12px;color:#888;font-size:13px;width:140px">Заявка</td>
+          <td style="padding:6px 12px;font-size:13px;font-family:monospace;font-weight:bold">{request_number}</td></tr>
+      <tr style="background:#fff"><td style="padding:6px 12px;color:#888;font-size:13px">Статус</td>
+          <td style="padding:6px 12px;font-size:13px;font-weight:bold;color:#0f172a">{status_label}</td></tr>
+      {rows_html}
+    </table>
+    <div style="background:#f0f9ff;border-left:4px solid #0ea5e9;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:16px">
+      <p style="margin:0;color:#0c4a6e;font-size:14px">{message}</p>
+    </div>
+    <p style="margin:0;color:#94a3b8;font-size:12px">Это автоматическое сообщение системы управления заявками. Отвечать на него не нужно.</p>
+  </div>
+</div>
+</body></html>"""
+
+
+def notify_user_full(cur, user_id, notif_type, title, message, request_id, sr_number='', sr_title='', extra_rows=None):
+    cur.execute(
+        "SELECT email, full_name, notify_email, notify_push, notify_on_status_change, "
+        "notify_on_new_request, notify_on_comment, notify_on_forward "
+        "FROM dashboard_users WHERE id = %s", (user_id,))
+    user = cur.fetchone()
+    if not user:
+        return
+
+    send_notification(cur, request_id, user_id, notif_type, title, message)
+
+    pref_map = {
+        'status_changed': 'notify_on_status_change',
+        'new_request': 'notify_on_new_request',
+        'forwarded': 'notify_on_forward',
+        'forwarded_to_you': 'notify_on_forward',
+        'new_comment': 'notify_on_comment',
+    }
+    pref_key = pref_map.get(notif_type, 'notify_on_status_change')
+    if not user.get(pref_key, True):
+        return
+
+    if user.get('notify_email') and user.get('email'):
+        status_label = STATUS_LABELS.get(notif_type, '')
+        html = build_email_html(title, sr_number, sr_title, message, extra_rows)
+        text = f"{title}\n\nЗаявка: {sr_number}\n{sr_title}\n\n{message}"
+        send_email_notification(user['email'], user['full_name'], title, html, text)
+
+    if user.get('notify_push'):
+        send_push_to_user(cur, user_id, title, message, request_id)
+
+
+def notify_creator_full(cur, request_id, notif_type, title, message, sr_number='', sr_title='', extra_rows=None):
+    cur.execute("SELECT created_by_user_id FROM service_requests WHERE id = %s", (request_id,))
+    row = cur.fetchone()
+    if row and row['created_by_user_id']:
+        notify_user_full(cur, row['created_by_user_id'], notif_type, title, message,
+                         request_id, sr_number, sr_title, extra_rows)
+
+
+# ═══════════════════════════════════════════════════════════════
+# WEB PUSH УВЕДОМЛЕНИЯ
+# ═══════════════════════════════════════════════════════════════
+def send_push_to_user(cur, user_id, title, body, request_id=None):
+    vapid_private = os.environ.get('VAPID_PRIVATE_KEY', '')
+    vapid_public = os.environ.get('VAPID_PUBLIC_KEY', '')
+    vapid_email = os.environ.get('VAPID_EMAIL', '')
+
+    if not vapid_private or not vapid_public:
+        return
+
+    cur.execute("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = %s", (user_id,))
+    subs = cur.fetchall()
+    if not subs:
+        return
+
+    try:
+        from pywebpush import webpush, WebPushException
+        payload = json.dumps({
+            'title': title,
+            'body': body,
+            'icon': '/favicon.ico',
+            'badge': '/favicon.ico',
+            'data': {'request_id': request_id},
+        })
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info={
+                        'endpoint': sub['endpoint'],
+                        'keys': {'p256dh': sub['p256dh'], 'auth': sub['auth']},
+                    },
+                    data=payload,
+                    vapid_private_key=vapid_private,
+                    vapid_claims={'sub': vapid_email or 'mailto:admin@example.com'},
+                )
+            except WebPushException as e:
+                if '410' in str(e) or '404' in str(e):
+                    cur.execute("UPDATE push_subscriptions SET endpoint = endpoint WHERE endpoint = %s AND user_id = %s",
+                                (sub['endpoint'], user_id))
+    except ImportError:
+        pass
 
 
 def handler(event, context):
@@ -273,8 +427,11 @@ def handle_requests(method, qs, event, cur, conn, user):
                    f'Заявка {req_number} создана', {'title': title, 'vehicle': vehicle_label})
 
         if assigned_to:
-            send_notification(cur, new['id'], assigned_to, 'new_request',
-                              f'Новая заявка {req_number}', f'{title} — от {user["name"]}')
+            notify_user_full(cur, assigned_to, 'new_request',
+                             f'Новая заявка {req_number}',
+                             f'{title} — от {user["name"]} ({ROLE_LABELS.get(user["role"], user["role"])})',
+                             new['id'], req_number, title,
+                             [('ТС', vehicle_label or '—'), ('Приоритет', prio)])
 
         conn.commit()
         return resp(201, {'id': new['id'], 'request_number': new['request_number']})
@@ -330,9 +487,22 @@ def handle_requests(method, qs, event, cur, conn, user):
                 sets.append("expired_at = NOW()")
 
             status_label = STATUS_LABELS.get(new_status, new_status)
-            notify_creator(cur, int(request_id), 'status_changed',
-                           f'Заявка {sr["request_number"]}: {status_label}',
-                           body.get('comment', f'Статус изменён на: {status_label}'))
+            extra = [('Исполнитель', user['name']), ('Роль', ROLE_LABELS.get(user['role'], user['role']))]
+            if new_status == 'rejected' and body.get('rejection_reason'):
+                extra.append(('Причина', body['rejection_reason']))
+            elif new_status == 'cancelled' and body.get('cancellation_reason'):
+                extra.append(('Причина', body['cancellation_reason']))
+            elif new_status == 'resolved' and body.get('resolution_note'):
+                extra.append(('Решение', body['resolution_note'][:120]))
+            notify_creator_full(cur, int(request_id), 'status_changed',
+                                f'Заявка {sr["request_number"]}: {status_label}',
+                                body.get('comment', f'Статус изменён на «{status_label}»'),
+                                sr['request_number'], sr['title'], extra)
+            if sr.get('assigned_to_user_id') and sr['assigned_to_user_id'] != sr.get('created_by_user_id'):
+                notify_user_full(cur, sr['assigned_to_user_id'], 'status_changed',
+                                 f'Заявка {sr["request_number"]}: {status_label}',
+                                 body.get('comment', f'Статус изменён на «{status_label}»'),
+                                 int(request_id), sr['request_number'], sr['title'], extra)
 
         if sets:
             sets.append("updated_at = NOW()")
@@ -381,8 +551,10 @@ def handle_comments(method, qs, event, cur, conn, user):
             if sr['assigned_to_user_id'] and sr['assigned_to_user_id'] != user['id']:
                 targets.add(sr['assigned_to_user_id'])
             for uid in targets:
-                send_notification(cur, int(request_id), uid, 'new_comment',
-                                  f'Комментарий к {sr["request_number"]}', f'{user["name"]}: {message[:100]}')
+                notify_user_full(cur, uid, 'new_comment',
+                                 f'Комментарий к заявке {sr["request_number"]}',
+                                 f'{user["name"]}: {message[:120]}',
+                                 int(request_id), sr['request_number'], sr.get('title', ''))
 
         log_action(cur, int(request_id), user, 'comment_added', comment=message)
         conn.commit()
@@ -429,14 +601,19 @@ def handle_forward(method, event, cur, conn, user):
                f'Переадресовано: {role_labels.get(user["role"], user["role"])} → {role_labels.get(to_role, to_role)}. {message}',
                {'from_role': user['role'], 'to_role': to_role})
 
-    notify_creator(cur, int(request_id), 'forwarded',
-                   f'Заявка {sr["request_number"]} переадресована',
-                   f'Ваша заявка переадресована роли: {role_labels.get(to_role, to_role)}. {message}')
+    fwd_msg_creator = f'Ваша заявка переадресована роли «{ROLE_LABELS.get(to_role, to_role)}». {message}'
+    notify_creator_full(cur, int(request_id), 'forwarded',
+                        f'Заявка {sr["request_number"]} переадресована',
+                        fwd_msg_creator, sr['request_number'], sr.get('title', ''),
+                        [('Переадресовано', ROLE_LABELS.get(to_role, to_role)),
+                         ('Кем', user['name'])])
 
     if new_assigned:
-        send_notification(cur, int(request_id), new_assigned, 'forwarded_to_you',
-                          f'Заявка {sr["request_number"]} переадресована вам',
-                          f'От {user["name"]} ({role_labels.get(user["role"], user["role"])}). {message}')
+        fwd_msg_exec = f'Заявка от {user["name"]} ({ROLE_LABELS.get(user["role"], user["role"])}). {message}'
+        notify_user_full(cur, new_assigned, 'forwarded_to_you',
+                         f'Новая заявка {sr["request_number"]} переадресована вам',
+                         fwd_msg_exec, int(request_id), sr['request_number'], sr.get('title', ''),
+                         [('От', user['name']), ('Роль', ROLE_LABELS.get(user['role'], user['role']))])
 
     if message:
         cur.execute("""

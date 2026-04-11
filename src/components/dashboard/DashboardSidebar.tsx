@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab } from "@/types/dashboard";
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { fetchDriverUnread } from '@/api/chatApi';
+import NotificationPreferences from "./NotificationPreferences";
 
 function useSidebarLight() {
   const [isLight, setIsLight] = useState(true);
@@ -131,6 +132,7 @@ export default function DashboardSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [driverUnread, setDriverUnread] = useState(0);
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
 
   const handleReload = useCallback(async () => {
     if (!onReload || refreshing) return;
@@ -173,6 +175,7 @@ export default function DashboardSidebar({
   };
 
   return (
+    <>
     <div
       className="h-full flex flex-col shrink-0 transition-all duration-300"
       style={{
@@ -338,6 +341,17 @@ export default function DashboardSidebar({
           </button>
         )}
         <button
+          onClick={() => setShowNotifPrefs(true)}
+          title={collapsed ? "Настройки уведомлений" : undefined}
+          className={`w-full flex items-center rounded-lg text-sm font-medium opacity-70 hover:opacity-100 transition-colors
+            ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2"}`}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(var(--sidebar-accent))"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+        >
+          <Icon name="BellRing" className="w-[18px] h-[18px] shrink-0" />
+          {!collapsed && <span>Уведомления</span>}
+        </button>
+        <button
           onClick={onLogout}
           title={collapsed ? "Выйти" : undefined}
           className={`w-full flex items-center rounded-lg text-sm font-medium opacity-70 hover:opacity-100 transition-colors
@@ -350,5 +364,8 @@ export default function DashboardSidebar({
         </button>
       </div>
     </div>
+
+    {showNotifPrefs && <NotificationPreferences onClose={() => setShowNotifPrefs(false)} />}
+    </>
   );
 }
