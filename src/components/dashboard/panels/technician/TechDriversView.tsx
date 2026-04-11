@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import ReportButton from "@/components/dashboard/ReportButton";
 import SortableTh from "@/components/ui/SortableTh";
@@ -14,11 +14,23 @@ import type {
 import {
   DRIVER_STATUS_STYLES,
   DRIVER_STATUS_LABELS,
+  generatePin,
 } from "./TechVDConstants";
 import DriverDetailModal from "./DriverDetailModal";
 import DriverEditModal from "./DriverEditModal";
 import DriverCreateModal from "./DriverCreateModal";
 import { deleteDriver as apiDeleteDriver } from "@/api/dashboardApi";
+import { createDriver as apiCreateDriver } from "@/api/driverApi";
+
+interface BulkDriverRow {
+  tabNumber: string;
+  fullName: string;
+  pin: string;
+  phone: string;
+  vehicleType: string;
+  status: 'pending' | 'ok' | 'error';
+  error?: string;
+}
 
 type SortKey = "name" | "status" | "rating";
 
@@ -58,6 +70,16 @@ export function DriversView({
   const [deleting, setDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [visiblePins, setVisiblePins] = useState<Set<string>>(new Set());
+
+  // Bulk creation state
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkDriverRow[]>(() =>
+    Array.from({ length: 3 }, (_, i) => ({ tabNumber: `T00${i + 1}`, fullName: "", pin: generatePin(), phone: "", vehicleType: "bus", status: 'pending' as const }))
+  );
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDone, setBulkDone] = useState<BulkDriverRow[]>([]);
+  const [showBulkExport, setShowBulkExport] = useState(false);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   const togglePinVisibility = useCallback((id: string) => {
     setVisiblePins(prev => {
@@ -157,6 +179,105 @@ export function DriversView({
 
   const exportRows = selectedIds.size > 0 ? sortedList.filter((d) => selectedIds.has(d.id)) : sortedList;
 
+  // ── Bulk helpers ─────────────────────────────────────────────────────────────
+  const addBulkDriverRow = useCallback(() => {
+    setBulkRows(prev => [...prev, { tabNumber: "", fullName: "", pin: generatePin(), phone: "", vehicleType: "bus", status: 'pending' }]);
+  }, []);
+
+  const removeBulkDriverRow = useCallback((idx: number) => {
+    setBulkRows(prev => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const updateBulkDriverRow = useCallback((idx: number, field: string, value: string) => {
+    setBulkRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value, status: 'pending', error: undefined } : r));
+  }, []);
+
+  const genAllPins = useCallback(() => {
+    setBulkRows(prev => prev.map(r => ({ ...r, pin: generatePin(), status: 'pending', error: undefined })));
+  }, []);
+
+  const handleBulkDriverCreate = useCallback(async () => {
+    const toCreate = bulkRows.filter(r => r.fullName.trim() && r.pin.trim() && r.status !== 'ok');
+    if (toCreate.length === 0) return;
+    setBulkSaving(true);
+    const results: BulkDriverRow[] = [...bulkRows];
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      if (!row.fullName.trim() || !row.pin.trim() || row.status === 'ok') continue;
+      try {
+        await apiCreateDriver({
+          fullName: row.fullName.trim(),
+          pin: row.pin.trim(),
+          tabNumber: row.tabNumber.trim() || undefined,
+          vehicleType: row.vehicleType,
+          vehicleNumber: "",
+          routeNumber: "",
+          shiftStart: "08:00",
+          ...(row.phone.trim() ? { phone: row.phone.trim() } : {}),
+        } as Parameters<typeof apiCreateDriver>[0]);
+        results[i] = { ...row, status: 'ok' };
+      } catch (e) {
+        results[i] = { ...row, status: 'error', error: e instanceof Error ? e.message : 'Ошибка' };
+      }
+    }
+    setBulkDone(results);
+    setShowBulkExport(true);
+    onReload?.();
+    setBulkSaving(false);
+    const failed = results.filter(r => r.status === 'error');
+    setBulkRows(failed.length > 0
+      ? failed.map(r => ({ ...r, status: 'pending' as const }))
+      : [{ tabNumber: "", fullName: "", pin: generatePin(), phone: "", vehicleType: "bus", status: 'pending' as const }]
+    );
+  }, [bulkRows, onReload]);
+
+  const exportBulkDriversCsv = useCallback((rows: BulkDriverRow[]) => {
+    const header = "Таб.№;ФИО;PIN;Телефон;Тип ТС";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [r.tabNumber, `"${r.fullName.replace(/"/g, '""')}"`, r.pin, r.phone, r.vehicleType].join(";")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `drivers_pins_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const exportBulkDriversExcel = useCallback((rows: BulkDriverRow[]) => {
+    const header = "Таб.№\tФИО\tPIN\tТелефон\tТип ТС";
+    const lines = rows.filter(r => r.status === 'ok').map(r =>
+      [r.tabNumber, r.fullName, r.pin, r.phone, r.vehicleType].join("\t")
+    );
+    const blob = new Blob(["\uFEFF" + [header, ...lines].join("\n")], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `drivers_pins_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+  }, []);
+
+  const handleBulkImportCsv = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string) || "";
+      const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
+      const start = lines[0]?.toLowerCase().includes("фио") || lines[0]?.toLowerCase().includes("таб") ? 1 : 0;
+      const parsed: BulkDriverRow[] = lines.slice(start).map(line => {
+        const cols = line.split(/[;,\t]/);
+        return {
+          tabNumber: (cols[0] || "").trim(),
+          fullName: (cols[1] || "").replace(/^"|"$/g, "").trim(),
+          pin: (cols[2] || generatePin()).trim() || generatePin(),
+          phone: (cols[3] || "").trim(),
+          vehicleType: (cols[4] || "bus").trim() || "bus",
+          status: 'pending' as const,
+        };
+      }).filter(r => r.fullName);
+      if (parsed.length > 0) setBulkRows(parsed);
+    };
+    reader.readAsText(file, "UTF-8");
+    e.target.value = "";
+  }, []);
+
   const sortButtons: { key: SortKey; label: string }[] = [
     { key: "name", label: "Имя" },
     { key: "status", label: "Статус" },
@@ -209,12 +330,160 @@ export function DriversView({
               Удалить ({selectedIds.size})
             </button>
           )}
-          <button onClick={() => setShowForm(true)}
+          <button onClick={() => { setShowBulkForm(v => !v); setShowForm(false); }}
+            className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${showBulkForm ? "bg-indigo-500/15 text-indigo-500 border-indigo-500/30" : "bg-muted text-muted-foreground hover:text-foreground border-border"}`}>
+            <Icon name="Users" className="w-3.5 h-3.5" />Массово
+          </button>
+          <button onClick={() => { setShowForm(true); setShowBulkForm(false); }}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0">
             <Icon name="UserPlus" className="w-3.5 h-3.5" />Добавить
           </button>
         </div>
       </div>
+
+      {/* Bulk create panel */}
+      {showBulkForm && (
+        <div className="px-5 py-4 border-b border-border bg-indigo-500/5">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+              <Icon name="Users" className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-foreground">Массовое добавление водителей</span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">PIN-коды генерируются автоматически. После создания — скачайте файл с PIN-кодами.</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <input ref={bulkFileRef} type="file" accept=".csv,.txt" onChange={handleBulkImportCsv} className="hidden" />
+              <button onClick={() => bulkFileRef.current?.click()}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Upload" className="w-3.5 h-3.5" />Импорт CSV
+              </button>
+              <button onClick={genAllPins}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="RefreshCw" className="w-3.5 h-3.5" />Обновить PIN
+              </button>
+              <button onClick={() => { setShowBulkForm(false); setBulkDone([]); setShowBulkExport(false); }}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" className="w-3.5 h-3.5" />Закрыть
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-xl border border-border overflow-hidden mb-3">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-8">#</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-24">Таб. №</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">ФИО</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-40">PIN</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-32">Телефон</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-32">Тип ТС</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-20">Статус</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRows.map((row, idx) => (
+                  <tr key={idx} className={`border-b border-border last:border-0 ${row.status === 'ok' ? 'bg-green-500/5' : row.status === 'error' ? 'bg-red-500/5' : ''}`}>
+                    <td className="px-3 py-1.5 text-muted-foreground">{idx + 1}</td>
+                    <td className="px-3 py-1.5">
+                      <input value={row.tabNumber} onChange={e => updateBulkDriverRow(idx, 'tabNumber', e.target.value)}
+                        disabled={row.status === 'ok'}
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <input value={row.fullName} onChange={e => updateBulkDriverRow(idx, 'fullName', e.target.value)}
+                        disabled={row.status === 'ok'}
+                        placeholder="Иванов И.И."
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center gap-1">
+                        <input value={row.pin} onChange={e => updateBulkDriverRow(idx, 'pin', e.target.value)}
+                          disabled={row.status === 'ok'}
+                          className="flex-1 h-7 px-2 rounded-md border border-border bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 min-w-0 tracking-widest" />
+                        {row.status !== 'ok' && (
+                          <button onClick={() => updateBulkDriverRow(idx, 'pin', generatePin())}
+                            className="w-6 h-6 rounded bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center shrink-0 transition-colors" title="Новый PIN">
+                            <Icon name="RefreshCw" className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <input value={row.phone} onChange={e => updateBulkDriverRow(idx, 'phone', e.target.value)}
+                        disabled={row.status === 'ok'}
+                        placeholder="+7..."
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50" />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <select value={row.vehicleType} onChange={e => updateBulkDriverRow(idx, 'vehicleType', e.target.value)}
+                        disabled={row.status === 'ok'}
+                        className="w-full h-7 px-2 rounded-md border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                        <option value="bus">Автобус</option>
+                        <option value="tram">Трамвай</option>
+                        <option value="trolleybus">Троллейбус</option>
+                        <option value="minibus">Маршрутка</option>
+                        <option value="metro">Метро</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {row.status === 'ok' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-green-500/15 text-green-500">Создан</span>}
+                      {row.status === 'error' && <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-red-500/15 text-red-500" title={row.error}>Ошибка</span>}
+                      {row.status === 'pending' && <span className="text-[11px] text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.status !== 'ok' && (
+                        <button onClick={() => removeBulkDriverRow(idx)}
+                          className="w-6 h-6 rounded text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors">
+                          <Icon name="X" className="w-3 h-3" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={addBulkDriverRow}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-muted border border-border text-muted-foreground hover:text-foreground transition-colors">
+              <Icon name="Plus" className="w-3.5 h-3.5" />Добавить строку
+            </button>
+            <button onClick={handleBulkDriverCreate}
+              disabled={bulkSaving || bulkRows.filter(r => r.fullName.trim() && r.pin.trim() && r.status !== 'ok').length === 0}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <Icon name="UserPlus" className="w-3.5 h-3.5" />
+              {bulkSaving ? 'Создаю...' : `Создать (${bulkRows.filter(r => r.fullName.trim() && r.pin.trim() && r.status !== 'ok').length})`}
+            </button>
+
+            {showBulkExport && bulkDone.filter(r => r.status === 'ok').length > 0 && (
+              <div className="flex items-center gap-2 ml-auto p-2 rounded-xl bg-green-500/10 border border-green-500/20">
+                <Icon name="ShieldCheck" className="w-4 h-4 text-green-500 shrink-0" />
+                <span className="text-xs text-green-600 font-medium">
+                  Создано: {bulkDone.filter(r => r.status === 'ok').length} — скачайте PIN-коды
+                </span>
+                <button onClick={() => exportBulkDriversExcel(bulkDone)}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors">
+                  <Icon name="FileSpreadsheet" className="w-3 h-3" />Excel
+                </button>
+                <button onClick={() => exportBulkDriversCsv(bulkDone)}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-medium bg-white/80 text-green-700 border border-green-500/30 hover:bg-white transition-colors">
+                  <Icon name="Download" className="w-3 h-3" />CSV
+                </button>
+                <button onClick={() => setShowBulkExport(false)} className="w-6 h-6 rounded text-green-500 hover:text-green-700 flex items-center justify-center">
+                  <Icon name="X" className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm">
