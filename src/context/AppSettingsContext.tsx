@@ -65,6 +65,92 @@ export interface BrandFont {
 
 export type FontSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
+/* ── Tasks settings ── */
+
+export type TaskUserRole = 'admin' | 'dispatcher' | 'technician' | 'mechanic' | 'engineer' | 'manager';
+
+export interface TaskSettings {
+  // Форма создания — какие поля показывать
+  showFieldPriority: boolean;
+  showFieldCategory: boolean;
+  showFieldAssignee: boolean;
+  showFieldDueDate: boolean;
+  showFieldLifetime: boolean;
+  showFieldDescription: boolean;
+  showFieldAttachments: boolean;
+
+  // Кнопки действий — какие отображать
+  showBtnEdit: boolean;
+  showBtnPrint: boolean;
+  showBtnExport: boolean;
+  showBtnArchive: boolean;
+  showBtnDelete: boolean;
+  showBtnForward: boolean;
+
+  // Права: кто кому может назначать задачи
+  // ключ — роль исполнителя, значение — массив ролей, которые могут ей назначать
+  assignPermissions: Partial<Record<TaskUserRole, TaskUserRole[]>>;
+
+  // UI дизайн раздела
+  accentColor: string;
+  cardRadius: number;        // px 0-24
+  showPriorityIcon: boolean;
+  showStatusBadge: boolean;
+  showCreatorName: boolean;
+  showCommentCount: boolean;
+  rowHeight: 'compact' | 'normal' | 'comfortable';
+  defaultView: 'list' | 'board';
+
+  // Печать — поля, включаемые в печатную форму
+  printShowId: boolean;
+  printShowPriority: boolean;
+  printShowCategory: boolean;
+  printShowAssignee: boolean;
+  printShowCreator: boolean;
+  printShowDueDate: boolean;
+  printShowDescription: boolean;
+  printShowComments: boolean;
+  printHeader: string;
+  printFooter: string;
+}
+
+export function defaultTaskSettings(): TaskSettings {
+  return {
+    showFieldPriority: true,
+    showFieldCategory: true,
+    showFieldAssignee: true,
+    showFieldDueDate: true,
+    showFieldLifetime: true,
+    showFieldDescription: true,
+    showFieldAttachments: true,
+    showBtnEdit: true,
+    showBtnPrint: true,
+    showBtnExport: true,
+    showBtnArchive: true,
+    showBtnDelete: true,
+    showBtnForward: false,
+    assignPermissions: {},
+    accentColor: '',
+    cardRadius: 12,
+    showPriorityIcon: true,
+    showStatusBadge: true,
+    showCreatorName: true,
+    showCommentCount: true,
+    rowHeight: 'normal',
+    defaultView: 'list',
+    printShowId: true,
+    printShowPriority: true,
+    printShowCategory: true,
+    printShowAssignee: true,
+    printShowCreator: true,
+    printShowDueDate: true,
+    printShowDescription: true,
+    printShowComments: false,
+    printHeader: '',
+    printFooter: '',
+  };
+}
+
 /* ── Sidebar UI config ── */
 
 export type SidebarRoleKey = 'dispatcher' | 'technician' | 'admin' | 'mechanic' | 'engineer' | 'manager';
@@ -182,6 +268,9 @@ export interface AppSettings {
   sidebarMechanic: SidebarConfig;
   sidebarEngineer: SidebarConfig;
   sidebarManager: SidebarConfig;
+
+  /* tasks settings */
+  taskSettings: TaskSettings;
 }
 
 /* ── Defaults ── */
@@ -285,6 +374,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   sidebarMechanic: defaultSidebarConfig(),
   sidebarEngineer: defaultSidebarConfig(),
   sidebarManager: defaultSidebarConfig(),
+
+  taskSettings: defaultTaskSettings(),
 };
 
 /* ── Deep-merge helper for nested objects (one level) ── */
@@ -348,6 +439,9 @@ function loadSettings(): AppSettings {
         sidebarMechanic: { ...defaultSidebarConfig(), ...(parsed.sidebarMechanic as Partial<SidebarConfig> | undefined) },
         sidebarEngineer: { ...defaultSidebarConfig(), ...(parsed.sidebarEngineer as Partial<SidebarConfig> | undefined) },
         sidebarManager: { ...defaultSidebarConfig(), ...(parsed.sidebarManager as Partial<SidebarConfig> | undefined) },
+
+        // task settings
+        taskSettings: { ...defaultTaskSettings(), ...(parsed.taskSettings as Partial<TaskSettings> | undefined) },
       };
 
       return result;
@@ -374,6 +468,7 @@ interface AppSettingsContextValue {
   updateSettings: (patch: Partial<AppSettings>) => void;
   updateFeatures: (role: FeatureRole, patch: Partial<FeatureFlags>) => void;
   updateSidebarConfig: (role: SidebarRoleKey, patch: Partial<SidebarConfig>) => void;
+  updateTaskSettings: (patch: Partial<TaskSettings>) => void;
   resetSettings: () => void;
 }
 
@@ -440,6 +535,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     setSettings(prev => {
       const key = SIDEBAR_CONFIG_KEY[role];
       const next = { ...prev, [key]: { ...(prev[key] as SidebarConfig), ...patch } };
+      localStorage.setItem('app_settings', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const updateTaskSettings = useCallback((patch: Partial<TaskSettings>) => {
+    setSettings(prev => {
+      const next = { ...prev, taskSettings: { ...prev.taskSettings, ...patch } };
       localStorage.setItem('app_settings', JSON.stringify(next));
       return next;
     });
@@ -518,7 +621,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.fontSize]);
 
   return (
-    <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, updateSidebarConfig, resetSettings }}>
+    <AppSettingsContext.Provider value={{ settings, updateSettings, updateFeatures, updateSidebarConfig, updateTaskSettings, resetSettings }}>
       {children}
     </AppSettingsContext.Provider>
   );

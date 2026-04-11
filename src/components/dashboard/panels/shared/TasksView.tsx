@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Icon from '@/components/ui/icon';
 import func2url from '../../../../../backend/func2url.json';
+import { useAppSettings } from '@/context/AppSettingsContext';
 
 const API_URL = func2url.tasks;
 const TOKEN_KEY = 'dashboard_token';
@@ -160,34 +161,60 @@ interface TaskActionsProps {
   onArchive: (ids: number[]) => void;
   onDelete: (ids: number[]) => void;
   onSelect: (task: Task) => void;
+  onEdit?: (task: Task) => void;
+  currentUserId?: number;
 }
 
-export function TaskActions({ task, onStatusChange, onArchive, onDelete, onSelect }: TaskActionsProps) {
+export function TaskActions({ task, onStatusChange, onArchive, onDelete, onSelect, onEdit, currentUserId }: TaskActionsProps) {
+  const { settings } = useAppSettings();
+  const ts = settings.taskSettings;
   const isDone = task.status === 'done';
+  const isCreator = currentUserId != null && task.created_by_user_id === currentUserId;
+
   return (
     <div className="flex items-center gap-0.5 shrink-0">
-      <button onClick={(e) => { e.stopPropagation(); onSelect(task); }} title="Просмотр / редактировать"
+      {/* Просмотр */}
+      <button onClick={(e) => { e.stopPropagation(); onSelect(task); }} title="Просмотр"
         className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 transition-all">
         <Icon name="Eye" size={13} />
       </button>
-      <button onClick={(e) => { e.stopPropagation(); printTasks([task]); }} title="Печать"
-        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
-        <Icon name="Printer" size={13} />
-      </button>
-      <button onClick={(e) => { e.stopPropagation(); exportExcel([task]); }} title="Экспорт Excel"
-        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-green-500 hover:bg-green-500/10 transition-all">
-        <Icon name="FileSpreadsheet" size={13} />
-      </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); if (isDone) onArchive([task.id]); }}
-        title={isDone ? 'В архив' : 'Доступно только для выполненных задач'}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${isDone ? 'text-amber-500 hover:bg-amber-500/10 cursor-pointer' : 'text-muted-foreground/25 cursor-not-allowed'}`}>
-        <Icon name="Archive" size={13} />
-      </button>
-      <button onClick={(e) => { e.stopPropagation(); if (confirm('Удалить задачу?')) onDelete([task.id]); }} title="Удалить"
-        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
-        <Icon name="Trash2" size={13} />
-      </button>
+      {/* Редактировать — только создатель и если кнопка включена */}
+      {ts.showBtnEdit && isCreator && (
+        <button onClick={(e) => { e.stopPropagation(); if (onEdit) { onEdit(task); } else { onSelect(task); } }} title="Редактировать задачу"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-violet-500 hover:bg-violet-500/10 transition-all">
+          <Icon name="Pencil" size={13} />
+        </button>
+      )}
+      {/* Печать */}
+      {ts.showBtnPrint && (
+        <button onClick={(e) => { e.stopPropagation(); printTasks([task]); }} title="Печать"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
+          <Icon name="Printer" size={13} />
+        </button>
+      )}
+      {/* Экспорт */}
+      {ts.showBtnExport && (
+        <button onClick={(e) => { e.stopPropagation(); exportExcel([task]); }} title="Экспорт Excel"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-green-500 hover:bg-green-500/10 transition-all">
+          <Icon name="FileSpreadsheet" size={13} />
+        </button>
+      )}
+      {/* Архив */}
+      {ts.showBtnArchive && (
+        <button
+          onClick={(e) => { e.stopPropagation(); if (isDone) onArchive([task.id]); }}
+          title={isDone ? 'В архив' : 'Доступно только для выполненных задач'}
+          className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${isDone ? 'text-amber-500 hover:bg-amber-500/10 cursor-pointer' : 'text-muted-foreground/25 cursor-not-allowed'}`}>
+          <Icon name="Archive" size={13} />
+        </button>
+      )}
+      {/* Удалить */}
+      {ts.showBtnDelete && (
+        <button onClick={(e) => { e.stopPropagation(); if (confirm('Удалить задачу?')) onDelete([task.id]); }} title="Удалить"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all">
+          <Icon name="Trash2" size={13} />
+        </button>
+      )}
     </div>
   );
 }
@@ -195,6 +222,9 @@ export function TaskActions({ task, onStatusChange, onArchive, onDelete, onSelec
 interface TasksViewProps { currentUserId?: number; }
 
 export default function TasksView({ currentUserId }: TasksViewProps) {
+  const { settings } = useAppSettings();
+  const ts = settings.taskSettings;
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [users, setUsers] = useState<StaffUser[]>([]);
@@ -205,7 +235,7 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
   const [categoryFilter, setCategoryFilter] = useState<TaskCategory | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all');
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'board'>(ts.defaultView);
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -496,31 +526,47 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-sm">Новая задача</h3>
           <input className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" placeholder="Название задачи..." value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-          <textarea className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm resize-none" rows={2} placeholder="Описание..." value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newPriority} onChange={e => setNewPriority(e.target.value as TaskPriority)}>
-              {Object.entries(PRIORITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newCategory} onChange={e => setNewCategory(e.target.value as TaskCategory)}>
-              {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newAssignee} onChange={e => setNewAssignee(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Исполнитель...</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_LABELS[u.role] || u.role})</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Срок исполнения</label>
-              <input type="date" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newDue} onChange={e => setNewDue(e.target.value)} />
+          {ts.showFieldDescription && (
+            <textarea className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm resize-none" rows={2} placeholder="Описание..." value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+          )}
+          {(ts.showFieldPriority || ts.showFieldCategory || ts.showFieldAssignee) && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {ts.showFieldPriority && (
+                <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newPriority} onChange={e => setNewPriority(e.target.value as TaskPriority)}>
+                  {Object.entries(PRIORITY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              )}
+              {ts.showFieldCategory && (
+                <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newCategory} onChange={e => setNewCategory(e.target.value as TaskCategory)}>
+                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              )}
+              {ts.showFieldAssignee && (
+                <select className="px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newAssignee} onChange={e => setNewAssignee(e.target.value ? Number(e.target.value) : '')}>
+                  <option value="">Исполнитель...</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_LABELS[u.role] || u.role})</option>)}
+                </select>
+              )}
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Время жизни (часов)</label>
-              <input type="number" min={1} placeholder="напр. 24" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newLifetime} onChange={e => setNewLifetime(e.target.value)} />
+          )}
+          {(ts.showFieldDueDate || ts.showFieldLifetime) && (
+            <div className="grid grid-cols-2 gap-2">
+              {ts.showFieldDueDate && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Срок исполнения</label>
+                  <input type="date" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newDue} onChange={e => setNewDue(e.target.value)} />
+                </div>
+              )}
+              {ts.showFieldLifetime && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Время жизни (часов)</label>
+                  <input type="number" min={1} placeholder="напр. 24" className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-sm" value={newLifetime} onChange={e => setNewLifetime(e.target.value)} />
+                </div>
+              )}
             </div>
-          </div>
+          )}
           {/* ── Attachments ── */}
-          <div className="space-y-2">
+          {ts.showFieldAttachments && (<div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Вложения — до 10 файлов, макс 20 МБ каждый</span>
               <button type="button" onClick={() => attachInputRef.current?.click()}
@@ -547,7 +593,7 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                 ))}
               </div>
             )}
-          </div>
+          </div>)}
 
           <div className="flex gap-2 justify-end">
             <button onClick={() => { setShowCreate(false); setNewAttachments([]); }} className="px-4 py-1.5 rounded-lg text-sm bg-muted hover:bg-muted/80">Отмена</button>
@@ -609,7 +655,7 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
                       </div>
                     </div>
                   </button>
-                  <TaskActions task={task} onStatusChange={handleStatusChange} onArchive={handleArchive} onDelete={handleDelete} onSelect={handleSelectTask} />
+                  <TaskActions task={task} onStatusChange={handleStatusChange} onArchive={handleArchive} onDelete={handleDelete} onSelect={handleSelectTask} currentUserId={currentUserId} />
                 </div>
               );
             })}
