@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useNewMessageNotifier } from '@/hooks/useNewMessageNotifier';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { fetchUnread } from '@/api/chatApi';
 import DashboardLogin from '@/components/dashboard/DashboardLogin';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import LogoutConfirmDialog from '@/components/dashboard/LogoutConfirmDialog';
@@ -87,19 +86,7 @@ export default function Dashboard() {
   useNewMessageNotifier(activeUser?.role === 'dispatcher' ? data.messages : []);
 
   const [chatUnread, setChatUnread] = useState(0);
-  const pollChatUnread = useCallback(async () => {
-    if (!activeUser) return;
-    try {
-      const u = await fetchUnread();
-      setChatUnread(u.length);
-    } catch (e) { void e; }
-  }, [activeUser]);
-
-  useEffect(() => {
-    pollChatUnread();
-    const iv = setInterval(pollChatUnread, 30000);
-    return () => clearInterval(iv);
-  }, [pollChatUnread]);
+  const handleUnreadCount = useCallback((count: number) => setChatUnread(count), []);
 
   const counts = useMemo(() => ({
     messages: data.messages.filter((m) => !m.read && m.direction === 'incoming').length,
@@ -265,6 +252,7 @@ export default function Dashboard() {
           <ChatNotificationToast
             currentUserId={Number(activeUser.id)}
             onOpenChat={() => setActiveTab('dash_messages' as DashboardTab)}
+            onUnreadCount={handleUnreadCount}
           />
         </>
       )}

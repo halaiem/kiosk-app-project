@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import type { DashboardUser, DashboardTab, UserRole, IridaToolsTab, MechanicTab, EngineerTab, ManagerTab } from "@/types/dashboard";
 import { useAppSettings, type FeatureFlags, type AppSettings, type SidebarRoleKey, type SidebarConfig, SIDEBAR_CONFIG_KEY, defaultSidebarConfig } from '@/context/AppSettingsContext';
 import { fetchDriverUnread } from '@/api/chatApi';
+import useVisibilityPolling from "@/hooks/useVisibilityPolling";
 import NotificationPreferences from "./NotificationPreferences";
 
 function useSidebarLight() {
@@ -222,24 +223,15 @@ export default function DashboardSidebar({
   const canSeeDriverUnread =
     user.role === 'dispatcher' || user.role === 'admin' || user.role === 'technician' || user.role === 'engineer' || user.role === 'manager';
 
-  useEffect(() => {
-    if (!canSeeDriverUnread) return;
-    let active = true;
-    const poll = async () => {
-      try {
-        const n = await fetchDriverUnread();
-        if (active) setDriverUnread(n || 0);
-      } catch {
-        if (active) setDriverUnread(0);
-      }
-    };
-    poll();
-    const iv = setInterval(poll, 30000);
-    return () => {
-      active = false;
-      clearInterval(iv);
-    };
-  }, [canSeeDriverUnread]);
+  const pollDriverUnread = useCallback(async () => {
+    try {
+      const n = await fetchDriverUnread();
+      setDriverUnread(n || 0);
+    } catch {
+      setDriverUnread(0);
+    }
+  }, []);
+  useVisibilityPolling(pollDriverUnread, 60000, canSeeDriverUnread);
 
   const openMessengerWindow = () => {
     const url = `${window.location.pathname}?messenger=true`;

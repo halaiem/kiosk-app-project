@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { fetchUnread, type UnreadNotification } from "@/api/chatApi";
+import useVisibilityPolling from "@/hooks/useVisibilityPolling";
 
 interface ChatNotificationToastProps {
   currentUserId: number;
   onOpenChat: (chatId: number) => void;
+  onUnreadCount?: (count: number) => void;
 }
 
 function formatTime(d: string): string {
@@ -92,10 +94,12 @@ function getToastStyle(messageType?: string) {
   return { icon: "MessageSquare", iconBg: "rgba(59,130,246,0.15)", iconColor: "#3b82f6", borderColor: "transparent" };
 }
 
-export default function ChatNotificationToast({ currentUserId, onOpenChat }: ChatNotificationToastProps) {
+export default function ChatNotificationToast({ currentUserId, onOpenChat, onUnreadCount }: ChatNotificationToastProps) {
   const [toasts, setToasts] = useState<UnreadNotification[]>([]);
   const seenIds = useRef<Set<number>>(new Set());
   const permissionRequested = useRef(false);
+  const onUnreadRef = useRef(onUnreadCount);
+  onUnreadRef.current = onUnreadCount;
 
   useEffect(() => {
     if (!permissionRequested.current) {
@@ -108,6 +112,7 @@ export default function ChatNotificationToast({ currentUserId, onOpenChat }: Cha
     if (!currentUserId) return;
     try {
       const unread = await fetchUnread();
+      onUnreadRef.current?.(unread.length);
       const fresh = unread.filter((n) => !seenIds.current.has(n.message_id));
       if (fresh.length > 0) {
         fresh.forEach((n) => seenIds.current.add(n.message_id));
@@ -118,11 +123,7 @@ export default function ChatNotificationToast({ currentUserId, onOpenChat }: Cha
     } catch (e) { void e; }
   }, [currentUserId, onOpenChat]);
 
-  useEffect(() => {
-    poll();
-    const iv = setInterval(poll, 15000);
-    return () => clearInterval(iv);
-  }, [poll]);
+  useVisibilityPolling(poll, 30000, !!currentUserId);
 
   const dismiss = (id: number) => {
     setToasts((prev) => prev.filter((t) => t.message_id !== id));

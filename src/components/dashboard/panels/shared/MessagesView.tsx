@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import useVisibilityPolling from "@/hooks/useVisibilityPolling";
 import {
   fetchChats,
   fetchMessages,
@@ -390,36 +391,25 @@ export default function MessagesView({
     loadChats();
   }, [loadChats]);
 
-  // ── Polling: refresh chats every 30s, messages every 15s ──
-  useEffect(() => {
-    const chatInterval = setInterval(loadChats, 30000);
-    return () => clearInterval(chatInterval);
-  }, [loadChats]);
+  // ── Polling with visibility awareness ──
+  useVisibilityPolling(loadChats, 60000);
 
-  useEffect(() => {
+  const pollMessages = useCallback(() => {
     if (!activeChatId) return;
-    const msgInterval = setInterval(() => {
-      fetchMessages(activeChatId).then((data) => {
-        setMessages((prev) => {
-          if (data.length !== prev.length) {
-            scrollToBottom();
-            return data;
-          }
-          return prev;
-        });
-      }).catch(() => {});
-    }, 15000);
-    return () => clearInterval(msgInterval);
+    fetchMessages(activeChatId).then((data) => {
+      setMessages((prev) => {
+        if (data.length !== prev.length) {
+          scrollToBottom();
+          return data;
+        }
+        return prev;
+      });
+    }).catch(() => {});
   }, [activeChatId, scrollToBottom]);
+  useVisibilityPolling(pollMessages, 30000, !!activeChatId);
 
-  // ── Ping online every 120s ──
-  useEffect(() => {
-    pingOnline().catch(() => {});
-    const interval = setInterval(() => {
-      pingOnline().catch(() => {});
-    }, 120000);
-    return () => clearInterval(interval);
-  }, []);
+  const doPing = useCallback(() => { pingOnline().catch(() => {}); }, []);
+  useVisibilityPolling(doPing, 180000);
 
   // ── Handle initial chat ID ──
   useEffect(() => {
