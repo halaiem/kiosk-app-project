@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import func2url from '../../../../../backend/func2url.json';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -955,8 +956,8 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
       )}
 
       {/* ── Edit task modal ── */}
-      {editingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      {editingTask && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -1142,7 +1143,8 @@ export default function TasksView({ currentUserId }: TasksViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
